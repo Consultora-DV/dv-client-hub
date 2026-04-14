@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Video, clients } from "@/data/mockData";
-import { X, ExternalLink, Check, AlertTriangle, Plus } from "lucide-react";
+import { X, ExternalLink, Check, AlertTriangle, Plus, Instagram } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
