@@ -55,6 +55,7 @@ function PlatformPills({ platforms }: { platforms: string[] }) {
 function VideoCard({ video, commentCount, onClick }: { video: Video; commentCount: number; onClick: () => void }) {
   const status = statusConfig[video.status];
   const client = clients.find((c) => c.id === video.clienteId);
+  const isImported = !!video.igShortCode;
   return (
     <motion.button
       initial={{ opacity: 0, y: 20 }}
@@ -63,10 +64,15 @@ function VideoCard({ video, commentCount, onClick }: { video: Video; commentCoun
       className="glass gold-border glass-hover rounded-xl overflow-hidden text-left w-full"
     >
       <div className="aspect-video relative overflow-hidden">
-        <img src={video.thumbnail} alt={video.title} className="w-full h-full object-cover" />
+        <img src={video.thumbnail} alt={video.title} className="w-full h-full object-cover" onError={(e) => { (e.target as HTMLImageElement).src = "/placeholder.svg"; }} />
         <div className="absolute top-3 left-3 flex gap-1 flex-wrap">
           <PlatformPills platforms={video.platform} />
         </div>
+        {isImported && (
+          <div className="absolute top-3 right-3">
+            <Badge className="bg-blue-500/20 text-blue-400 border-blue-500/30 text-[10px]">📥 Instagram</Badge>
+          </div>
+        )}
       </div>
       <div className="p-4 space-y-3">
         <h3 className="font-semibold text-sm text-foreground line-clamp-2">{video.title}</h3>
