@@ -1,12 +1,21 @@
+import { useState } from "react";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/AppSidebar";
 import { NotificationBell } from "@/components/NotificationBell";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { ClientSelector } from "@/components/ClientSelector";
-import { MessageCircle } from "lucide-react";
+import { ImportModal } from "@/components/ImportModal";
+import { MessageCircle, Download } from "lucide-react";
 import { Outlet } from "react-router-dom";
+import { usePermissions } from "@/hooks/usePermissions";
+import { AnimatePresence } from "framer-motion";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
 export function AppLayout() {
+  const [showImport, setShowImport] = useState(false);
+  const { isAdmin, role } = usePermissions();
+  const canImport = isAdmin || role === "editor";
+
   return (
     <SidebarProvider>
       <div className="min-h-screen flex w-full relative">
@@ -18,6 +27,19 @@ export function AppLayout() {
               <ClientSelector />
             </div>
             <div className="flex items-center gap-1">
+              {canImport && (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <button
+                      onClick={() => setShowImport(true)}
+                      className="p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
+                    >
+                      <Download className="h-5 w-5" />
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent>Importar desde Instagram</TooltipContent>
+                </Tooltip>
+              )}
               <ThemeToggle />
               <NotificationBell />
             </div>
@@ -37,6 +59,10 @@ export function AppLayout() {
           <MessageCircle className="w-7 h-7 md:w-6 md:h-6 text-white fill-white" />
         </a>
       </div>
+
+      <AnimatePresence>
+        {showImport && <ImportModal onClose={() => setShowImport(false)} />}
+      </AnimatePresence>
     </SidebarProvider>
   );
 }
