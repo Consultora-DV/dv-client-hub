@@ -1,10 +1,11 @@
 import { useState } from "react";
-import { LayoutDashboard, Video, FileText, Calendar, BarChart3, MessageCircle, Users, Settings } from "lucide-react";
+import { LayoutDashboard, Video, FileText, Calendar, BarChart3, MessageCircle, Users, Settings, Cog } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useAuth } from "@/contexts/AuthContext";
 import { useAppState } from "@/contexts/AppStateContext";
 import { usePermissions } from "@/hooks/usePermissions";
 import { ProfileModal } from "@/components/ProfileModal";
+import { SettingsModal } from "@/components/SettingsModal";
 import { AnimatePresence } from "framer-motion";
 import {
   Sidebar, SidebarContent, SidebarFooter, SidebarGroup, SidebarGroupContent,
@@ -25,6 +26,7 @@ export function AppSidebar() {
   const { videos } = useAppState();
   const { isClient, isAdmin, role } = usePermissions();
   const [showProfile, setShowProfile] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
 
   const pendingCount = videos.filter((v) => v.status === "pending").length;
 
@@ -96,6 +98,16 @@ export function AppSidebar() {
         </SidebarContent>
 
         <SidebarFooter className="p-4 border-t border-border/50 space-y-2">
+          {isAdmin && (
+            <button
+              onClick={() => setShowSettings(true)}
+              className="flex items-center gap-3 px-3 py-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors w-full text-left text-sm group-data-[collapsible=icon]:justify-center"
+              title="Configuración"
+            >
+              <Cog className="h-5 w-5 shrink-0" />
+              <span className="group-data-[collapsible=icon]:hidden">Configuración</span>
+            </button>
+          )}
           <button
             onClick={() => setShowProfile(true)}
             className="flex items-center gap-3 px-3 py-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors w-full text-left text-sm group-data-[collapsible=icon]:justify-center"
@@ -123,6 +135,7 @@ export function AppSidebar() {
 
       <AnimatePresence>
         {showProfile && <ProfileModal onClose={() => setShowProfile(false)} />}
+        {showSettings && <SettingsModal onClose={() => setShowSettings(false)} />}
       </AnimatePresence>
     </>
   );
