@@ -146,13 +146,8 @@ export default function DocumentsPage() {
           </Select>
         </div>
       )}
-        </div>
-        {canUpload && (
-          <Button onClick={() => setShowAddModal(true)} className="gold-gradient text-primary-foreground rounded-xl">
-            <Plus className="h-4 w-4 mr-2" /> Agregar
-          </Button>
-        )}
-      </motion.div>
+
+      <Tabs defaultValue="scripts">
 
       <Tabs defaultValue="scripts">
         <TabsList className="bg-secondary border border-border/50">
