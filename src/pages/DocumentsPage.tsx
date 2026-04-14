@@ -106,7 +106,11 @@ function AddDocumentModal({ onClose }: { onClose: () => void }) {
 export default function DocumentsPage() {
   const [showAddModal, setShowAddModal] = useState(false);
   const { documents, scripts } = useAppState();
-  const { canUpload } = usePermissions();
+  const { canUpload, isClient } = usePermissions();
+  const [filterClienteId, setFilterClienteId] = useState<string>("all");
+
+  const filteredDocuments = filterClienteId === "all" ? documents : documents.filter((d) => d.clienteId === filterClienteId);
+  const filteredScripts = filterClienteId === "all" ? scripts : scripts.filter((s) => s.clienteId === filterClienteId);
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">
@@ -122,6 +126,27 @@ export default function DocumentsPage() {
         )}
       </motion.div>
 
+      {!isClient && (
+        <div className="flex items-center gap-2">
+          <Select value={filterClienteId} onValueChange={setFilterClienteId}>
+            <SelectTrigger className="w-56 bg-secondary border-border/50 rounded-xl">
+              <SelectValue placeholder="Todos los clientes" />
+            </SelectTrigger>
+            <SelectContent className="glass gold-border">
+              <SelectItem value="all">Todos los clientes</SelectItem>
+              {clients.map((c) => (
+                <SelectItem key={c.id} value={c.id}>
+                  <span className="flex items-center gap-2">
+                    <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: c.colorAccent }} />
+                    {c.nombre}
+                  </span>
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      )}
+
       <Tabs defaultValue="scripts">
         <TabsList className="bg-secondary border border-border/50">
           <TabsTrigger value="scripts" className="data-[state=active]:bg-primary/20 data-[state=active]:text-primary">Guiones</TabsTrigger>
@@ -130,7 +155,7 @@ export default function DocumentsPage() {
 
         <TabsContent value="scripts" className="mt-4">
           <div className="glass gold-border rounded-xl overflow-hidden">
-            {scripts.map((s, i) => {
+            {filteredScripts.map((s, i) => {
               const status = statusConfig[s.status];
               return (
                 <motion.div key={s.id} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.05 }}
@@ -155,7 +180,7 @@ export default function DocumentsPage() {
 
         <TabsContent value="docs" className="mt-4">
           <div className="glass gold-border rounded-xl overflow-hidden">
-            {documents.map((d, i) => {
+            {filteredDocuments.map((d, i) => {
               const Icon = typeIcons[d.type] || File;
               const client = clients.find((c) => c.id === d.clienteId);
               return (
