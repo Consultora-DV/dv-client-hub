@@ -6,6 +6,8 @@ import {
 } from "@/data/mockData";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 import { useAuth } from "@/contexts/AuthContext";
+import { useLocalStorage } from "@/hooks/useLocalStorage";
+import { useAuth } from "@/contexts/AuthContext";
 
 interface AppStateContextType {
   videos: Video[];
@@ -31,6 +33,7 @@ interface AppStateContextType {
   selectedClienteId: string | null;
   setSelectedClienteId: (id: string | null) => void;
   clients: typeof clients;
+  importFromApify: (videos: Video[], events: CalendarEvent[]) => void;
 }
 
 const AppStateContext = createContext<AppStateContextType | null>(null);
