@@ -65,7 +65,7 @@ export interface WeeklyReach {
 
 export interface Notification {
   id: string;
-  type: "script" | "video" | "metrics";
+  type: "video_ready" | "guion_nuevo" | "metricas_actualizadas" | "documento_nuevo";
   message: string;
   date: string;
   read: boolean;
@@ -245,8 +245,10 @@ export const topPost = {
 };
 
 export const notifications: Notification[] = [
-  { id: "n1", type: "video", message: "Nuevo video listo para revisión: Cómo Combinar Blazers", date: "2025-04-13T14:00:00", read: false, link: "/videos" },
-  { id: "n2", type: "script", message: "Nuevo guión disponible: Cómo Combinar Blazers", date: "2025-04-13T10:00:00", read: false, link: "/documentos" },
-  { id: "n3", type: "video", message: "Video actualizado: Tendencias Primavera 2025", date: "2025-04-12T10:30:00", read: true, link: "/videos" },
-  { id: "n4", type: "metrics", message: "Métricas de Marzo actualizadas", date: "2025-04-03T09:00:00", read: true, link: "/metricas" },
+  { id: "n1", type: "video_ready", message: "Nuevo video listo para revisión: Cómo Combinar Blazers", date: "2025-04-13T14:00:00", read: false, link: "/videos" },
+  { id: "n2", type: "guion_nuevo", message: "Nuevo guión disponible: Cómo Combinar Blazers", date: "2025-04-13T10:00:00", read: false, link: "/documentos" },
+  { id: "n3", type: "documento_nuevo", message: "Nuevo documento: Reporte Mensual Marzo", date: "2025-04-12T16:00:00", read: false, link: "/documentos" },
+  { id: "n4", type: "video_ready", message: "Video actualizado: Tendencias Primavera 2025", date: "2025-04-12T10:30:00", read: true, link: "/videos" },
+  { id: "n5", type: "metricas_actualizadas", message: "Métricas de Marzo actualizadas", date: "2025-04-03T09:00:00", read: true, link: "/metricas" },
+  { id: "n6", type: "guion_nuevo", message: "Guión revisado: 5 Outfits para Evento Formal", date: "2025-04-02T11:00:00", read: true, link: "/documentos" },
 ];
