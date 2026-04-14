@@ -1,7 +1,7 @@
 import { motion } from "framer-motion";
 import { useAuth } from "@/contexts/AuthContext";
-import { scripts } from "@/data/mockData";
 import { useAppState } from "@/contexts/AppStateContext";
+import { usePermissions } from "@/hooks/usePermissions";
 import { Video, FileText, File, CalendarDays, Clock } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { formatDistanceToNow } from "date-fns";
@@ -14,8 +14,13 @@ const fadeUp = {
 
 export default function DashboardPage() {
   const { user } = useAuth();
-  const { videos, documents, notifications } = useAppState();
+  const { videos, documents, notifications, scripts, clients, allVideos, allDocuments } = useAppState();
+  const { isAdmin, isClient } = usePermissions();
   const navigate = useNavigate();
+
+  const today = new Date().toLocaleDateString("es-MX", {
+    weekday: "long", year: "numeric", month: "long", day: "numeric",
+  });
 
   const pendingVideos = videos.filter((v) => v.status === "pending").length;
   const newScripts = scripts.filter((s) => s.isNew).length;
@@ -24,18 +29,15 @@ export default function DashboardPage() {
     .filter((v) => v.status !== "published")
     .sort((a, b) => a.deliveryDate.localeCompare(b.deliveryDate))[0];
 
-  const today = new Date().toLocaleDateString("es-MX", {
-    weekday: "long",
-    year: "numeric",
-    month: "long",
-    day: "numeric",
-  });
-
   const summaryCards = [
     { label: "Videos pendientes", value: pendingVideos, icon: Video, color: "text-status-pending", link: "/videos" },
     { label: "Guiones nuevos", value: newScripts, icon: FileText, color: "text-primary", link: "/documentos" },
     { label: "Documentos recientes", value: recentDocs, icon: File, color: "text-status-published", link: "/documentos" },
-    { label: "Próxima publicación", value: nextPub?.deliveryDate ? new Date(nextPub.deliveryDate).toLocaleDateString("es-MX", { day: "numeric", month: "short" }) : "—", icon: CalendarDays, color: "text-status-approved", link: "/calendario" },
+    {
+      label: "Próxima publicación",
+      value: nextPub?.deliveryDate ? new Date(nextPub.deliveryDate).toLocaleDateString("es-MX", { day: "numeric", month: "short" }) : "—",
+      icon: CalendarDays, color: "text-status-approved", link: "/calendario",
+    },
   ];
 
   const feed = notifications.slice(0, 6).map((n) => ({
@@ -53,12 +55,59 @@ export default function DashboardPage() {
         <p className="text-muted-foreground text-sm mt-1 capitalize">{today}</p>
       </motion.div>
 
+      {/* Admin: client summary cards */}
+      {isAdmin && (
+        <motion.div {...fadeUp} transition={{ delay: 0.15 }}>
+          <h2 className="text-lg font-display font-semibold text-foreground mb-4">Resumen por cliente</h2>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {clients.map((client) => {
+              const cv = allVideos.filter((v) => v.clienteId === client.id);
+              const cd = allDocuments.filter((d) => d.clienteId === client.id);
+              const pending = cv.filter((v) => v.status === "pending").length;
+              const newDocs = cd.filter((d) => d.isNew).length;
+              const next = cv.filter((v) => v.status !== "published").sort((a, b) => a.deliveryDate.localeCompare(b.deliveryDate))[0];
+              return (
+                <button
+                  key={client.id}
+                  onClick={() => navigate("/videos")}
+                  className="glass gold-border glass-hover rounded-xl p-5 text-left"
+                >
+                  <div className="flex items-center gap-3 mb-3">
+                    <div className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold text-foreground" style={{ backgroundColor: client.colorAccent + "33" }}>
+                      {client.avatar}
+                    </div>
+                    <div>
+                      <p className="text-sm font-semibold text-foreground">{client.nombre}</p>
+                      <p className="text-[10px] text-muted-foreground">{client.empresa}</p>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-3 gap-2 text-center">
+                    <div>
+                      <p className="text-lg font-bold text-status-pending">{pending}</p>
+                      <p className="text-[10px] text-muted-foreground">Pendientes</p>
+                    </div>
+                    <div>
+                      <p className="text-lg font-bold text-status-published">{newDocs}</p>
+                      <p className="text-[10px] text-muted-foreground">Docs nuevos</p>
+                    </div>
+                    <div>
+                      <p className="text-sm font-bold text-status-approved">{next ? new Date(next.deliveryDate).toLocaleDateString("es-MX", { day: "numeric", month: "short" }) : "—"}</p>
+                      <p className="text-[10px] text-muted-foreground">Próxima pub.</p>
+                    </div>
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        </motion.div>
+      )}
+
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {summaryCards.map((card, i) => (
           <motion.button
             key={card.label}
             {...fadeUp}
-            transition={{ delay: 0.15 + i * 0.05 }}
+            transition={{ delay: 0.2 + i * 0.05 }}
             onClick={() => navigate(card.link)}
             className="glass gold-border glass-hover rounded-xl p-5 text-left"
           >

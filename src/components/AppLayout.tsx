@@ -1,6 +1,8 @@
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/AppSidebar";
 import { NotificationBell } from "@/components/NotificationBell";
+import { ThemeToggle } from "@/components/ThemeToggle";
+import { ClientSelector } from "@/components/ClientSelector";
 import { MessageCircle } from "lucide-react";
 import { Outlet } from "react-router-dom";
 
@@ -11,8 +13,12 @@ export function AppLayout() {
         <AppSidebar />
         <div className="flex-1 flex flex-col min-w-0">
           <header className="h-14 flex items-center justify-between border-b border-border/50 px-4 shrink-0">
-            <SidebarTrigger className="text-muted-foreground hover:text-foreground" />
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-3">
+              <SidebarTrigger className="text-muted-foreground hover:text-foreground" />
+              <ClientSelector />
+            </div>
+            <div className="flex items-center gap-1">
+              <ThemeToggle />
               <NotificationBell />
             </div>
           </header>

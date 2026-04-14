@@ -1,14 +1,24 @@
-import { createContext, useContext, ReactNode, useCallback } from "react";
-import { videos as mockVideos, documents as mockDocuments, calendarEvents as mockCalendarEvents, notifications as mockNotifications, Video, Document, CalendarEvent, Notification, Comment } from "@/data/mockData";
+import { createContext, useContext, ReactNode, useCallback, useMemo } from "react";
+import {
+  videos as mockVideos, documents as mockDocuments, calendarEvents as mockCalendarEvents,
+  notifications as mockNotifications, scripts as mockScripts,
+  Video, Document, CalendarEvent, Notification, Comment, Script, clients,
+} from "@/data/mockData";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 import { useAuth } from "@/contexts/AuthContext";
 
 interface AppStateContextType {
   videos: Video[];
+  allVideos: Video[];
   setVideos: (v: Video[] | ((prev: Video[]) => Video[])) => void;
   documents: Document[];
+  allDocuments: Document[];
   setDocuments: (d: Document[] | ((prev: Document[]) => Document[])) => void;
+  scripts: Script[];
+  allScripts: Script[];
+  setScripts: (s: Script[] | ((prev: Script[]) => Script[])) => void;
   calendarEvents: CalendarEvent[];
+  allCalendarEvents: CalendarEvent[];
   setCalendarEvents: (e: CalendarEvent[] | ((prev: CalendarEvent[]) => CalendarEvent[])) => void;
   notifications: Notification[];
   setNotifications: (n: Notification[] | ((prev: Notification[]) => Notification[])) => void;
@@ -18,11 +28,13 @@ interface AppStateContextType {
   requestChanges: (videoId: string, comment: string) => void;
   addComment: (videoId: string, text: string) => void;
   addNotification: (notification: Omit<Notification, "id">) => void;
+  selectedClienteId: string | null;
+  setSelectedClienteId: (id: string | null) => void;
+  clients: typeof clients;
 }
 
 const AppStateContext = createContext<AppStateContextType | null>(null);
 
-// Build initial comments from mock videos
 const initialComments: Record<string, Comment[]> = {};
 mockVideos.forEach((v) => {
   if (v.comments.length > 0) initialComments[v.id] = [...v.comments];
@@ -30,11 +42,33 @@ mockVideos.forEach((v) => {
 
 export function AppStateProvider({ children }: { children: ReactNode }) {
   const { user } = useAuth();
-  const [videos, setVideos] = useLocalStorage<Video[]>("dv_videos_state", mockVideos);
-  const [documents, setDocuments] = useLocalStorage<Document[]>("dv_documents_state", mockDocuments);
-  const [calendarEvents, setCalendarEvents] = useLocalStorage<CalendarEvent[]>("dv_calendar_state", mockCalendarEvents);
+  const [allVideos, setVideos] = useLocalStorage<Video[]>("dv_videos_state", mockVideos);
+  const [allDocuments, setDocuments] = useLocalStorage<Document[]>("dv_documents_state", mockDocuments);
+  const [allScripts, setScripts] = useLocalStorage<Script[]>("dv_scripts_state", mockScripts);
+  const [allCalendarEvents, setCalendarEvents] = useLocalStorage<CalendarEvent[]>("dv_calendar_state", mockCalendarEvents);
   const [notifications, setNotifications] = useLocalStorage<Notification[]>("dv_notifications_state", mockNotifications);
   const [comments, setComments] = useLocalStorage<Record<string, Comment[]>>("dv_comments_state", initialComments);
+  const [selectedClienteId, setSelectedClienteId] = useLocalStorage<string | null>("dv_selected_cliente", null);
+
+  const isClient = user?.role === "cliente";
+  const clienteId = isClient ? user?.clienteId : selectedClienteId;
+
+  const videos = useMemo(() =>
+    clienteId ? allVideos.filter((v) => v.clienteId === clienteId) : allVideos,
+    [allVideos, clienteId]
+  );
+  const documents = useMemo(() =>
+    clienteId ? allDocuments.filter((d) => d.clienteId === clienteId) : allDocuments,
+    [allDocuments, clienteId]
+  );
+  const scriptsFiltered = useMemo(() =>
+    clienteId ? allScripts.filter((s) => s.clienteId === clienteId) : allScripts,
+    [allScripts, clienteId]
+  );
+  const calendarEvents = useMemo(() =>
+    clienteId ? allCalendarEvents.filter((e) => e.clienteId === clienteId) : allCalendarEvents,
+    [allCalendarEvents, clienteId]
+  );
 
   const addNotification = useCallback((n: Omit<Notification, "id">) => {
     const notification: Notification = { ...n, id: `n_${Date.now()}` };
@@ -49,15 +83,12 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
           ? {
               ...v,
               status: "approved" as const,
-              statusHistory: [
-                ...v.statusHistory,
-                { status: "Aprobado", date: now.split("T")[0], by: user?.name || "Cliente" },
-              ],
+              statusHistory: [...v.statusHistory, { status: "Aprobado", date: now.split("T")[0], by: user?.name || "Cliente" }],
             }
           : v
       )
     );
-    const video = videos.find((v) => v.id === videoId);
+    const video = allVideos.find((v) => v.id === videoId);
     if (video) {
       addNotification({
         type: "video_ready",
@@ -67,7 +98,7 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
         link: "/videos",
       });
     }
-  }, [setVideos, videos, user, addNotification]);
+  }, [setVideos, allVideos, user, addNotification]);
 
   const requestChanges = useCallback((videoId: string, comment: string) => {
     const now = new Date().toISOString();
@@ -77,15 +108,11 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
           ? {
               ...v,
               status: "changes" as const,
-              statusHistory: [
-                ...v.statusHistory,
-                { status: "Cambios solicitados", date: now.split("T")[0], by: user?.name || "Cliente" },
-              ],
+              statusHistory: [...v.statusHistory, { status: "Cambios solicitados", date: now.split("T")[0], by: user?.name || "Cliente" }],
             }
           : v
       )
     );
-    // Add the change request as a comment
     const newComment: Comment = {
       id: `c_${Date.now()}`,
       author: user?.name || "Cliente",
@@ -97,7 +124,7 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
       ...prev,
       [videoId]: [newComment, ...(prev[videoId] || [])],
     }));
-    const video = videos.find((v) => v.id === videoId);
+    const video = allVideos.find((v) => v.id === videoId);
     if (video) {
       addNotification({
         type: "video_ready",
@@ -107,7 +134,7 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
         link: "/videos",
       });
     }
-  }, [setVideos, setComments, videos, user, addNotification]);
+  }, [setVideos, setComments, allVideos, user, addNotification]);
 
   const addComment = useCallback((videoId: string, text: string) => {
     const newComment: Comment = {
@@ -126,12 +153,15 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
   return (
     <AppStateContext.Provider
       value={{
-        videos, setVideos,
-        documents, setDocuments,
-        calendarEvents, setCalendarEvents,
+        videos, allVideos, setVideos,
+        documents, allDocuments, setDocuments,
+        scripts: scriptsFiltered, allScripts, setScripts,
+        calendarEvents, allCalendarEvents, setCalendarEvents,
         notifications, setNotifications,
         comments, setComments,
         approveVideo, requestChanges, addComment, addNotification,
+        selectedClienteId, setSelectedClienteId,
+        clients,
       }}
     >
       {children}
