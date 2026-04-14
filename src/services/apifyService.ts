@@ -30,15 +30,14 @@ export async function scrapeInstagramPosts(
   urls: string[],
   apiKey: string
 ): Promise<ApifyInstagramPost[]> {
-  // 1. Start the run
+  // 1. Start the run — instagram-post-scraper uses "username" field for URLs
   const startRes = await fetch(
     `${APIFY_BASE}/acts/apify~instagram-post-scraper/runs?token=${apiKey}&memory=2048`,
     {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        directUrls: urls,
-        resultsType: "posts",
+        username: urls,
         resultsLimit: 50,
       }),
     }
