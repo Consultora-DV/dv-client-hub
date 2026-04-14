@@ -21,13 +21,17 @@ const platformColors: Record<string, string> = {
   instagram: "bg-instagram",
   tiktok: "bg-foreground text-background",
   youtube: "bg-youtube",
+  facebook: "bg-status-published",
 };
 
 const platformLabels: Record<string, string> = {
   instagram: "Instagram",
   tiktok: "TikTok",
   youtube: "YouTube",
+  facebook: "Facebook",
 };
+
+const allPlatforms = ["instagram", "tiktok", "youtube", "facebook"];
 
 const statusConfig: Record<string, { label: string; class: string }> = {
   pending: { label: "Pendiente", class: "bg-status-pending/20 text-status-pending border-status-pending/30" },
@@ -35,6 +39,18 @@ const statusConfig: Record<string, { label: string; class: string }> = {
   changes: { label: "Cambios solicitados", class: "bg-status-changes/20 text-status-changes border-status-changes/30" },
   published: { label: "Publicado", class: "bg-status-published/20 text-status-published border-status-published/30" },
 };
+
+function PlatformPills({ platforms }: { platforms: string[] }) {
+  return (
+    <div className="flex gap-1 flex-wrap">
+      {platforms.map((p) => (
+        <Badge key={p} className={`${platformColors[p] || "bg-secondary"} text-xs`}>
+          {platformLabels[p] || p}
+        </Badge>
+      ))}
+    </div>
+  );
+}
 
 function VideoCard({ video, commentCount, onClick }: { video: Video; commentCount: number; onClick: () => void }) {
   const status = statusConfig[video.status];
@@ -48,9 +64,9 @@ function VideoCard({ video, commentCount, onClick }: { video: Video; commentCoun
     >
       <div className="aspect-video relative overflow-hidden">
         <img src={video.thumbnail} alt={video.title} className="w-full h-full object-cover" />
-        <Badge className={`absolute top-3 left-3 ${platformColors[video.platform]} text-xs`}>
-          {platformLabels[video.platform]}
-        </Badge>
+        <div className="absolute top-3 left-3 flex gap-1 flex-wrap">
+          <PlatformPills platforms={video.platform} />
+        </div>
       </div>
       <div className="p-4 space-y-3">
         <h3 className="font-semibold text-sm text-foreground line-clamp-2">{video.title}</h3>
@@ -112,7 +128,7 @@ function VideoDetail({ video, onClose }: { video: Video; onClose: () => void }) 
             <img src={video.thumbnail} alt={video.title} className="w-full rounded-xl aspect-video object-cover" />
           )}
           <div className="flex flex-wrap items-center gap-3">
-            <Badge className={`${platformColors[video.platform]} text-xs`}>{platformLabels[video.platform]}</Badge>
+            <PlatformPills platforms={video.platform} />
             <Badge variant="outline" className={`border ${status.class} text-xs`}>{status.label}</Badge>
             {client && <span className="text-xs px-2 py-0.5 rounded-full" style={{ backgroundColor: client.colorAccent + "22", color: client.colorAccent }}>{client.nombre}</span>}
             <span className="text-xs text-muted-foreground">Entrega: {new Date(video.deliveryDate).toLocaleDateString("es-MX")}</span>
@@ -179,19 +195,23 @@ function VideoDetail({ video, onClose }: { video: Video; onClose: () => void }) 
 function AddVideoModal({ onClose }: { onClose: () => void }) {
   const { setVideos } = useAppState();
   const [title, setTitle] = useState("");
-  const [platform, setPlatform] = useState<"instagram" | "tiktok" | "youtube">("instagram");
+  const [platforms, setPlatforms] = useState<string[]>(["instagram"]);
   const [embedUrl, setEmbedUrl] = useState("");
   const [driveLink, setDriveLink] = useState("");
   const [deliveryDate, setDeliveryDate] = useState<Date>();
   const [clienteId, setClienteId] = useState(clients[0].id);
 
+  const togglePlatform = (p: string) => {
+    setPlatforms((prev) => prev.includes(p) ? prev.filter((x) => x !== p) : [...prev, p]);
+  };
+
   const handleSave = () => {
-    if (!title.trim() || !deliveryDate) return;
+    if (!title.trim() || !deliveryDate || platforms.length === 0) return;
     const newVideo: Video = {
       id: `v_${Date.now()}`,
       clienteId,
       title: title.trim(),
-      platform,
+      platform: platforms,
       status: "pending",
       thumbnail: "https://images.unsplash.com/photo-1558618666-fcd25c85f82e?w=400&h=300&fit=crop",
       deliveryDate: format(deliveryDate, "yyyy-MM-dd"),
@@ -216,15 +236,19 @@ function AddVideoModal({ onClose }: { onClose: () => void }) {
         <div className="p-5 space-y-4">
           <div><label className="text-xs text-muted-foreground mb-1.5 block">Título</label>
             <Input value={title} onChange={(e) => setTitle(e.target.value)} className="bg-secondary border-border/50 rounded-xl" placeholder="Nombre del video" /></div>
-          <div><label className="text-xs text-muted-foreground mb-1.5 block">Plataforma</label>
-            <Select value={platform} onValueChange={(v) => setPlatform(v as typeof platform)}>
-              <SelectTrigger className="bg-secondary border-border/50 rounded-xl"><SelectValue /></SelectTrigger>
-              <SelectContent className="glass gold-border">
-                <SelectItem value="instagram">Instagram</SelectItem>
-                <SelectItem value="tiktok">TikTok</SelectItem>
-                <SelectItem value="youtube">YouTube</SelectItem>
-              </SelectContent>
-            </Select></div>
+          <div>
+            <label className="text-xs text-muted-foreground mb-1.5 block">Plataformas</label>
+            <div className="flex gap-2 flex-wrap">
+              {allPlatforms.map((p) => (
+                <button key={p} onClick={() => togglePlatform(p)}
+                  className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors border ${
+                    platforms.includes(p) ? `${platformColors[p]} border-transparent` : "bg-secondary text-muted-foreground border-border/50"
+                  }`}>
+                  {platformLabels[p]}
+                </button>
+              ))}
+            </div>
+          </div>
           <div><label className="text-xs text-muted-foreground mb-1.5 block">URL del video (embed)</label>
             <Input value={embedUrl} onChange={(e) => setEmbedUrl(e.target.value)} className="bg-secondary border-border/50 rounded-xl" placeholder="https://..." /></div>
           <div><label className="text-xs text-muted-foreground mb-1.5 block">Link guión en Drive</label>
@@ -248,7 +272,7 @@ function AddVideoModal({ onClose }: { onClose: () => void }) {
                 <Calendar mode="single" selected={deliveryDate} onSelect={setDeliveryDate} className={cn("p-3 pointer-events-auto")} />
               </PopoverContent>
             </Popover></div>
-          <Button onClick={handleSave} disabled={!title.trim() || !deliveryDate} className="w-full gold-gradient text-primary-foreground rounded-xl h-11">Publicar para revisión</Button>
+          <Button onClick={handleSave} disabled={!title.trim() || !deliveryDate || platforms.length === 0} className="w-full gold-gradient text-primary-foreground rounded-xl h-11">Publicar para revisión</Button>
         </div>
       </motion.div>
     </motion.div>
