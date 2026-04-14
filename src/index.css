@@ -5,7 +5,8 @@
 @tailwind utilities;
 
 @layer base {
-  :root {
+  :root,
+  .dark {
     --background: 240 20% 6%;
     --foreground: 40 20% 92%;
 
@@ -62,6 +63,60 @@
     --status-approved: 142 70% 45%;
     --status-changes: 30 90% 55%;
     --status-published: 210 80% 55%;
+  }
+
+  .light {
+    --background: 40 20% 97%;
+    --foreground: 240 20% 12%;
+
+    --card: 40 15% 95%;
+    --card-foreground: 240 20% 12%;
+
+    --popover: 40 15% 96%;
+    --popover-foreground: 240 20% 12%;
+
+    --primary: 42 52% 48%;
+    --primary-foreground: 40 20% 97%;
+
+    --secondary: 40 12% 90%;
+    --secondary-foreground: 240 15% 25%;
+
+    --muted: 40 10% 88%;
+    --muted-foreground: 240 10% 45%;
+
+    --accent: 42 52% 48%;
+    --accent-foreground: 40 20% 97%;
+
+    --destructive: 0 62% 50%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 40 15% 82%;
+    --input: 40 15% 82%;
+    --ring: 42 52% 48%;
+
+    --sidebar-background: 40 15% 94%;
+    --sidebar-foreground: 240 15% 25%;
+    --sidebar-primary: 42 52% 48%;
+    --sidebar-primary-foreground: 40 20% 97%;
+    --sidebar-accent: 40 12% 90%;
+    --sidebar-accent-foreground: 240 20% 12%;
+    --sidebar-border: 40 15% 82%;
+    --sidebar-ring: 42 52% 48%;
+
+    --gold: 42 52% 48%;
+    --gold-light: 42 60% 58%;
+    --gold-dark: 42 45% 35%;
+    --surface: 40 15% 94%;
+    --surface-hover: 40 12% 90%;
+
+    --instagram: 330 70% 50%;
+    --tiktok: 0 0% 15%;
+    --youtube: 0 80% 45%;
+
+    --status-pending: 45 90% 45%;
+    --status-approved: 142 70% 38%;
+    --status-changes: 30 90% 48%;
+    --status-published: 210 80% 48%;
   }
 }
 

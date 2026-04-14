@@ -1,5 +1,19 @@
+export interface Client {
+  id: string;
+  nombre: string;
+  empresa: string;
+  especialidad: string;
+  avatar: string;
+  colorAccent: string;
+  plataformas: string[];
+  estado: "activa" | "prospecto";
+  email: string;
+  rol: "cliente";
+}
+
 export interface Video {
   id: string;
+  clienteId: string;
   title: string;
   platform: "instagram" | "tiktok" | "youtube";
   status: "pending" | "approved" | "changes" | "published";
@@ -27,6 +41,7 @@ export interface StatusChange {
 
 export interface Script {
   id: string;
+  clienteId: string;
   title: string;
   date: string;
   status: "new" | "reviewed" | "approved";
@@ -36,6 +51,7 @@ export interface Script {
 
 export interface Document {
   id: string;
+  clienteId: string;
   name: string;
   type: "pdf" | "doc" | "sheet" | "slide";
   date: string;
@@ -45,9 +61,12 @@ export interface Document {
 
 export interface CalendarEvent {
   id: string;
+  clienteId: string;
   date: string;
   title: string;
-  platform: "instagram" | "tiktok" | "youtube";
+  platform: string[];
+  contentType?: string;
+  time?: string;
   videoId?: string;
 }
 
@@ -56,6 +75,7 @@ export interface MetricEntry {
   instagram: number;
   tiktok: number;
   youtube: number;
+  facebook?: number;
 }
 
 export interface WeeklyReach {
@@ -72,141 +92,228 @@ export interface Notification {
   link: string;
 }
 
+export const clients: Client[] = [
+  {
+    id: "fedra-aldama",
+    nombre: "Dra. Fedra Aldama Castro",
+    empresa: "Consulta Médica — Los Mochis, Sinaloa",
+    especialidad: "Nutrición clínica, bariatría y balance metabólico",
+    avatar: "FA",
+    colorAccent: "#C084FC",
+    plataformas: ["TikTok", "Instagram"],
+    estado: "activa",
+    email: "fedra@consultora-dv.mx",
+    rol: "cliente",
+  },
+  {
+    id: "bianca-aldama",
+    nombre: "Bianca Aldama",
+    empresa: "Bianca Aldama Boutique — Zapopan, GDL",
+    especialidad: "Moda y calzado femenino",
+    avatar: "BA",
+    colorAccent: "#F472B6",
+    plataformas: ["Instagram", "Facebook", "TikTok"],
+    estado: "prospecto",
+    email: "bianca@consultora-dv.mx",
+    rol: "cliente",
+  },
+  {
+    id: "hector-benazuza",
+    nombre: "Héctor Benazuza",
+    empresa: "Hacienda Benazuza — Zapopan, GDL",
+    especialidad: "Venue de bodas y eventos de lujo",
+    avatar: "HB",
+    colorAccent: "#34D399",
+    plataformas: ["Instagram", "TikTok", "Google Maps"],
+    estado: "prospecto",
+    email: "hector@consultora-dv.mx",
+    rol: "cliente",
+  },
+];
+
 export const currentUser = {
-  name: "Bianca Aldama",
-  email: "bianca@aldamaboutique.com",
-  avatar: "BA",
-  business: "Aldama Boutique",
+  name: "Consultora DV",
+  email: "admin@consultora-dv.mx",
+  avatar: "DV",
+  business: "Panel de Administración",
 };
 
-export const videos: Video[] = [
+// ---- FEDRA ALDAMA ----
+const fedraVideos: Video[] = [
   {
-    id: "v1",
-    title: "Tendencias Primavera 2025 - Colección Exclusiva",
+    id: "v-fa-1",
+    clienteId: "fedra-aldama",
+    title: "5 Mitos de la Nutrición Clínica",
+    platform: "tiktok",
+    status: "pending",
+    thumbnail: "https://images.unsplash.com/photo-1490645935967-10de6ba17061?w=400&h=300&fit=crop",
+    deliveryDate: "2026-04-18",
+    embedUrl: "",
+    driveLink: "https://drive.google.com/file/d/fedra1",
+    comments: [
+      { id: "c-fa-1", author: "Equipo DV", isClient: false, text: "Aquí el primer corte, Dra. Revisa el copy final.", date: "2026-04-12T10:00:00" },
+    ],
+    statusHistory: [
+      { status: "En producción", date: "2026-04-08", by: "Equipo DV" },
+      { status: "Pendiente de revisión", date: "2026-04-12", by: "Equipo DV" },
+    ],
+  },
+  {
+    id: "v-fa-2",
+    clienteId: "fedra-aldama",
+    title: "Recetas Bariatricas Fáciles",
+    platform: "instagram",
+    status: "approved",
+    thumbnail: "https://images.unsplash.com/photo-1512621776951-a57141f2eefd?w=400&h=300&fit=crop",
+    deliveryDate: "2026-04-10",
+    driveLink: "https://drive.google.com/file/d/fedra2",
+    comments: [
+      { id: "c-fa-2", author: "Dra. Fedra", isClient: true, text: "Perfecto, aprobado.", date: "2026-04-09T16:00:00" },
+    ],
+    statusHistory: [
+      { status: "En producción", date: "2026-04-05", by: "Equipo DV" },
+      { status: "Aprobado", date: "2026-04-09", by: "Dra. Fedra" },
+    ],
+  },
+  {
+    id: "v-fa-3",
+    clienteId: "fedra-aldama",
+    title: "Balance Metabólico Explicado",
+    platform: "tiktok",
+    status: "published",
+    thumbnail: "https://images.unsplash.com/photo-1505576399279-0d309ade56b4?w=400&h=300&fit=crop",
+    deliveryDate: "2026-04-05",
+    driveLink: "https://drive.google.com/file/d/fedra3",
+    comments: [],
+    statusHistory: [
+      { status: "Publicado", date: "2026-04-05", by: "Equipo DV" },
+    ],
+  },
+];
+
+// ---- BIANCA ALDAMA ----
+const biancaVideos: Video[] = [
+  {
+    id: "v-ba-1",
+    clienteId: "bianca-aldama",
+    title: "Tendencias Primavera 2026 — Colección Exclusiva",
     platform: "instagram",
     status: "pending",
     thumbnail: "https://images.unsplash.com/photo-1558618666-fcd25c85f82e?w=400&h=300&fit=crop",
-    deliveryDate: "2025-04-18",
+    deliveryDate: "2026-04-18",
     embedUrl: "https://www.instagram.com/reel/C5example/",
-    driveLink: "https://drive.google.com/file/d/example1",
+    driveLink: "https://drive.google.com/file/d/bianca1",
     comments: [
-      { id: "c1", author: "Equipo DV", isClient: false, text: "¡Hola Bianca! Aquí tienes el primer corte del reel. Revisa el audio y las transiciones.", date: "2025-04-12T10:30:00" },
-      { id: "c2", author: "Bianca", isClient: true, text: "Se ve increíble, solo quisiera que el texto final dure un poco más.", date: "2025-04-12T14:15:00" },
+      { id: "c-ba-1", author: "Equipo DV", isClient: false, text: "¡Hola Bianca! Aquí el primer corte del reel.", date: "2026-04-12T10:30:00" },
+      { id: "c-ba-2", author: "Bianca", isClient: true, text: "Se ve increíble, solo quiero que el texto final dure más.", date: "2026-04-12T14:15:00" },
     ],
     statusHistory: [
-      { status: "En producción", date: "2025-04-08", by: "Equipo DV" },
-      { status: "Pendiente de revisión", date: "2025-04-12", by: "Equipo DV" },
+      { status: "En producción", date: "2026-04-08", by: "Equipo DV" },
+      { status: "Pendiente de revisión", date: "2026-04-12", by: "Equipo DV" },
     ],
   },
   {
-    id: "v2",
-    title: "Behind the Scenes - Sesión Fotográfica",
+    id: "v-ba-2",
+    clienteId: "bianca-aldama",
+    title: "Behind the Scenes — Sesión Fotográfica",
     platform: "tiktok",
     status: "approved",
     thumbnail: "https://images.unsplash.com/photo-1469334031218-e382a71b716b?w=400&h=300&fit=crop",
-    deliveryDate: "2025-04-10",
-    driveLink: "https://drive.google.com/file/d/example2",
+    deliveryDate: "2026-04-10",
+    driveLink: "https://drive.google.com/file/d/bianca2",
     comments: [
-      { id: "c3", author: "Bianca", isClient: true, text: "¡Me encanta! Aprobado.", date: "2025-04-09T16:00:00" },
+      { id: "c-ba-3", author: "Bianca", isClient: true, text: "¡Me encanta! Aprobado.", date: "2026-04-09T16:00:00" },
     ],
     statusHistory: [
-      { status: "En producción", date: "2025-04-05", by: "Equipo DV" },
-      { status: "Pendiente de revisión", date: "2025-04-08", by: "Equipo DV" },
-      { status: "Aprobado", date: "2025-04-09", by: "Bianca" },
+      { status: "Aprobado", date: "2026-04-09", by: "Bianca" },
     ],
   },
   {
-    id: "v3",
+    id: "v-ba-3",
+    clienteId: "bianca-aldama",
     title: "5 Outfits para Evento Formal",
     platform: "youtube",
     status: "changes",
     thumbnail: "https://images.unsplash.com/photo-1490481651871-ab68de25d43d?w=400&h=300&fit=crop",
-    deliveryDate: "2025-04-20",
+    deliveryDate: "2026-04-20",
     embedUrl: "https://www.youtube.com/embed/dQw4w9WgXcQ",
-    driveLink: "https://drive.google.com/file/d/example3",
+    driveLink: "https://drive.google.com/file/d/bianca3",
     comments: [
-      { id: "c4", author: "Equipo DV", isClient: false, text: "Versión 1 lista para tu revisión.", date: "2025-04-11T09:00:00" },
-      { id: "c5", author: "Bianca", isClient: true, text: "El outfit 3 no es el correcto, por favor cambiar por el vestido negro.", date: "2025-04-11T12:30:00" },
-      { id: "c6", author: "Equipo DV", isClient: false, text: "Entendido, lo corregimos y te enviamos nueva versión mañana.", date: "2025-04-11T13:00:00" },
+      { id: "c-ba-4", author: "Equipo DV", isClient: false, text: "Versión 1 lista.", date: "2026-04-11T09:00:00" },
+      { id: "c-ba-5", author: "Bianca", isClient: true, text: "El outfit 3 no es correcto, cambiar por el vestido negro.", date: "2026-04-11T12:30:00" },
     ],
     statusHistory: [
-      { status: "En producción", date: "2025-04-06", by: "Equipo DV" },
-      { status: "Pendiente de revisión", date: "2025-04-11", by: "Equipo DV" },
-      { status: "Cambios solicitados", date: "2025-04-11", by: "Bianca" },
-    ],
-  },
-  {
-    id: "v4",
-    title: "Haul de Accesorios - Temporada Nueva",
-    platform: "instagram",
-    status: "published",
-    thumbnail: "https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?w=400&h=300&fit=crop",
-    deliveryDate: "2025-04-05",
-    embedUrl: "https://www.instagram.com/reel/C5example2/",
-    driveLink: "https://drive.google.com/file/d/example4",
-    comments: [],
-    statusHistory: [
-      { status: "En producción", date: "2025-03-28", by: "Equipo DV" },
-      { status: "Aprobado", date: "2025-04-02", by: "Bianca" },
-      { status: "Publicado", date: "2025-04-05", by: "Equipo DV" },
-    ],
-  },
-  {
-    id: "v5",
-    title: "Cómo Combinar Blazers en 2025",
-    platform: "tiktok",
-    status: "pending",
-    thumbnail: "https://images.unsplash.com/photo-1591047139829-d91aecb6caea?w=400&h=300&fit=crop",
-    deliveryDate: "2025-04-22",
-    driveLink: "https://drive.google.com/file/d/example5",
-    comments: [],
-    statusHistory: [
-      { status: "Pendiente de revisión", date: "2025-04-13", by: "Equipo DV" },
-    ],
-  },
-  {
-    id: "v6",
-    title: "Mi Rutina de Moda Consciente",
-    platform: "youtube",
-    status: "approved",
-    thumbnail: "https://images.unsplash.com/photo-1483985988355-763728e1935b?w=400&h=300&fit=crop",
-    deliveryDate: "2025-04-15",
-    embedUrl: "https://www.youtube.com/embed/dQw4w9WgXcQ",
-    driveLink: "https://drive.google.com/file/d/example6",
-    comments: [
-      { id: "c7", author: "Bianca", isClient: true, text: "Perfecto, aprobado sin cambios.", date: "2025-04-13T11:00:00" },
-    ],
-    statusHistory: [
-      { status: "En producción", date: "2025-04-01", by: "Equipo DV" },
-      { status: "Aprobado", date: "2025-04-13", by: "Bianca" },
+      { status: "Cambios solicitados", date: "2026-04-11", by: "Bianca" },
     ],
   },
 ];
 
+// ---- HÉCTOR BENAZUZA ----
+const hectorVideos: Video[] = [
+  {
+    id: "v-hb-1",
+    clienteId: "hector-benazuza",
+    title: "Recorrido Hacienda Benazuza 2026",
+    platform: "instagram",
+    status: "pending",
+    thumbnail: "https://images.unsplash.com/photo-1519167758481-83f550bb49b3?w=400&h=300&fit=crop",
+    deliveryDate: "2026-04-20",
+    driveLink: "https://drive.google.com/file/d/hector1",
+    comments: [
+      { id: "c-hb-1", author: "Equipo DV", isClient: false, text: "Héctor, aquí el primer corte del tour.", date: "2026-04-14T09:00:00" },
+    ],
+    statusHistory: [
+      { status: "Pendiente de revisión", date: "2026-04-14", by: "Equipo DV" },
+    ],
+  },
+  {
+    id: "v-hb-2",
+    clienteId: "hector-benazuza",
+    title: "Bodas de Ensueño — Testimonial",
+    platform: "tiktok",
+    status: "approved",
+    thumbnail: "https://images.unsplash.com/photo-1465495976277-4387d4b0b4c6?w=400&h=300&fit=crop",
+    deliveryDate: "2026-04-08",
+    driveLink: "https://drive.google.com/file/d/hector2",
+    comments: [],
+    statusHistory: [
+      { status: "Aprobado", date: "2026-04-07", by: "Héctor" },
+    ],
+  },
+];
+
+export const videos: Video[] = [...fedraVideos, ...biancaVideos, ...hectorVideos];
+
 export const scripts: Script[] = [
-  { id: "s1", title: "Guión - Tendencias Primavera 2025", date: "2025-04-07", status: "approved", driveLink: "https://docs.google.com/document/d/example1", isNew: false },
-  { id: "s2", title: "Guión - 5 Outfits Evento Formal", date: "2025-04-10", status: "reviewed", driveLink: "https://docs.google.com/document/d/example2", isNew: false },
-  { id: "s3", title: "Guión - Cómo Combinar Blazers", date: "2025-04-13", status: "new", driveLink: "https://docs.google.com/document/d/example3", isNew: true },
-  { id: "s4", title: "Guión - Rutina de Moda Consciente", date: "2025-04-06", status: "approved", driveLink: "https://docs.google.com/document/d/example4", isNew: false },
+  { id: "s-fa-1", clienteId: "fedra-aldama", title: "Guión — 5 Mitos Nutrición", date: "2026-04-07", status: "approved", driveLink: "#", isNew: false },
+  { id: "s-fa-2", clienteId: "fedra-aldama", title: "Guión — Recetas Bariatricas", date: "2026-04-13", status: "new", driveLink: "#", isNew: true },
+  { id: "s-ba-1", clienteId: "bianca-aldama", title: "Guión — Tendencias Primavera", date: "2026-04-07", status: "approved", driveLink: "#", isNew: false },
+  { id: "s-ba-2", clienteId: "bianca-aldama", title: "Guión — 5 Outfits Formal", date: "2026-04-10", status: "reviewed", driveLink: "#", isNew: false },
+  { id: "s-ba-3", clienteId: "bianca-aldama", title: "Guión — Blazers 2026", date: "2026-04-13", status: "new", driveLink: "#", isNew: true },
+  { id: "s-hb-1", clienteId: "hector-benazuza", title: "Guión — Tour Hacienda", date: "2026-04-12", status: "new", driveLink: "#", isNew: true },
+  { id: "s-hb-2", clienteId: "hector-benazuza", title: "Guión — Testimonial Bodas", date: "2026-04-06", status: "approved", driveLink: "#", isNew: false },
 ];
 
 export const documents: Document[] = [
-  { id: "d1", name: "Contrato de Servicios - Aldama Boutique", type: "pdf", date: "2025-01-15", driveLink: "https://drive.google.com/file/d/contract1", isNew: false },
-  { id: "d2", name: "Brief de Marca Personal", type: "doc", date: "2025-02-01", driveLink: "https://drive.google.com/file/d/brief1", isNew: false },
-  { id: "d3", name: "Reporte Mensual - Marzo 2025", type: "sheet", date: "2025-04-03", driveLink: "https://drive.google.com/file/d/report1", isNew: true },
+  { id: "d-fa-1", clienteId: "fedra-aldama", name: "Contrato de Servicios — Dra. Fedra", type: "pdf", date: "2026-01-15", driveLink: "#", isNew: false },
+  { id: "d-fa-2", clienteId: "fedra-aldama", name: "Estrategia Redes — Fedra Q2", type: "doc", date: "2026-04-12", driveLink: "#", isNew: true },
+  { id: "d-ba-1", clienteId: "bianca-aldama", name: "Contrato — Bianca Aldama Boutique", type: "pdf", date: "2026-01-20", driveLink: "#", isNew: false },
+  { id: "d-ba-2", clienteId: "bianca-aldama", name: "Brief de Marca Personal", type: "doc", date: "2026-02-01", driveLink: "#", isNew: false },
+  { id: "d-ba-3", clienteId: "bianca-aldama", name: "Reporte Mensual — Marzo 2026", type: "sheet", date: "2026-04-03", driveLink: "#", isNew: true },
+  { id: "d-hb-1", clienteId: "hector-benazuza", name: "Propuesta Hacienda Benazuza", type: "slide", date: "2026-03-20", driveLink: "#", isNew: false },
+  { id: "d-hb-2", clienteId: "hector-benazuza", name: "Diseño Feed Instagram — Hacienda", type: "doc", date: "2026-04-11", driveLink: "#", isNew: true },
 ];
 
 export const calendarEvents: CalendarEvent[] = [
-  { id: "e1", date: "2025-04-05", title: "Haul de Accesorios", platform: "instagram", videoId: "v4" },
-  { id: "e2", date: "2025-04-10", title: "Behind the Scenes", platform: "tiktok", videoId: "v2" },
-  { id: "e3", date: "2025-04-15", title: "Rutina Moda Consciente", platform: "youtube", videoId: "v6" },
-  { id: "e4", date: "2025-04-18", title: "Tendencias Primavera", platform: "instagram", videoId: "v1" },
-  { id: "e5", date: "2025-04-20", title: "5 Outfits Formal", platform: "youtube", videoId: "v3" },
-  { id: "e6", date: "2025-04-22", title: "Combinar Blazers", platform: "tiktok", videoId: "v5" },
-  { id: "e7", date: "2025-04-25", title: "Tips de Estilo Casual", platform: "instagram" },
-  { id: "e8", date: "2025-04-28", title: "Marcas Sustentables", platform: "tiktok" },
-  { id: "e9", date: "2025-05-02", title: "Lookbook Mayo", platform: "youtube" },
-  { id: "e10", date: "2025-05-05", title: "Accesorios Imprescindibles", platform: "instagram" },
+  { id: "e-fa-1", clienteId: "fedra-aldama", date: "2026-04-05", title: "Balance Metabólico", platform: ["tiktok"], contentType: "reel" },
+  { id: "e-fa-2", clienteId: "fedra-aldama", date: "2026-04-18", title: "5 Mitos Nutrición", platform: ["tiktok", "instagram"], contentType: "reel" },
+  { id: "e-fa-3", clienteId: "fedra-aldama", date: "2026-04-25", title: "Tips Bariatría", platform: ["instagram"], contentType: "carrusel" },
+  { id: "e-ba-1", clienteId: "bianca-aldama", date: "2026-04-10", title: "Behind the Scenes", platform: ["tiktok"], contentType: "reel", videoId: "v-ba-2" },
+  { id: "e-ba-2", clienteId: "bianca-aldama", date: "2026-04-18", title: "Tendencias Primavera", platform: ["instagram", "facebook"], contentType: "reel", videoId: "v-ba-1" },
+  { id: "e-ba-3", clienteId: "bianca-aldama", date: "2026-04-22", title: "Lookbook Mayo", platform: ["instagram", "tiktok"], contentType: "carrusel" },
+  { id: "e-hb-1", clienteId: "hector-benazuza", date: "2026-04-20", title: "Tour Hacienda", platform: ["instagram", "tiktok"], contentType: "reel", videoId: "v-hb-1" },
+  { id: "e-hb-2", clienteId: "hector-benazuza", date: "2026-04-28", title: "Bodas de Ensueño", platform: ["instagram", "tiktok", "youtube"], contentType: "reel" },
+  { id: "e-hb-3", clienteId: "hector-benazuza", date: "2026-05-05", title: "Eventos Corporativos", platform: ["instagram"], contentType: "post" },
 ];
 
 export const followersData: MetricEntry[] = [
@@ -236,7 +343,7 @@ export const engagementDistribution = [
 ];
 
 export const topPost = {
-  title: "Haul de Accesorios - Temporada Nueva",
+  title: "Haul de Accesorios — Temporada Nueva",
   platform: "instagram" as const,
   likes: 4520,
   comments: 328,
@@ -245,10 +352,9 @@ export const topPost = {
 };
 
 export const notifications: Notification[] = [
-  { id: "n1", type: "video_ready", message: "Nuevo video listo para revisión: Cómo Combinar Blazers", date: "2025-04-13T14:00:00", read: false, link: "/videos" },
-  { id: "n2", type: "guion_nuevo", message: "Nuevo guión disponible: Cómo Combinar Blazers", date: "2025-04-13T10:00:00", read: false, link: "/documentos" },
-  { id: "n3", type: "documento_nuevo", message: "Nuevo documento: Reporte Mensual Marzo", date: "2025-04-12T16:00:00", read: false, link: "/documentos" },
-  { id: "n4", type: "video_ready", message: "Video actualizado: Tendencias Primavera 2025", date: "2025-04-12T10:30:00", read: true, link: "/videos" },
-  { id: "n5", type: "metricas_actualizadas", message: "Métricas de Marzo actualizadas", date: "2025-04-03T09:00:00", read: true, link: "/metricas" },
-  { id: "n6", type: "guion_nuevo", message: "Guión revisado: 5 Outfits para Evento Formal", date: "2025-04-02T11:00:00", read: true, link: "/documentos" },
+  { id: "n1", type: "video_ready", message: "Nuevo video listo: 5 Mitos de la Nutrición (Dra. Fedra)", date: "2026-04-13T14:00:00", read: false, link: "/videos" },
+  { id: "n2", type: "guion_nuevo", message: "Nuevo guión: Blazers 2026 (Bianca)", date: "2026-04-13T10:00:00", read: false, link: "/documentos" },
+  { id: "n3", type: "documento_nuevo", message: "Nuevo documento: Diseño Feed (Héctor)", date: "2026-04-12T16:00:00", read: false, link: "/documentos" },
+  { id: "n4", type: "video_ready", message: "Video actualizado: Tendencias Primavera (Bianca)", date: "2026-04-12T10:30:00", read: true, link: "/videos" },
+  { id: "n5", type: "metricas_actualizadas", message: "Métricas de Marzo actualizadas", date: "2026-04-03T09:00:00", read: true, link: "/metricas" },
 ];

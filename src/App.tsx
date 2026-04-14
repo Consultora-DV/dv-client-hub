@@ -4,6 +4,7 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
+import { ThemeProvider } from "@/contexts/ThemeContext";
 import { AppStateProvider } from "@/contexts/AppStateContext";
 import { AppLayout } from "@/components/AppLayout";
 import AuthPage from "@/pages/AuthPage";
@@ -12,6 +13,7 @@ import VideosPage from "@/pages/VideosPage";
 import DocumentsPage from "@/pages/DocumentsPage";
 import CalendarPage from "@/pages/CalendarPage";
 import MetricsPage from "@/pages/MetricsPage";
+import UsersPage from "@/pages/UsersPage";
 import NotFound from "@/pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -38,6 +40,7 @@ function AppRoutes() {
           <Route path="/documentos" element={<DocumentsPage />} />
           <Route path="/calendario" element={<CalendarPage />} />
           <Route path="/metricas" element={<MetricsPage />} />
+          <Route path="/usuarios" element={<UsersPage />} />
         </Route>
         <Route path="*" element={<NotFound />} />
       </Routes>
@@ -51,9 +54,11 @@ const App = () => (
       <Toaster />
       <Sonner />
       <BrowserRouter>
-        <AuthProvider>
-          <AppRoutes />
-        </AuthProvider>
+        <ThemeProvider>
+          <AuthProvider>
+            <AppRoutes />
+          </AuthProvider>
+        </ThemeProvider>
       </BrowserRouter>
     </TooltipProvider>
   </QueryClientProvider>
