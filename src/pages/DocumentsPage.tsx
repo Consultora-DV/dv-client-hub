@@ -106,7 +106,11 @@ function AddDocumentModal({ onClose }: { onClose: () => void }) {
 export default function DocumentsPage() {
   const [showAddModal, setShowAddModal] = useState(false);
   const { documents, scripts } = useAppState();
-  const { canUpload } = usePermissions();
+  const { canUpload, isClient } = usePermissions();
+  const [filterClienteId, setFilterClienteId] = useState<string>("all");
+
+  const filteredDocuments = filterClienteId === "all" ? documents : documents.filter((d) => d.clienteId === filterClienteId);
+  const filteredScripts = filterClienteId === "all" ? scripts : scripts.filter((s) => s.clienteId === filterClienteId);
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">
@@ -114,6 +118,34 @@ export default function DocumentsPage() {
         <div>
           <h1 className="text-2xl font-display font-bold text-foreground">Guiones y Documentos</h1>
           <p className="text-sm text-muted-foreground mt-1">Tu expediente completo</p>
+        </div>
+        {canUpload && (
+          <Button onClick={() => setShowAddModal(true)} className="gold-gradient text-primary-foreground rounded-xl">
+            <Plus className="h-4 w-4 mr-2" /> Agregar
+          </Button>
+        )}
+      </motion.div>
+
+      {!isClient && (
+        <div className="flex items-center gap-2">
+          <Select value={filterClienteId} onValueChange={setFilterClienteId}>
+            <SelectTrigger className="w-56 bg-secondary border-border/50 rounded-xl">
+              <SelectValue placeholder="Todos los clientes" />
+            </SelectTrigger>
+            <SelectContent className="glass gold-border">
+              <SelectItem value="all">Todos los clientes</SelectItem>
+              {clients.map((c) => (
+                <SelectItem key={c.id} value={c.id}>
+                  <span className="flex items-center gap-2">
+                    <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: c.colorAccent }} />
+                    {c.nombre}
+                  </span>
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      )}
         </div>
         {canUpload && (
           <Button onClick={() => setShowAddModal(true)} className="gold-gradient text-primary-foreground rounded-xl">
