@@ -156,6 +156,12 @@ function VideoDetail({ video, onClose }: { video: Video; onClose: () => void }) 
           <a href={video.driveLink} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 text-sm text-primary hover:underline">
             <ExternalLink className="h-4 w-4" /> Ver guión en Drive
           </a>
+
+          {/* Instagram Data Section */}
+          {video.igShortCode && (
+            <InstagramDataSection video={video} />
+          )}
+
           <div>
             <h3 className="text-sm font-semibold text-foreground mb-3">Comentarios ({videoComments.length})</h3>
             <div className="space-y-3 mb-4 max-h-60 overflow-y-auto">
