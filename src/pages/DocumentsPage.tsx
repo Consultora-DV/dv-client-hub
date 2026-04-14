@@ -148,8 +148,6 @@ export default function DocumentsPage() {
       )}
 
       <Tabs defaultValue="scripts">
-
-      <Tabs defaultValue="scripts">
         <TabsList className="bg-secondary border border-border/50">
           <TabsTrigger value="scripts" className="data-[state=active]:bg-primary/20 data-[state=active]:text-primary">Guiones</TabsTrigger>
           <TabsTrigger value="docs" className="data-[state=active]:bg-primary/20 data-[state=active]:text-primary">Documentos</TabsTrigger>
