@@ -95,6 +95,48 @@ function VideoCard({ video, commentCount, onClick }: { video: Video; commentCoun
   );
 }
 
+function InstagramDataSection({ video }: { video: Video }) {
+  const [expanded, setExpanded] = useState(false);
+  const caption = video.igCaption || "";
+  const isLong = caption.length > 150;
+
+  return (
+    <div className="rounded-xl bg-secondary/50 border border-border/50 p-4 space-y-3">
+      <h4 className="text-sm font-semibold text-foreground flex items-center gap-2">
+        <Instagram className="h-4 w-4 text-pink-400" />
+        Datos de Instagram
+      </h4>
+      {caption && (
+        <div className="text-xs text-muted-foreground">
+          <p>{expanded || !isLong ? caption : caption.slice(0, 150) + "..."}</p>
+          {isLong && (
+            <button onClick={() => setExpanded(!expanded)} className="text-primary hover:underline mt-1 text-[11px]">
+              {expanded ? "Ver menos" : "Ver más"}
+            </button>
+          )}
+        </div>
+      )}
+      {video.igHashtags && video.igHashtags.length > 0 && (
+        <div className="flex flex-wrap gap-1">
+          {video.igHashtags.map((h, i) => (
+            <span key={i} className="text-[10px] px-2 py-0.5 rounded-full bg-muted text-muted-foreground">#{h}</span>
+          ))}
+        </div>
+      )}
+      <div className="flex items-center gap-4 text-xs text-muted-foreground">
+        <span>❤️ {(video.igLikes || 0).toLocaleString()}</span>
+        <span>💬 {(video.igComments || 0).toLocaleString()}</span>
+        {(video.igViews || 0) > 0 && <span>👁 {(video.igViews! >= 1000 ? `${(video.igViews! / 1000).toFixed(1)}K` : video.igViews)}</span>}
+      </div>
+      {video.embedUrl && (
+        <a href={video.embedUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 text-xs text-primary hover:underline">
+          Ver en Instagram <ExternalLink className="h-3 w-3" />
+        </a>
+      )}
+    </div>
+  );
+}
+
 function VideoDetail({ video, onClose }: { video: Video; onClose: () => void }) {
   const [newComment, setNewComment] = useState("");
   const [showChangesInput, setShowChangesInput] = useState(false);
