@@ -84,9 +84,37 @@ function VideoDetail({ video, onClose }: { video: Video; onClose: () => void }) 
         <div className="p-5 space-y-6">
           {/* Preview */}
           {video.embedUrl ? (
-            <div className="aspect-video bg-secondary rounded-xl flex items-center justify-center">
-              <p className="text-muted-foreground text-sm">Vista previa del video</p>
-            </div>
+            (() => {
+              if (video.embedUrl.includes("instagram.com")) {
+                const reelMatch = video.embedUrl.match(/\/(reel|p)\/([^/?]+)/);
+                const embedSrc = reelMatch
+                  ? `https://www.instagram.com/${reelMatch[1]}/${reelMatch[2]}/embed`
+                  : video.embedUrl;
+                return (
+                  <div className="aspect-video rounded-xl overflow-hidden">
+                    <iframe src={embedSrc} className="w-full h-full border-0" allowFullScreen />
+                  </div>
+                );
+              }
+              if (video.embedUrl.includes("youtube.com")) {
+                const src = video.embedUrl.includes("/embed/")
+                  ? video.embedUrl
+                  : `https://www.youtube.com/embed/${new URL(video.embedUrl).searchParams.get("v") || ""}`;
+                return (
+                  <div className="aspect-video rounded-xl overflow-hidden">
+                    <iframe src={src} className="w-full h-full border-0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowFullScreen />
+                  </div>
+                );
+              }
+              if (video.embedUrl.includes("tiktok.com")) {
+                return (
+                  <div className="aspect-video rounded-xl overflow-hidden">
+                    <iframe src={video.embedUrl} className="w-full h-full border-0" allowFullScreen />
+                  </div>
+                );
+              }
+              return <img src={video.thumbnail} alt={video.title} className="w-full rounded-xl aspect-video object-cover" />;
+            })()
           ) : (
             <img src={video.thumbnail} alt={video.title} className="w-full rounded-xl aspect-video object-cover" />
           )}
