@@ -151,6 +151,24 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
     }));
   }, [setComments, user]);
 
+  const importFromApify = useCallback((newVideos: Video[], newEvents: CalendarEvent[]) => {
+    setVideos((prev) => {
+      const ids = new Set(prev.map((v) => v.id));
+      return [...prev, ...newVideos.filter((v) => !ids.has(v.id))];
+    });
+    setCalendarEvents((prev) => {
+      const ids = new Set(prev.map((e) => e.id));
+      return [...prev, ...newEvents.filter((e) => !ids.has(e.id))];
+    });
+    addNotification({
+      type: "video_ready",
+      message: `Importación completada: ${newVideos.length} videos y ${newEvents.length} eventos de Instagram`,
+      date: new Date().toISOString(),
+      read: false,
+      link: "/videos",
+    });
+  }, [setVideos, setCalendarEvents, addNotification]);
+
   return (
     <AppStateContext.Provider
       value={{
@@ -163,6 +181,7 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
         approveVideo, requestChanges, addComment, addNotification,
         selectedClienteId, setSelectedClienteId,
         clients,
+        importFromApify,
       }}
     >
       {children}
