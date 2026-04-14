@@ -155,7 +155,7 @@ export default function DocumentsPage() {
 
         <TabsContent value="scripts" className="mt-4">
           <div className="glass gold-border rounded-xl overflow-hidden">
-            {scripts.map((s, i) => {
+            {filteredScripts.map((s, i) => {
               const status = statusConfig[s.status];
               return (
                 <motion.div key={s.id} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.05 }}
@@ -180,7 +180,7 @@ export default function DocumentsPage() {
 
         <TabsContent value="docs" className="mt-4">
           <div className="glass gold-border rounded-xl overflow-hidden">
-            {documents.map((d, i) => {
+            {filteredDocuments.map((d, i) => {
               const Icon = typeIcons[d.type] || File;
               const client = clients.find((c) => c.id === d.clienteId);
               return (
