@@ -3,6 +3,8 @@ import { useAuth } from "@/contexts/AuthContext";
 import { videos, scripts, documents, notifications } from "@/data/mockData";
 import { Video, FileText, File, CalendarDays, Clock } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import { formatDistanceToNow } from "date-fns";
+import { es } from "date-fns/locale";
 
 const fadeUp = {
   initial: { opacity: 0, y: 20 },
@@ -34,13 +36,11 @@ export default function DashboardPage() {
     { label: "Próxima publicación", value: nextPub?.deliveryDate ? new Date(nextPub.deliveryDate).toLocaleDateString("es-MX", { day: "numeric", month: "short" }) : "—", icon: CalendarDays, color: "text-status-approved", link: "/calendario" },
   ];
 
-  const feed = [
-    { text: "Nuevo guión subido: Cómo Combinar Blazers", time: "Hace 2h", link: "/documentos" },
-    { text: "Video listo para revisión: Tendencias Primavera 2025", time: "Hace 5h", link: "/videos" },
-    { text: "Video #12 aprobado: Behind the Scenes", time: "Ayer", link: "/videos" },
-    { text: "Métricas de Marzo actualizadas", time: "Hace 2 días", link: "/metricas" },
-    { text: "Reporte mensual disponible", time: "Hace 3 días", link: "/documentos" },
-  ];
+  const feed = notifications.map((n) => ({
+    text: n.message,
+    time: formatDistanceToNow(new Date(n.date), { addSuffix: true, locale: es }),
+    link: n.link,
+  }));
 
   return (
     <div className="max-w-6xl mx-auto space-y-8">
