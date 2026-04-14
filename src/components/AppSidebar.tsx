@@ -45,9 +45,16 @@ export function AppSidebar() {
         <SidebarHeader className="p-4 border-b border-border/50">
           <div className="flex items-center gap-3">
             <Avatar className="h-10 w-10 border-2 border-primary/50">
-              <AvatarFallback className={`${isAdmin ? 'gold-gradient' : 'bg-primary/20'} text-primary-foreground font-semibold text-sm`}>
-                {user?.avatar}
-              </AvatarFallback>
+              {(() => {
+                const photo = user?.id ? localStorage.getItem(`dv_user_profile_photo_${user.id}`) : null;
+                return photo ? (
+                  <AvatarImage src={photo} alt={user?.name} />
+                ) : (
+                  <AvatarFallback className={`${isAdmin ? 'gold-gradient' : 'bg-primary/20'} text-primary-foreground font-semibold text-sm`}>
+                    {user?.avatar}
+                  </AvatarFallback>
+                );
+              })()}
             </Avatar>
             <div className="flex flex-col min-w-0 group-data-[collapsible=icon]:hidden">
               <span className="text-sm font-semibold text-foreground truncate">{user?.name}</span>
