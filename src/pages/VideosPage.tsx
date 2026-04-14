@@ -40,10 +40,11 @@ const statusConfig: Record<string, { label: string; class: string }> = {
   published: { label: "Publicado", class: "bg-status-published/20 text-status-published border-status-published/30" },
 };
 
-function PlatformPills({ platforms }: { platforms: string[] }) {
+function PlatformPills({ platforms }: { platforms: string[] | string }) {
+  const list = Array.isArray(platforms) ? platforms : [platforms];
   return (
     <div className="flex gap-1 flex-wrap">
-      {platforms.map((p) => (
+      {list.map((p) => (
         <Badge key={p} className={`${platformColors[p] || "bg-secondary"} text-xs`}>
           {platformLabels[p] || p}
         </Badge>
