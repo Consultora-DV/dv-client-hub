@@ -98,6 +98,16 @@ export function AppSidebar() {
         </SidebarContent>
 
         <SidebarFooter className="p-4 border-t border-border/50 space-y-2">
+          {isAdmin && (
+            <button
+              onClick={() => setShowSettings(true)}
+              className="flex items-center gap-3 px-3 py-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors w-full text-left text-sm group-data-[collapsible=icon]:justify-center"
+              title="Configuración"
+            >
+              <Cog className="h-5 w-5 shrink-0" />
+              <span className="group-data-[collapsible=icon]:hidden">Configuración</span>
+            </button>
+          )}
           <button
             onClick={() => setShowProfile(true)}
             className="flex items-center gap-3 px-3 py-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors w-full text-left text-sm group-data-[collapsible=icon]:justify-center"
@@ -125,6 +135,7 @@ export function AppSidebar() {
 
       <AnimatePresence>
         {showProfile && <ProfileModal onClose={() => setShowProfile(false)} />}
+        {showSettings && <SettingsModal onClose={() => setShowSettings(false)} />}
       </AnimatePresence>
     </>
   );
