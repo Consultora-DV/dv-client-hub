@@ -26,6 +26,7 @@ export function AppSidebar() {
   const { videos } = useAppState();
   const { isClient, isAdmin, role } = usePermissions();
   const [showProfile, setShowProfile] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
 
   const pendingCount = videos.filter((v) => v.status === "pending").length;
 
