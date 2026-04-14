@@ -23,6 +23,13 @@ export interface Video {
   driveLink: string;
   comments: Comment[];
   statusHistory: StatusChange[];
+  // Instagram import metadata
+  igCaption?: string;
+  igLikes?: number;
+  igComments?: number;
+  igViews?: number;
+  igHashtags?: string[];
+  igShortCode?: string;
 }
 
 export interface Comment {
