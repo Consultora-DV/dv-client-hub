@@ -23,7 +23,8 @@ const loadingMessages = [
 ];
 
 function isValidInstagramUrl(url: string): boolean {
-  return /instagram\.com\/(p|reel|reels|tv)\/[A-Za-z0-9_-]+/i.test(url) ||
+  return /instagram\.com\/.+\/(p|reel|reels|tv)\/[A-Za-z0-9_-]+/i.test(url) ||
+    /instagram\.com\/(p|reel|reels|tv)\/[A-Za-z0-9_-]+/i.test(url) ||
     /instagram\.com\/[A-Za-z0-9_.]+\/?$/i.test(url);
 }
 
