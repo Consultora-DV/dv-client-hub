@@ -1,9 +1,16 @@
-import { motion } from "framer-motion";
-import { scripts, documents } from "@/data/mockData";
-import { ExternalLink, FileText, File, Table, Presentation } from "lucide-react";
+import { useState } from "react";
+import { motion, AnimatePresence } from "framer-motion";
+import { scripts } from "@/data/mockData";
+import { ExternalLink, FileText, File, Table, Presentation, Plus, X, Upload } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { differenceInDays } from "date-fns";
+import { useAppState } from "@/contexts/AppStateContext";
+import { usePermissions } from "@/hooks/usePermissions";
+import { Document } from "@/data/mockData";
 
 const isRecent = (dateStr: string) => differenceInDays(new Date(), new Date(dateStr)) < 3;
 
@@ -27,12 +34,130 @@ const typeLabels: Record<string, string> = {
   slide: "Presentación",
 };
 
+function AddDocumentModal({ onClose }: { onClose: () => void }) {
+  const { setDocuments } = useAppState();
+  const [name, setName] = useState("");
+  const [type, setType] = useState<Document["type"]>("pdf");
+  const [driveLink, setDriveLink] = useState("");
+  const [fileName, setFileName] = useState("");
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 10 * 1024 * 1024) {
+      alert("El archivo no puede superar 10MB");
+      return;
+    }
+    setFileName(file.name);
+    // In phase 1, we just store the name. Base64 storage skipped for performance.
+  };
+
+  const handleSave = () => {
+    if (!name.trim()) return;
+    const newDoc: Document = {
+      id: `d_${Date.now()}`,
+      name: name.trim(),
+      type,
+      date: new Date().toISOString().split("T")[0],
+      driveLink: driveLink || "#",
+      isNew: true,
+    };
+    setDocuments((prev) => [newDoc, ...prev]);
+    onClose();
+  };
+
+  return (
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm p-4"
+      onClick={onClose}
+    >
+      <motion.div
+        initial={{ scale: 0.95, opacity: 0 }}
+        animate={{ scale: 1, opacity: 1 }}
+        exit={{ scale: 0.95, opacity: 0 }}
+        onClick={(e) => e.stopPropagation()}
+        className="glass gold-border gold-glow rounded-2xl w-full max-w-lg"
+      >
+        <div className="flex items-center justify-between p-5 border-b border-border/50">
+          <h2 className="font-display text-lg font-semibold text-foreground">Agregar Documento</h2>
+          <button onClick={onClose} className="p-2 rounded-lg hover:bg-secondary text-muted-foreground">
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+        <div className="p-5 space-y-4">
+          <div>
+            <label className="text-xs text-muted-foreground mb-1.5 block">Nombre del documento</label>
+            <Input value={name} onChange={(e) => setName(e.target.value)} className="bg-secondary border-border/50 rounded-xl" placeholder="Ej: Brief de marca" />
+          </div>
+          <div>
+            <label className="text-xs text-muted-foreground mb-1.5 block">Tipo</label>
+            <Select value={type} onValueChange={(v) => setType(v as Document["type"])}>
+              <SelectTrigger className="bg-secondary border-border/50 rounded-xl"><SelectValue /></SelectTrigger>
+              <SelectContent className="glass gold-border">
+                <SelectItem value="pdf">PDF</SelectItem>
+                <SelectItem value="doc">Documento</SelectItem>
+                <SelectItem value="sheet">Hoja de cálculo</SelectItem>
+                <SelectItem value="slide">Presentación</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div>
+            <label className="text-xs text-muted-foreground mb-1.5 block">Link de Google Drive (opcional)</label>
+            <Input value={driveLink} onChange={(e) => setDriveLink(e.target.value)} className="bg-secondary border-border/50 rounded-xl" placeholder="https://drive.google.com/..." />
+          </div>
+          <div>
+            <label className="text-xs text-muted-foreground mb-1.5 block">Subir archivo (opcional, máx 10MB)</label>
+            <div className="relative">
+              <input
+                type="file"
+                accept=".pdf,.docx,.xlsx,.png,.jpg,.jpeg"
+                onChange={handleFileChange}
+                className="absolute inset-0 opacity-0 cursor-pointer"
+              />
+              <div className="flex items-center gap-2 p-3 bg-secondary border border-border/50 rounded-xl text-sm text-muted-foreground">
+                <Upload className="h-4 w-4" />
+                {fileName ? (
+                  <div className="flex items-center gap-2 flex-1">
+                    <span className="text-foreground truncate">{fileName}</span>
+                    <button onClick={(e) => { e.stopPropagation(); setFileName(""); }} className="text-muted-foreground hover:text-foreground">
+                      <X className="h-3 w-3" />
+                    </button>
+                  </div>
+                ) : (
+                  <span>Seleccionar archivo</span>
+                )}
+              </div>
+            </div>
+          </div>
+          <Button onClick={handleSave} disabled={!name.trim()} className="w-full gold-gradient text-primary-foreground rounded-xl h-11">
+            Guardar documento
+          </Button>
+        </div>
+      </motion.div>
+    </motion.div>
+  );
+}
+
 export default function DocumentsPage() {
+  const [showAddModal, setShowAddModal] = useState(false);
+  const { documents } = useAppState();
+  const { canUpload } = usePermissions();
+
   return (
     <div className="max-w-4xl mx-auto space-y-6">
-      <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
-        <h1 className="text-2xl font-display font-bold text-foreground">Guiones y Documentos</h1>
-        <p className="text-sm text-muted-foreground mt-1">Tu expediente completo</p>
+      <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-display font-bold text-foreground">Guiones y Documentos</h1>
+          <p className="text-sm text-muted-foreground mt-1">Tu expediente completo</p>
+        </div>
+        {canUpload && (
+          <Button onClick={() => setShowAddModal(true)} className="gold-gradient text-primary-foreground rounded-xl">
+            <Plus className="h-4 w-4 mr-2" /> Agregar documento
+          </Button>
+        )}
       </motion.div>
 
       <Tabs defaultValue="scripts">
@@ -127,6 +252,10 @@ export default function DocumentsPage() {
           </div>
         </TabsContent>
       </Tabs>
+
+      <AnimatePresence>
+        {showAddModal && <AddDocumentModal onClose={() => setShowAddModal(false)} />}
+      </AnimatePresence>
     </div>
   );
 }

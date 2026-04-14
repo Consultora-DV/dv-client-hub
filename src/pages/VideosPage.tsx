@@ -1,10 +1,21 @@
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { videos as allVideos, Video } from "@/data/mockData";
-import { X, ExternalLink, Check, AlertTriangle } from "lucide-react";
+import { Video } from "@/data/mockData";
+import { X, ExternalLink, Check, AlertTriangle, Plus } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
+import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Calendar } from "@/components/ui/calendar";
+import { format } from "date-fns";
+import { es } from "date-fns/locale";
+import { formatDistanceToNow } from "date-fns";
+import { cn } from "@/lib/utils";
+import { useAppState } from "@/contexts/AppStateContext";
+import { usePermissions } from "@/hooks/usePermissions";
+import { CalendarIcon } from "lucide-react";
 
 const platformColors: Record<string, string> = {
   instagram: "bg-instagram",
@@ -25,7 +36,7 @@ const statusConfig: Record<string, { label: string; class: string }> = {
   published: { label: "Publicado", class: "bg-status-published/20 text-status-published border-status-published/30" },
 };
 
-function VideoCard({ video, onClick }: { video: Video; onClick: () => void }) {
+function VideoCard({ video, commentCount, onClick }: { video: Video; commentCount: number; onClick: () => void }) {
   const status = statusConfig[video.status];
   return (
     <motion.button
@@ -46,9 +57,14 @@ function VideoCard({ video, onClick }: { video: Video; onClick: () => void }) {
           <Badge variant="outline" className={`text-xs border ${status.class}`}>
             {status.label}
           </Badge>
-          <span className="text-xs text-muted-foreground">
-            {new Date(video.deliveryDate).toLocaleDateString("es-MX", { day: "numeric", month: "short" })}
-          </span>
+          <div className="flex items-center gap-2">
+            {commentCount > 0 && (
+              <span className="text-xs text-muted-foreground">💬 {commentCount}</span>
+            )}
+            <span className="text-xs text-muted-foreground">
+              {new Date(video.deliveryDate).toLocaleDateString("es-MX", { day: "numeric", month: "short" })}
+            </span>
+          </div>
         </div>
       </div>
     </motion.button>
@@ -57,7 +73,32 @@ function VideoCard({ video, onClick }: { video: Video; onClick: () => void }) {
 
 function VideoDetail({ video, onClose }: { video: Video; onClose: () => void }) {
   const [newComment, setNewComment] = useState("");
+  const [showChangesInput, setShowChangesInput] = useState(false);
+  const [changesText, setChangesText] = useState("");
+  const { approveVideo, requestChanges, addComment, comments } = useAppState();
+  const { canApprove } = usePermissions();
   const status = statusConfig[video.status];
+  const videoComments = comments[video.id] || [];
+
+  const handleApprove = () => {
+    approveVideo(video.id);
+    onClose();
+  };
+
+  const handleRequestChanges = () => {
+    if (showChangesInput && changesText.trim()) {
+      requestChanges(video.id, changesText.trim());
+      onClose();
+    } else {
+      setShowChangesInput(true);
+    }
+  };
+
+  const handleSendComment = () => {
+    if (!newComment.trim()) return;
+    addComment(video.id, newComment.trim());
+    setNewComment("");
+  };
 
   return (
     <motion.div
@@ -133,14 +174,35 @@ function VideoDetail({ video, onClose }: { video: Video; onClose: () => void }) 
           </div>
 
           {/* Actions */}
-          {(video.status === "pending" || video.status === "changes") && (
-            <div className="flex gap-3">
-              <Button className="bg-status-approved hover:bg-status-approved/80 text-foreground">
-                <Check className="h-4 w-4 mr-2" /> Aprobar
-              </Button>
-              <Button variant="outline" className="border-status-changes/50 text-status-changes hover:bg-status-changes/10">
-                <AlertTriangle className="h-4 w-4 mr-2" /> Solicitar cambios
-              </Button>
+          {canApprove && (video.status === "pending" || video.status === "changes") && (
+            <div className="space-y-3">
+              <div className="flex gap-3">
+                <Button onClick={handleApprove} className="bg-status-approved hover:bg-status-approved/80 text-foreground">
+                  <Check className="h-4 w-4 mr-2" /> Aprobar
+                </Button>
+                <Button onClick={handleRequestChanges} variant="outline" className="border-status-changes/50 text-status-changes hover:bg-status-changes/10">
+                  <AlertTriangle className="h-4 w-4 mr-2" /> Solicitar cambios
+                </Button>
+              </div>
+              {showChangesInput && (
+                <div className="space-y-2">
+                  <Textarea
+                    value={changesText}
+                    onChange={(e) => setChangesText(e.target.value)}
+                    placeholder="Describe los cambios que necesitas..."
+                    className="bg-secondary border-border/50 rounded-xl resize-none"
+                    rows={3}
+                  />
+                  <Button
+                    onClick={handleRequestChanges}
+                    disabled={!changesText.trim()}
+                    size="sm"
+                    className="gold-gradient text-primary-foreground"
+                  >
+                    Confirmar cambios
+                  </Button>
+                </div>
+              )}
             </div>
           )}
 
@@ -156,12 +218,12 @@ function VideoDetail({ video, onClose }: { video: Video; onClose: () => void }) 
 
           {/* Comments */}
           <div>
-            <h3 className="text-sm font-semibold text-foreground mb-3">Comentarios</h3>
-            <div className="space-y-3 mb-4">
-              {video.comments.length === 0 && (
+            <h3 className="text-sm font-semibold text-foreground mb-3">Comentarios ({videoComments.length})</h3>
+            <div className="space-y-3 mb-4 max-h-60 overflow-y-auto">
+              {videoComments.length === 0 && (
                 <p className="text-sm text-muted-foreground">Sin comentarios aún.</p>
               )}
-              {video.comments.map((c) => (
+              {videoComments.map((c) => (
                 <div
                   key={c.id}
                   className={`rounded-xl p-3 text-sm ${
@@ -171,7 +233,7 @@ function VideoDetail({ video, onClose }: { video: Video; onClose: () => void }) 
                   <div className="flex items-center justify-between mb-1">
                     <span className="font-medium text-foreground">{c.author}</span>
                     <span className="text-xs text-muted-foreground">
-                      {new Date(c.date).toLocaleDateString("es-MX", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}
+                      {formatDistanceToNow(new Date(c.date), { addSuffix: true, locale: es })}
                     </span>
                   </div>
                   <p className="text-muted-foreground">{c.text}</p>
@@ -186,7 +248,7 @@ function VideoDetail({ video, onClose }: { video: Video; onClose: () => void }) 
                 className="bg-secondary border-border/50 rounded-xl resize-none"
                 rows={2}
               />
-              <Button size="sm" className="self-end gold-gradient text-primary-foreground shrink-0">
+              <Button onClick={handleSendComment} size="sm" className="self-end gold-gradient text-primary-foreground shrink-0">
                 Enviar
               </Button>
             </div>
@@ -212,24 +274,134 @@ function VideoDetail({ video, onClose }: { video: Video; onClose: () => void }) 
   );
 }
 
+function AddVideoModal({ onClose }: { onClose: () => void }) {
+  const { setVideos } = useAppState();
+  const [title, setTitle] = useState("");
+  const [platform, setPlatform] = useState<"instagram" | "tiktok" | "youtube">("instagram");
+  const [embedUrl, setEmbedUrl] = useState("");
+  const [driveLink, setDriveLink] = useState("");
+  const [deliveryDate, setDeliveryDate] = useState<Date>();
+
+  const handleSave = () => {
+    if (!title.trim() || !deliveryDate) return;
+    const newVideo: Video = {
+      id: `v_${Date.now()}`,
+      title: title.trim(),
+      platform,
+      status: "pending",
+      thumbnail: "https://images.unsplash.com/photo-1558618666-fcd25c85f82e?w=400&h=300&fit=crop",
+      deliveryDate: format(deliveryDate, "yyyy-MM-dd"),
+      embedUrl: embedUrl || undefined,
+      driveLink: driveLink || "#",
+      comments: [],
+      statusHistory: [{ status: "Pendiente de revisión", date: format(new Date(), "yyyy-MM-dd"), by: "Equipo DV" }],
+    };
+    setVideos((prev) => [newVideo, ...prev]);
+    onClose();
+  };
+
+  return (
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm p-4"
+      onClick={onClose}
+    >
+      <motion.div
+        initial={{ scale: 0.95, opacity: 0 }}
+        animate={{ scale: 1, opacity: 1 }}
+        exit={{ scale: 0.95, opacity: 0 }}
+        onClick={(e) => e.stopPropagation()}
+        className="glass gold-border gold-glow rounded-2xl w-full max-w-lg"
+      >
+        <div className="flex items-center justify-between p-5 border-b border-border/50">
+          <h2 className="font-display text-lg font-semibold text-foreground">Agregar Video</h2>
+          <button onClick={onClose} className="p-2 rounded-lg hover:bg-secondary text-muted-foreground">
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+        <div className="p-5 space-y-4">
+          <div>
+            <label className="text-xs text-muted-foreground mb-1.5 block">Título del contenido</label>
+            <Input value={title} onChange={(e) => setTitle(e.target.value)} className="bg-secondary border-border/50 rounded-xl" placeholder="Nombre del video" />
+          </div>
+          <div>
+            <label className="text-xs text-muted-foreground mb-1.5 block">Plataforma</label>
+            <Select value={platform} onValueChange={(v) => setPlatform(v as typeof platform)}>
+              <SelectTrigger className="bg-secondary border-border/50 rounded-xl"><SelectValue /></SelectTrigger>
+              <SelectContent className="glass gold-border">
+                <SelectItem value="instagram">Instagram</SelectItem>
+                <SelectItem value="tiktok">TikTok</SelectItem>
+                <SelectItem value="youtube">YouTube</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div>
+            <label className="text-xs text-muted-foreground mb-1.5 block">URL del video (embed)</label>
+            <Input value={embedUrl} onChange={(e) => setEmbedUrl(e.target.value)} className="bg-secondary border-border/50 rounded-xl" placeholder="https://..." />
+          </div>
+          <div>
+            <label className="text-xs text-muted-foreground mb-1.5 block">Link guión en Drive</label>
+            <Input value={driveLink} onChange={(e) => setDriveLink(e.target.value)} className="bg-secondary border-border/50 rounded-xl" placeholder="https://drive.google.com/..." />
+          </div>
+          <div>
+            <label className="text-xs text-muted-foreground mb-1.5 block">Fecha de entrega</label>
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button variant="outline" className={cn("w-full justify-start text-left bg-secondary border-border/50 rounded-xl", !deliveryDate && "text-muted-foreground")}>
+                  <CalendarIcon className="mr-2 h-4 w-4" />
+                  {deliveryDate ? format(deliveryDate, "PPP", { locale: es }) : "Seleccionar fecha"}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0 glass gold-border" align="start">
+                <Calendar mode="single" selected={deliveryDate} onSelect={setDeliveryDate} className={cn("p-3 pointer-events-auto")} />
+              </PopoverContent>
+            </Popover>
+          </div>
+          <Button onClick={handleSave} disabled={!title.trim() || !deliveryDate} className="w-full gold-gradient text-primary-foreground rounded-xl h-11">
+            Publicar para revisión
+          </Button>
+        </div>
+      </motion.div>
+    </motion.div>
+  );
+}
+
 export default function VideosPage() {
   const [selected, setSelected] = useState<Video | null>(null);
+  const [showAddModal, setShowAddModal] = useState(false);
+  const { videos, comments } = useAppState();
+  const { canAddVideos } = usePermissions();
 
   return (
     <div className="max-w-6xl mx-auto space-y-6">
-      <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
-        <h1 className="text-2xl font-display font-bold text-foreground">Videos y Aprobaciones</h1>
-        <p className="text-sm text-muted-foreground mt-1">Revisa, comenta y aprueba tus videos</p>
+      <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-display font-bold text-foreground">Videos y Aprobaciones</h1>
+          <p className="text-sm text-muted-foreground mt-1">Revisa, comenta y aprueba tus videos</p>
+        </div>
+        {canAddVideos && (
+          <Button onClick={() => setShowAddModal(true)} className="gold-gradient text-primary-foreground rounded-xl">
+            <Plus className="h-4 w-4 mr-2" /> Agregar video
+          </Button>
+        )}
       </motion.div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
-        {allVideos.map((video) => (
-          <VideoCard key={video.id} video={video} onClick={() => setSelected(video)} />
+        {videos.map((video) => (
+          <VideoCard
+            key={video.id}
+            video={video}
+            commentCount={(comments[video.id] || []).length}
+            onClick={() => setSelected(video)}
+          />
         ))}
       </div>
 
       <AnimatePresence>
-        {selected && <VideoDetail video={selected} onClose={() => setSelected(null)} />}
+        {selected && <VideoDetail video={videos.find((v) => v.id === selected.id) || selected} onClose={() => setSelected(null)} />}
+        {showAddModal && <AddVideoModal onClose={() => setShowAddModal(false)} />}
       </AnimatePresence>
     </div>
   );

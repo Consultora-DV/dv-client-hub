@@ -1,6 +1,7 @@
 import { motion } from "framer-motion";
 import { useAuth } from "@/contexts/AuthContext";
-import { videos, scripts, documents, notifications } from "@/data/mockData";
+import { scripts } from "@/data/mockData";
+import { useAppState } from "@/contexts/AppStateContext";
 import { Video, FileText, File, CalendarDays, Clock } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { formatDistanceToNow } from "date-fns";
@@ -13,6 +14,7 @@ const fadeUp = {
 
 export default function DashboardPage() {
   const { user } = useAuth();
+  const { videos, documents, notifications } = useAppState();
   const navigate = useNavigate();
 
   const pendingVideos = videos.filter((v) => v.status === "pending").length;
@@ -36,7 +38,7 @@ export default function DashboardPage() {
     { label: "Próxima publicación", value: nextPub?.deliveryDate ? new Date(nextPub.deliveryDate).toLocaleDateString("es-MX", { day: "numeric", month: "short" }) : "—", icon: CalendarDays, color: "text-status-approved", link: "/calendario" },
   ];
 
-  const feed = notifications.map((n) => ({
+  const feed = notifications.slice(0, 6).map((n) => ({
     text: n.message,
     time: formatDistanceToNow(new Date(n.date), { addSuffix: true, locale: es }),
     link: n.link,
@@ -44,7 +46,6 @@ export default function DashboardPage() {
 
   return (
     <div className="max-w-6xl mx-auto space-y-8">
-      {/* Greeting */}
       <motion.div {...fadeUp} transition={{ delay: 0.1 }}>
         <h1 className="text-2xl md:text-3xl font-display font-bold text-foreground">
           Hola, <span className="gold-text">{user?.name}</span>
@@ -52,7 +53,6 @@ export default function DashboardPage() {
         <p className="text-muted-foreground text-sm mt-1 capitalize">{today}</p>
       </motion.div>
 
-      {/* Summary Cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {summaryCards.map((card, i) => (
           <motion.button
@@ -69,7 +69,6 @@ export default function DashboardPage() {
         ))}
       </div>
 
-      {/* Activity Feed */}
       <motion.div {...fadeUp} transition={{ delay: 0.4 }}>
         <h2 className="text-lg font-display font-semibold text-foreground mb-4">Actividad reciente</h2>
         <div className="glass gold-border rounded-xl overflow-hidden">
