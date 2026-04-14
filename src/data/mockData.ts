@@ -15,7 +15,7 @@ export interface Video {
   id: string;
   clienteId: string;
   title: string;
-  platform: "instagram" | "tiktok" | "youtube";
+  platform: string[];
   status: "pending" | "approved" | "changes" | "published";
   thumbnail: string;
   deliveryDate: string;
@@ -44,9 +44,12 @@ export interface Script {
   clienteId: string;
   title: string;
   date: string;
-  status: "new" | "reviewed" | "approved";
+  status: "nuevo" | "en_revision" | "aprobado" | "cambios_solicitados";
   driveLink: string;
   isNew: boolean;
+  visto: boolean;
+  comments: Comment[];
+  statusHistory: StatusChange[];
 }
 
 export interface Document {
