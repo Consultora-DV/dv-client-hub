@@ -1,9 +1,11 @@
-import { useState } from "react";
 import { motion } from "framer-motion";
 import { scripts, documents } from "@/data/mockData";
 import { ExternalLink, FileText, File, Table, Presentation } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { differenceInDays } from "date-fns";
+
+const isRecent = (dateStr: string) => differenceInDays(new Date(), new Date(dateStr)) < 3;
 
 const statusConfig: Record<string, { label: string; class: string }> = {
   new: { label: "Nuevo", class: "bg-primary/20 text-primary border-primary/30" },
@@ -59,8 +61,8 @@ export default function DocumentsPage() {
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
                       <p className="text-sm font-medium text-foreground truncate">{s.title}</p>
-                      {s.isNew && (
-                        <Badge className="bg-primary/20 text-primary border border-primary/30 text-[10px]">Nuevo</Badge>
+                      {(s.isNew || isRecent(s.date)) && (
+                        <Badge className="gold-gradient text-primary-foreground text-[10px] font-semibold border-0">Nuevo</Badge>
                       )}
                     </div>
                     <p className="text-xs text-muted-foreground mt-0.5">
@@ -100,8 +102,8 @@ export default function DocumentsPage() {
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
                       <p className="text-sm font-medium text-foreground truncate">{d.name}</p>
-                      {d.isNew && (
-                        <Badge className="bg-primary/20 text-primary border border-primary/30 text-[10px]">Nuevo</Badge>
+                      {(d.isNew || isRecent(d.date)) && (
+                        <Badge className="gold-gradient text-primary-foreground text-[10px] font-semibold border-0">Nuevo</Badge>
                       )}
                     </div>
                     <p className="text-xs text-muted-foreground mt-0.5">
