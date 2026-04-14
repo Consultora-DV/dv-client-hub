@@ -1,6 +1,6 @@
-import { useState } from "react";
 import { Bell, Video, FileText, BarChart3, File } from "lucide-react";
-import { notifications as initialNotifications, Notification } from "@/data/mockData";
+import { useAppState } from "@/contexts/AppStateContext";
+import { Notification } from "@/data/mockData";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { useNavigate } from "react-router-dom";
 
@@ -12,7 +12,7 @@ const typeIcons: Record<Notification["type"], typeof Video> = {
 };
 
 export function NotificationBell() {
-  const [notifications, setNotifications] = useState(initialNotifications);
+  const { notifications, setNotifications } = useAppState();
   const navigate = useNavigate();
   const unreadCount = notifications.filter((n) => !n.read).length;
 
@@ -62,7 +62,7 @@ export function NotificationBell() {
         </div>
         <div className="max-h-72 overflow-y-auto">
           {notifications.map((n) => {
-            const Icon = typeIcons[n.type];
+            const Icon = typeIcons[n.type] || File;
             return (
               <button
                 key={n.id}
