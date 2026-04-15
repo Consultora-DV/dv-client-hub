@@ -1,4 +1,5 @@
 import { useState, useCallback } from "react";
+import { toast } from "sonner";
 import { motion, AnimatePresence } from "framer-motion";
 import { ExternalLink, FileText, File, Table, Presentation, Plus, X, Upload, Eye, EyeOff, Check, AlertTriangle } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
@@ -177,7 +178,7 @@ function ScriptDetailModal({ script, onClose }: { script: Script; onClose: () =>
 }
 
 function AddDocumentModal({ onClose }: { onClose: () => void }) {
-  const { setDocuments } = useAppState();
+  const { setDocuments, allDocuments } = useAppState();
   const [name, setName] = useState("");
   const [type, setType] = useState<Document["type"]>("pdf");
   const [driveLink, setDriveLink] = useState("");
@@ -193,6 +194,15 @@ function AddDocumentModal({ onClose }: { onClose: () => void }) {
 
   const handleSave = () => {
     if (!name.trim()) return;
+    // Duplicate check: name + clienteId or driveLink + clienteId
+    const isDuplicate = allDocuments.some((d) => {
+      if (driveLink && driveLink !== "#" && d.driveLink === driveLink && d.clienteId === clienteId) return true;
+      return d.name === name.trim() && d.clienteId === clienteId;
+    });
+    if (isDuplicate) {
+      toast.error("Ya existe un documento con este nombre para este cliente.");
+      return;
+    }
     const newDoc: Document = {
       id: `d_${Date.now()}`,
       clienteId,

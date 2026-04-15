@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { toast } from "sonner";
 import { motion, AnimatePresence } from "framer-motion";
 import { Video, clients } from "@/data/mockData";
 import { X, ExternalLink, Check, AlertTriangle, Plus, Instagram } from "lucide-react";
@@ -248,7 +249,7 @@ function VideoDetail({ video, onClose }: { video: Video; onClose: () => void }) 
 }
 
 function AddVideoModal({ onClose }: { onClose: () => void }) {
-  const { setVideos } = useAppState();
+  const { setVideos, allVideos } = useAppState();
   const [title, setTitle] = useState("");
   const [platforms, setPlatforms] = useState<string[]>(["instagram"]);
   const [embedUrl, setEmbedUrl] = useState("");
@@ -262,6 +263,16 @@ function AddVideoModal({ onClose }: { onClose: () => void }) {
 
   const handleSave = () => {
     if (!title.trim() || !deliveryDate || platforms.length === 0) return;
+    const url = embedUrl?.trim() || "";
+    // Duplicate check by URL or title+clienteId+date
+    const isDuplicate = allVideos.some((v) => {
+      if (url && v.embedUrl === url) return true;
+      return v.title === title.trim() && v.clienteId === clienteId && v.deliveryDate === format(deliveryDate, "yyyy-MM-dd");
+    });
+    if (isDuplicate) {
+      toast.error("Ya existe un video con esta URL para este cliente.");
+      return;
+    }
     const newVideo: Video = {
       id: `v_${Date.now()}`,
       clienteId,
@@ -270,7 +281,7 @@ function AddVideoModal({ onClose }: { onClose: () => void }) {
       status: "pending",
       thumbnail: "https://images.unsplash.com/photo-1558618666-fcd25c85f82e?w=400&h=300&fit=crop",
       deliveryDate: format(deliveryDate, "yyyy-MM-dd"),
-      embedUrl: embedUrl || undefined,
+      embedUrl: url || undefined,
       driveLink: driveLink || "#",
       comments: [],
       statusHistory: [{ status: "Pendiente de revisión", date: format(new Date(), "yyyy-MM-dd"), by: "Equipo DV" }],

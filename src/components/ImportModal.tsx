@@ -41,7 +41,7 @@ export function ImportModal({ onClose }: { onClose: () => void }) {
   const [selectedPosts, setSelectedPosts] = useState<Set<string>>(new Set());
   const [loadingMsgIdx, setLoadingMsgIdx] = useState(0);
   const [error, setError] = useState<string | null>(null);
-  const [result, setResult] = useState<{ videosAdded: number; eventsAdded: number; skipped: number; errors: string[]; metricsUpdated: number } | null>(null);
+  const [result, setResult] = useState<{ videosAdded: number; eventsAdded: number; skipped: number; errors: string[]; metricsUpdated: number; metricsSkipped: number } | null>(null);
   const cancelRef = useRef(false);
 
   const urls = urlText
@@ -91,22 +91,16 @@ export function ImportModal({ onClose }: { onClose: () => void }) {
     const client = clients.find((c) => c.id === clienteId);
     const { videos, events } = mapPostsToAppData(selected, clienteId, client?.nombre || "");
 
-    // Filter duplicates
-    const existingIds = new Set(allVideos.map((v) => v.id));
-    const newVideos = videos.filter((v) => !existingIds.has(v.id));
-    const skipped = videos.length - newVideos.length;
-
-    importFromApify(newVideos, events);
-
-    // Count metrics posts (those with igShortCode)
-    const metricsCount = newVideos.filter((v) => v.igShortCode).length;
+    // importFromApify now handles all deduplication internally
+    const result = importFromApify(videos, events);
 
     setResult({
-      videosAdded: newVideos.length,
-      eventsAdded: events.length,
-      skipped,
+      videosAdded: result.videosAdded,
+      eventsAdded: result.eventsAdded,
+      skipped: result.videosSkipped + result.eventsSkipped,
       errors: [],
-      metricsUpdated: metricsCount,
+      metricsUpdated: result.metricsAdded,
+      metricsSkipped: result.metricsSkipped,
     });
     setStep("success");
   };
@@ -357,8 +351,8 @@ export function ImportModal({ onClose }: { onClose: () => void }) {
                   {result.metricsUpdated > 0 && (
                     <p className="text-status-approved">✓ Métricas de Instagram actualizadas con {result.metricsUpdated} posts</p>
                   )}
-                  {result.skipped > 0 && (
-                    <p className="text-status-pending">⚠ {result.skipped} posts ya existían (omitidos)</p>
+                  {(result.skipped > 0 || result.metricsSkipped > 0) && (
+                    <p className="text-muted-foreground">↷ {result.skipped + result.metricsSkipped} posts omitidos (ya existían)</p>
                   )}
                   {result.errors.length > 0 && (
                     <p className="text-status-changes">⚠ {result.errors.length} posts no pudieron importarse</p>

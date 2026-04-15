@@ -1,4 +1,5 @@
 import { useState, useRef, useMemo } from "react";
+import { toast as sonnerToast } from "sonner";
 import { motion } from "framer-motion";
 import {
   LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
@@ -15,7 +16,7 @@ import {
   PlatformMetrics, PostMetric, parseMetricsCSV, calculateMonthlySummary,
   formatNumber, formatEngagement, formatWatchTime,
 } from "@/services/metricsParser";
-import { toast } from "@/hooks/use-toast";
+import { filterDuplicates } from "@/lib/deduplication";
 
 const PLATFORMS = [
   { key: "general", label: "General", icon: BarChart3, color: "text-primary", bgActive: "gold-gradient text-primary-foreground", accent: "hsl(42,52%,54%)" },
@@ -271,24 +272,36 @@ function PlatformTab({ platform, clienteId }: { platform: "instagram" | "tiktok"
 
   const handleUpload = async (file: File) => {
     try {
-      const { platform: detected, posts } = await parseMetricsCSV(file);
+      const { platform: detected, posts: parsedPosts } = await parseMetricsCSV(file);
       if (detected !== platform) {
         const pName = PLATFORMS.find((p) => p.key === detected)?.label || detected;
-        toast({ title: "Plataforma diferente", description: `Este archivo parece ser de ${pName}. ¿Cárgalo en el tab de ${pName}?`, variant: "destructive" });
+        sonnerToast.error(`Este archivo parece ser de ${pName}. Cárgalo en el tab de ${pName}.`);
         return;
       }
-      const summary = calculateMonthlySummary(posts);
+
+      // Deduplicate against existing posts
+      const existingPosts = metrics?.posts || [];
+      const { unique, duplicates } = filterDuplicates(
+        parsedPosts,
+        existingPosts,
+        (p) => p.url || p.id
+      );
+
+      const allPosts = [...existingPosts, ...unique];
+      const summary = calculateMonthlySummary(allPosts);
       setMetrics({
         clienteId: clienteId || "",
         platform,
         uploadedAt: new Date().toISOString(),
         fileName: file.name,
-        posts,
+        posts: allPosts,
         monthlySummary: summary,
       });
-      toast({ title: "Datos importados", description: `${posts.length} posts de ${pInfo.label} cargados.` });
+
+      const msg = `${unique.length} posts nuevos de ${pInfo.label}${duplicates.length > 0 ? ` · ${duplicates.length} ya existían (omitidos)` : ""}`;
+      sonnerToast.success(msg);
     } catch (err: any) {
-      toast({ title: "Error al parsear", description: err.message, variant: "destructive" });
+      sonnerToast.error(err.message || "Error al parsear el archivo");
     }
   };
 
