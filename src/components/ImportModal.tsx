@@ -351,8 +351,8 @@ export function ImportModal({ onClose }: { onClose: () => void }) {
                   {result.metricsUpdated > 0 && (
                     <p className="text-status-approved">✓ Métricas de Instagram actualizadas con {result.metricsUpdated} posts</p>
                   )}
-                  {result.skipped > 0 && (
-                    <p className="text-status-pending">⚠ {result.skipped} posts ya existían (omitidos)</p>
+                  {(result.skipped > 0 || result.metricsSkipped > 0) && (
+                    <p className="text-muted-foreground">↷ {result.skipped + result.metricsSkipped} posts omitidos (ya existían)</p>
                   )}
                   {result.errors.length > 0 && (
                     <p className="text-status-changes">⚠ {result.errors.length} posts no pudieron importarse</p>
