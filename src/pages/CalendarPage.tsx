@@ -208,7 +208,26 @@ export default function CalendarPage() {
         <p className="text-sm text-muted-foreground mt-1">Planificación de publicaciones</p>
       </motion.div>
 
-      <div className="flex items-center justify-between">
+      {/* Content type filter */}
+      <div className="flex gap-2 flex-wrap">
+        {[
+          { key: "all", label: "Todos" },
+          ...contentTypes.map((t) => ({ key: t, label: t.charAt(0).toUpperCase() + t.slice(1) })),
+        ].map((f) => (
+          <button
+            key={f.key}
+            onClick={() => setContentTypeFilter(f.key)}
+            className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors border ${
+              contentTypeFilter === f.key
+                ? "bg-primary/20 text-primary border-primary/30"
+                : "bg-secondary/50 text-muted-foreground border-border/50 hover:bg-secondary"
+            }`}
+          >
+            {f.label}
+          </button>
+        ))}
+      </div>
+
         <Button variant="ghost" size="icon" onClick={prev} className="text-muted-foreground hover:text-foreground"><ChevronLeft className="h-5 w-5" /></Button>
         <h2 className="text-lg font-semibold text-foreground capitalize">{monthName}</h2>
         <Button variant="ghost" size="icon" onClick={next} className="text-muted-foreground hover:text-foreground"><ChevronRight className="h-5 w-5" /></Button>
