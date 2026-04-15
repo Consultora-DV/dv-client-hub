@@ -154,11 +154,11 @@ function VideoDetail({ video, onClose }: { video: Video; onClose: () => void }) 
   const [newComment, setNewComment] = useState("");
   const [showChangesInput, setShowChangesInput] = useState(false);
   const [changesText, setChangesText] = useState("");
-  const { approveVideo, requestChanges, addComment, comments } = useAppState();
+  const { approveVideo, requestChanges, addComment, comments, clients } = useAppState();
   const { canApprove } = usePermissions();
   const status = statusConfig[video.status];
   const videoComments = comments[video.id] || [];
-  const client = clients.find((c: any) => c.id === video.clienteId);
+  const client = clients.find((c) => c.id === video.clienteId);
 
   const handleApprove = () => { approveVideo(video.id); onClose(); };
   const handleRequestChanges = () => {

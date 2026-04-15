@@ -36,10 +36,7 @@ function isValidInput(input: string): boolean {
 
 export function ImportModal({ onClose }: { onClose: () => void }) {
   const navigate = useNavigate();
-  const { importFromApify, allVideos } = useAppState();
-  // Apify token is now managed server-side via edge function
-
-  const { importFromApify, clients } = useAppState();
+  const { importFromApify, allVideos, clients } = useAppState();
   const [step, setStep] = useState<Step>("input");
   const [urlText, setUrlText] = useState("");
   const [clienteId, setClienteId] = useState(clients[0]?.id || "");
