@@ -177,7 +177,7 @@ export default function CalendarPage() {
 
   const getEventsForDay = (day: number) => {
     const dateStr = `${year}-${String(month + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
-    return calendarEvents.filter((e) => e.date === dateStr);
+    return filteredEvents.filter((e) => e.date === dateStr);
   };
 
   const handleDayClick = (day: number) => {
@@ -190,9 +190,16 @@ export default function CalendarPage() {
   const next = () => setCurrentDate(new Date(year, month + 1, 1));
   const monthName = currentDate.toLocaleDateString("es-MX", { month: "long", year: "numeric" });
 
-  const mobileEvents = calendarEvents
+  const mobileEvents = filteredEvents
     .filter((e) => { const d = new Date(e.date); return d.getMonth() === month && d.getFullYear() === year; })
     .sort((a, b) => a.date.localeCompare(b.date));
+
+  const handleDeleteEvent = () => {
+    if (!deleteTarget) return;
+    setCalendarEvents((prev) => prev.filter((e) => e.id !== deleteTarget.id));
+    toast.success(`Evento "${deleteTarget.title}" eliminado`);
+    setDeleteTarget(null);
+  };
 
   return (
     <div className="max-w-5xl mx-auto space-y-6">
