@@ -26,6 +26,7 @@ export function AppLayout() {
             <div className="flex items-center gap-3">
               <SidebarTrigger className="text-muted-foreground hover:text-foreground" />
               <ClientSelector />
+              <ClientSocialLinks />
             </div>
             <div className="flex items-center gap-1">
               {canImport && (
