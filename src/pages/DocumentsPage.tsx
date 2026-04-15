@@ -4,7 +4,7 @@ import { ListPagination } from "@/components/ListPagination";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { toast } from "sonner";
 import { motion, AnimatePresence } from "framer-motion";
-import { ExternalLink, FileText, File, Table, Presentation, Plus, X, Upload, Eye, EyeOff, Check, AlertTriangle, Trash2 } from "lucide-react";
+import { ExternalLink, FileText, File, Table, Presentation, Plus, X, Upload, Eye, EyeOff, Check, AlertTriangle, Trash2, Download } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
@@ -515,19 +515,20 @@ export default function DocumentsPage() {
                   </div>
                   {client && <span className="text-[10px] px-1.5 py-0.5 rounded-full shrink-0" style={{ backgroundColor: client.colorAccent + "22", color: client.colorAccent }}>{client.avatar}</span>}
                   <Badge variant="outline" className="border border-border text-xs text-muted-foreground shrink-0">{typeLabels[d.type]}</Badge>
+                  {d.fileUrl && (
+                    <a href={d.fileUrl} target="_blank" rel="noopener noreferrer" className="p-2 rounded-lg hover:bg-secondary text-muted-foreground hover:text-primary transition-colors shrink-0" title="Ver archivo">
+                      <Download className="h-4 w-4" />
+                    </a>
+                  )}
                   {d.driveLink && d.driveLink !== "#" ? (
-                    <a href={d.driveLink} target="_blank" rel="noopener noreferrer" className="p-2 rounded-lg hover:bg-secondary text-muted-foreground hover:text-primary transition-colors shrink-0">
+                    <a href={d.driveLink} target="_blank" rel="noopener noreferrer" className="p-2 rounded-lg hover:bg-secondary text-muted-foreground hover:text-primary transition-colors shrink-0" title="Ver en Drive">
                       <ExternalLink className="h-4 w-4" />
                     </a>
-                  ) : (
-                    <button
-                      onClick={() => toast.info("Este documento no tiene un enlace externo vinculado.")}
-                      className="p-2 rounded-lg text-muted-foreground/40 cursor-not-allowed shrink-0"
-                      title="Sin enlace vinculado"
-                    >
+                  ) : !d.fileUrl ? (
+                    <span className="p-2 rounded-lg text-muted-foreground/30 shrink-0" title="Sin enlace vinculado">
                       <ExternalLink className="h-4 w-4" />
-                    </button>
-                  )}
+                    </span>
+                  ) : null}
                   <button
                     onClick={() => setDeleteTarget({ type: "document", id: d.id, name: d.name })}
                     className="p-2 rounded-lg text-muted-foreground hover:text-destructive opacity-0 group-hover:opacity-100 transition-opacity shrink-0"
