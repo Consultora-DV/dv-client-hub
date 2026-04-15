@@ -75,7 +75,8 @@ interface OnboardingData {
 }
 
 // Configure pdf.js worker
-pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.4.168/pdf.worker.min.mjs`;
+import { PDF_WORKER_URL } from "@/lib/pdfConfig";
+pdfjsLib.GlobalWorkerOptions.workerSrc = PDF_WORKER_URL;
 
 export default function OnboardingPage({ editMode = false, onComplete }: { editMode?: boolean; onComplete?: () => void }) {
   const { user } = useAuth();

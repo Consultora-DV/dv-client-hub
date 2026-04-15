@@ -1,10 +1,12 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef } from "react";
 import { motion } from "framer-motion";
 import { X, Lock, Eye, EyeOff, Camera } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/contexts/AuthContext";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 
 const roleBadgeColors: Record<string, string> = {
   admin: "gold-gradient text-primary-foreground",
@@ -41,7 +43,9 @@ export function ProfileModal({ onClose }: { onClose: () => void }) {
     reader.readAsDataURL(file);
   };
 
-  const handleSave = () => {
+  const [saving, setSaving] = useState(false);
+
+  const handleSave = async () => {
     // Password validation
     const anyPwFilled = currentPw || newPw || confirmPw;
     if (anyPwFilled) {
@@ -53,7 +57,24 @@ export function ProfileModal({ onClose }: { onClose: () => void }) {
         setPwError("Las contraseñas no coinciden");
         return;
       }
-      // Password change acknowledged (no plaintext storage — will use server-side auth in future)
+      setSaving(true);
+      setPwError("");
+      try {
+        const { error } = await supabase.auth.updateUser({ password: newPw });
+        if (error) {
+          setPwError(error.message);
+          setSaving(false);
+          return;
+        }
+        toast.success("Contraseña actualizada");
+        setCurrentPw("");
+        setNewPw("");
+        setConfirmPw("");
+      } catch (err: any) {
+        setPwError(err.message || "Error al cambiar contraseña");
+        setSaving(false);
+        return;
+      }
     }
 
     // Save photo
@@ -63,7 +84,8 @@ export function ProfileModal({ onClose }: { onClose: () => void }) {
       localStorage.removeItem(photoKey);
     }
 
-    updateProfile({ name, email });
+    await updateProfile({ name, email });
+    setSaving(false);
     onClose();
   };
 
@@ -141,8 +163,8 @@ export function ProfileModal({ onClose }: { onClose: () => void }) {
               <span className="text-xs text-muted-foreground">Solo el administrador puede modificar tu rol.</span>
             </div>
           </div>
-          <Button onClick={handleSave} className="w-full gold-gradient text-primary-foreground rounded-xl h-11">
-            Guardar cambios
+          <Button onClick={handleSave} disabled={saving} className="w-full gold-gradient text-primary-foreground rounded-xl h-11">
+            {saving ? "Guardando..." : "Guardar cambios"}
           </Button>
         </div>
       </motion.div>
