@@ -122,6 +122,8 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
           const cached = localStorage.getItem("dv_clients_cache");
           if (cached) setClients(JSON.parse(cached));
         } catch { /* ignore */ }
+      } finally {
+        setIsLoadingClients(false);
       }
     }
     loadClients();
