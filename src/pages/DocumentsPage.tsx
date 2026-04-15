@@ -283,7 +283,6 @@ export default function DocumentsPage() {
             {filteredScripts.length === 0 && (
               <EmptyState icon={FileText} title="Sin guiones aún" description="Los guiones aparecerán aquí cuando se agreguen al sistema." />
             )}
-            )}
             {filteredScripts.map((s, i) => {
               const status = scriptStatusConfig[s.status];
               const client = appClients.find((c) => c.id === s.clienteId);
