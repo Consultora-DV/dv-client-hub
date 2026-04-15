@@ -403,8 +403,8 @@ export default function OnboardingPage({ editMode = false, onComplete }: { editM
                 </div>
 
                 <div className="grid grid-cols-2 gap-3">
-                  <Field label="Ciudad" value={data.city} onChange={v => update({ city: v })} />
-                  <Field label="País" value={data.country} onChange={v => update({ country: v })} />
+                  <Field label="Ciudad" value={data.city} onChange={v => update({ city: v })} aiFilled={aiFilledFields.has("city")} />
+                  <Field label="País" value={data.country} onChange={v => update({ country: v })} aiFilled={aiFilledFields.has("country")} />
                 </div>
 
                 <Field label="WhatsApp de contacto" value={data.whatsapp} onChange={v => update({ whatsapp: v })} type="tel" placeholder="+52 668 234 3672" />
@@ -682,12 +682,19 @@ export default function OnboardingPage({ editMode = false, onComplete }: { editM
   );
 }
 
-function Field({ label, value, onChange, type = "text", placeholder }: {
-  label: string; value: string; onChange: (v: string) => void; type?: string; placeholder?: string;
+function Field({ label, value, onChange, type = "text", placeholder, aiFilled }: {
+  label: string; value: string; onChange: (v: string) => void; type?: string; placeholder?: string; aiFilled?: boolean;
 }) {
   return (
     <div>
-      <label className="text-xs text-muted-foreground mb-1.5 block">{label}</label>
+      <div className="flex items-center gap-2 mb-1.5">
+        <label className="text-xs text-muted-foreground">{label}</label>
+        {aiFilled && (
+          <span className="inline-flex items-center gap-1 text-[10px] font-medium text-primary bg-primary/10 px-1.5 py-0.5 rounded-full">
+            <Sparkles className="h-2.5 w-2.5" /> IA
+          </span>
+        )}
+      </div>
       <Input type={type} value={value} onChange={e => onChange(e.target.value)} placeholder={placeholder} className="bg-secondary border-border/50 rounded-xl" />
     </div>
   );
