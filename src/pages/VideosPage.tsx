@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { toast } from "sonner";
 import { motion, AnimatePresence } from "framer-motion";
 import { Video, clients } from "@/data/mockData";
@@ -40,6 +40,16 @@ const statusConfig: Record<string, { label: string; class: string }> = {
   changes: { label: "Cambios solicitados", class: "bg-status-changes/20 text-status-changes border-status-changes/30" },
   published: { label: "Publicado", class: "bg-status-published/20 text-status-published border-status-published/30" },
 };
+
+type StatusFilter = "all" | "pending" | "approved" | "changes" | "published";
+
+const filterConfig: { key: StatusFilter; label: string; color: string }[] = [
+  { key: "all", label: "Todos", color: "bg-secondary text-foreground" },
+  { key: "pending", label: "Pendientes", color: "bg-status-pending/20 text-status-pending" },
+  { key: "approved", label: "Aprobados", color: "bg-status-approved/20 text-status-approved" },
+  { key: "changes", label: "Cambios solicitados", color: "bg-status-changes/20 text-status-changes" },
+  { key: "published", label: "Publicados", color: "bg-status-published/20 text-status-published" },
+];
 
 function PlatformPills({ platforms }: { platforms: string[] | string }) {
   const list = Array.isArray(platforms) ? platforms : [platforms];
@@ -201,7 +211,6 @@ function VideoDetail({ video, onClose }: { video: Video; onClose: () => void }) 
             <ExternalLink className="h-4 w-4" /> Ver guión en Drive
           </a>
 
-          {/* Instagram Data Section */}
           {video.igShortCode && (
             <InstagramDataSection video={video} />
           )}
@@ -264,7 +273,6 @@ function AddVideoModal({ onClose }: { onClose: () => void }) {
   const handleSave = () => {
     if (!title.trim() || !deliveryDate || platforms.length === 0) return;
     const url = embedUrl?.trim() || "";
-    // Duplicate check by URL or title+clienteId+date
     const isDuplicate = allVideos.some((v) => {
       if (url && v.embedUrl === url) return true;
       return v.title === title.trim() && v.clienteId === clienteId && v.deliveryDate === format(deliveryDate, "yyyy-MM-dd");
@@ -294,7 +302,7 @@ function AddVideoModal({ onClose }: { onClose: () => void }) {
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
       className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm p-4" onClick={onClose}>
       <motion.div initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.95, opacity: 0 }}
-        onClick={(e) => e.stopPropagation()} className="glass gold-border gold-glow rounded-2xl w-full max-w-lg">
+        onClick={(e) => e.stopPropagation()} className="glass gold-border gold-glow rounded-2xl w-full max-w-lg max-w-[95vw]">
         <div className="flex items-center justify-between p-5 border-b border-border/50">
           <h2 className="font-display text-lg font-semibold text-foreground">Agregar Video</h2>
           <button onClick={onClose} className="p-2 rounded-lg hover:bg-secondary text-muted-foreground"><X className="h-5 w-5" /></button>
@@ -351,6 +359,28 @@ export default function VideosPage() {
   const { videos, comments } = useAppState();
   const { canAddVideos } = usePermissions();
 
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>(() => {
+    return (sessionStorage.getItem("dv_video_filter") as StatusFilter) || "all";
+  });
+
+  const handleFilterChange = (f: StatusFilter) => {
+    setStatusFilter(f);
+    sessionStorage.setItem("dv_video_filter", f);
+  };
+
+  const filteredVideos = useMemo(() => {
+    if (statusFilter === "all") return videos;
+    return videos.filter((v) => v.status === statusFilter);
+  }, [videos, statusFilter]);
+
+  const statusCounts = useMemo(() => {
+    const counts: Record<string, number> = { all: videos.length };
+    for (const v of videos) {
+      counts[v.status] = (counts[v.status] || 0) + 1;
+    }
+    return counts;
+  }, [videos]);
+
   return (
     <div className="max-w-6xl mx-auto space-y-6">
       <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="flex items-center justify-between">
@@ -364,10 +394,38 @@ export default function VideosPage() {
           </Button>
         )}
       </motion.div>
+
+      {/* Status filter bar */}
+      <div className="flex gap-2 flex-wrap">
+        {filterConfig.map((f) => {
+          const count = statusCounts[f.key] || 0;
+          const isActive = statusFilter === f.key;
+          return (
+            <button
+              key={f.key}
+              onClick={() => handleFilterChange(f.key)}
+              className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors border ${
+                isActive
+                  ? `${f.color} border-current`
+                  : "bg-secondary/50 text-muted-foreground border-border/50 hover:bg-secondary"
+              }`}
+            >
+              {f.label} ({count})
+            </button>
+          );
+        })}
+      </div>
+
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
-        {videos.map((video) => (
+        {filteredVideos.map((video) => (
           <VideoCard key={video.id} video={video} commentCount={(comments[video.id] || []).length} onClick={() => setSelected(video)} />
         ))}
+        {filteredVideos.length === 0 && (
+          <div className="col-span-full glass gold-border rounded-xl p-12 flex flex-col items-center gap-3 text-center">
+            <Check className="h-10 w-10 text-muted-foreground/40" />
+            <p className="text-sm text-muted-foreground">No hay videos con este filtro</p>
+          </div>
+        )}
       </div>
       <AnimatePresence>
         {selected && <VideoDetail video={videos.find((v) => v.id === selected.id) || selected} onClose={() => setSelected(null)} />}

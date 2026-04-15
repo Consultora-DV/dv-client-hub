@@ -5,6 +5,8 @@ import { ChevronLeft, ChevronRight, X, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { useNavigate } from "react-router-dom";
 import { useAppState } from "@/contexts/AppStateContext";
 import { usePermissions } from "@/hooks/usePermissions";
@@ -16,6 +18,14 @@ const platformColors: Record<string, string> = {
   youtube: "bg-youtube",
   facebook: "bg-status-published",
   "google maps": "bg-status-approved",
+};
+
+const platformDotColors: Record<string, string> = {
+  instagram: "#E4405F",
+  tiktok: "#000000",
+  youtube: "#FF0000",
+  facebook: "#1877F2",
+  "google maps": "#34D399",
 };
 
 const allPlatforms = ["instagram", "tiktok", "youtube", "facebook", "google maps"];
@@ -40,7 +50,6 @@ function AddEventModal({ date, onClose }: { date: string; onClose: () => void })
 
   const handleSave = () => {
     if (!title.trim() || platforms.length === 0) return;
-    // Duplicate check: date + title + clienteId
     const isDuplicate = allCalendarEvents.some(
       (e) => e.date === date && e.title === title.trim() && e.clienteId === clienteId
     );
@@ -65,7 +74,7 @@ function AddEventModal({ date, onClose }: { date: string; onClose: () => void })
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
       className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm p-4" onClick={onClose}>
       <motion.div initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.95, opacity: 0 }}
-        onClick={(e) => e.stopPropagation()} className="glass gold-border gold-glow rounded-2xl w-full max-w-lg">
+        onClick={(e) => e.stopPropagation()} className="glass gold-border gold-glow rounded-2xl w-full max-w-lg max-w-[95vw]">
         <div className="flex items-center justify-between p-5 border-b border-border/50">
           <h2 className="font-display text-lg font-semibold text-foreground">Nueva Publicación</h2>
           <button onClick={onClose} className="p-2 rounded-lg hover:bg-secondary text-muted-foreground"><X className="h-5 w-5" /></button>
@@ -107,6 +116,35 @@ function AddEventModal({ date, onClose }: { date: string; onClose: () => void })
         </div>
       </motion.div>
     </motion.div>
+  );
+}
+
+function EventPill({ event }: { event: CalendarEvent }) {
+  const firstPlatform = event.platform[0];
+  const dotColor = platformDotColors[firstPlatform] || "#888";
+
+  return (
+    <TooltipProvider delayDuration={200}>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <div className="flex items-center gap-1 px-1 py-0.5 rounded bg-secondary/80 truncate cursor-default">
+            <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: dotColor }} />
+            <span className="text-[10px] text-foreground truncate">{event.title.slice(0, 15)}</span>
+          </div>
+        </TooltipTrigger>
+        <TooltipContent className="glass gold-border p-3 max-w-[200px]">
+          <p className="text-sm font-medium text-foreground">{event.title}</p>
+          {event.time && <p className="text-xs text-muted-foreground mt-1">{event.time}</p>}
+          <div className="flex gap-1 mt-1.5 flex-wrap">
+            {event.platform.map((p) => (
+              <span key={p} className={`text-[10px] px-1.5 py-0.5 rounded-full ${platformColors[p] || "bg-secondary"} text-foreground`}>
+                {platformLabels[p]}
+              </span>
+            ))}
+          </div>
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
   );
 }
 
@@ -161,6 +199,7 @@ export default function CalendarPage() {
         <Button variant="ghost" size="icon" onClick={next} className="text-muted-foreground hover:text-foreground"><ChevronRight className="h-5 w-5" /></Button>
       </div>
 
+      {/* Desktop calendar */}
       <div className="hidden md:block glass gold-border rounded-xl overflow-hidden">
         <div className="grid grid-cols-7">
           {DAYS.map((d) => (
@@ -170,6 +209,8 @@ export default function CalendarPage() {
         <div className="grid grid-cols-7">
           {cells.map((day, i) => {
             const events = day ? getEventsForDay(day) : [];
+            const visible = events.slice(0, 3);
+            const extra = events.length - 3;
             return (
               <div key={i} onClick={() => day && handleDayClick(day)}
                 className={`min-h-[100px] p-2 border-b border-r border-border/20 ${day ? `hover:bg-secondary/30 transition-colors ${canAddCalendarEvents ? "cursor-pointer" : ""}` : "bg-secondary/10"}`}>
@@ -179,22 +220,29 @@ export default function CalendarPage() {
                       <span className="text-xs text-muted-foreground">{day}</span>
                       {canAddCalendarEvents && <Plus className="h-3 w-3 text-muted-foreground/50 hover:text-primary" />}
                     </div>
-                    <div className="mt-1 space-y-1">
-                      {events.map((ev) => (
-                        <div key={ev.id} className="space-y-0.5">
-                          <button
-                            onClick={(e) => { e.stopPropagation(); ev.videoId && navigate("/videos"); }}
-                            className="w-full text-left text-[10px] font-medium px-1.5 py-0.5 rounded bg-secondary/80 text-foreground truncate block"
-                          >
-                            {ev.title}
-                          </button>
-                          <div className="flex gap-0.5 flex-wrap">
-                            {ev.platform.map((p) => (
-                              <span key={p} className={`inline-block w-2 h-2 rounded-full ${platformColors[p] || "bg-secondary"}`} title={platformLabels[p]} />
-                            ))}
-                          </div>
-                        </div>
+                    <div className="mt-1 space-y-0.5">
+                      {visible.map((ev) => (
+                        <EventPill key={ev.id} event={ev} />
                       ))}
+                      {extra > 0 && (
+                        <Popover>
+                          <PopoverTrigger asChild>
+                            <button
+                              onClick={(e) => e.stopPropagation()}
+                              className="text-[10px] text-primary hover:underline w-full text-left px-1"
+                            >
+                              +{extra} más
+                            </button>
+                          </PopoverTrigger>
+                          <PopoverContent className="glass gold-border p-2 w-48" onClick={(e) => e.stopPropagation()}>
+                            <div className="space-y-1">
+                              {events.slice(3).map((ev) => (
+                                <EventPill key={ev.id} event={ev} />
+                              ))}
+                            </div>
+                          </PopoverContent>
+                        </Popover>
+                      )}
                     </div>
                   </>
                 )}
@@ -204,6 +252,7 @@ export default function CalendarPage() {
         </div>
       </div>
 
+      {/* Mobile list */}
       <div className="md:hidden glass gold-border rounded-xl overflow-hidden">
         {canAddCalendarEvents && (
           <button onClick={() => setAddEventDate(`${year}-${String(month + 1).padStart(2, "0")}-01`)}
@@ -212,22 +261,31 @@ export default function CalendarPage() {
           </button>
         )}
         {mobileEvents.length === 0 && <p className="p-5 text-sm text-muted-foreground text-center">Sin eventos este mes</p>}
-        {mobileEvents.map((ev) => (
-          <button key={ev.id} onClick={() => ev.videoId && navigate("/videos")}
-            className="w-full flex items-center gap-3 px-5 py-4 border-b border-border/30 last:border-0 hover:bg-secondary/30 transition-colors text-left">
-            <div className="flex gap-1 shrink-0">
-              {ev.platform.map((p) => (
-                <div key={p} className={`w-3 h-3 rounded-full ${platformColors[p] || "bg-secondary"}`} />
-              ))}
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium text-foreground truncate">{ev.title}</p>
-              <p className="text-xs text-muted-foreground">
-                {new Date(ev.date).toLocaleDateString("es-MX", { weekday: "short", day: "numeric", month: "short" })}
-              </p>
-            </div>
-          </button>
-        ))}
+        {mobileEvents.map((ev) => {
+          const firstPlatform = ev.platform[0];
+          const borderColor = platformDotColors[firstPlatform] || "#888";
+          return (
+            <button key={ev.id} onClick={() => ev.videoId && navigate("/videos")}
+              className="w-full flex items-center gap-3 px-5 py-4 border-b border-border/30 last:border-0 hover:bg-secondary/30 transition-colors text-left"
+              style={{ borderLeftWidth: "3px", borderLeftColor: borderColor }}
+            >
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium text-foreground truncate">{ev.title}</p>
+                <p className="text-xs text-muted-foreground">
+                  {new Date(ev.date).toLocaleDateString("es-MX", { weekday: "short", day: "numeric", month: "short" })}
+                  {ev.time && ` · ${ev.time}`}
+                </p>
+              </div>
+              <div className="flex gap-1 shrink-0">
+                {ev.platform.map((p) => (
+                  <span key={p} className={`text-[10px] px-1.5 py-0.5 rounded-full ${platformColors[p] || "bg-secondary"} text-foreground`}>
+                    {platformLabels[p]?.slice(0, 2)}
+                  </span>
+                ))}
+              </div>
+            </button>
+          );
+        })}
       </div>
 
       <AnimatePresence>{addEventDate && <AddEventModal date={addEventDate} onClose={() => setAddEventDate(null)} />}</AnimatePresence>

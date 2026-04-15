@@ -41,6 +41,12 @@ interface AppStateContextType {
   setSelectedClienteId: (id: string | null) => void;
   clients: typeof clients;
   importFromApify: (videos: Video[], events: CalendarEvent[]) => ImportResult;
+  // Script functions
+  scriptComments: Record<string, Comment[]>;
+  approveScript: (scriptId: string) => void;
+  requestChangesScript: (scriptId: string, text: string) => void;
+  addScriptComment: (scriptId: string, commentText: string) => void;
+  markScriptViewed: (scriptId: string) => void;
 }
 
 const AppStateContext = createContext<AppStateContextType | null>(null);
@@ -53,6 +59,7 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
   const [allCalendarEvents, setCalendarEvents] = useLocalStorage<CalendarEvent[]>("dv_calendar_state", []);
   const [notifications, setNotifications] = useLocalStorage<Notification[]>("dv_notifications_state", []);
   const [comments, setComments] = useLocalStorage<Record<string, Comment[]>>("dv_comments_state", {});
+  const [scriptComments, setScriptComments] = useLocalStorage<Record<string, Comment[]>>("dv_scripts_comments", {});
   const [selectedClienteId, setSelectedClienteId] = useLocalStorage<string | null>("dv_selected_cliente", null);
 
   const isClient = user?.role === "cliente";
@@ -96,7 +103,7 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
     const video = allVideos.find((v) => v.id === videoId);
     if (video) {
       addNotification({
-        type: "video_ready",
+        type: "video_aprobado",
         message: `${user?.name || "Cliente"} aprobó '${video.title}'`,
         date: now,
         read: false,
@@ -132,7 +139,7 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
     const video = allVideos.find((v) => v.id === videoId);
     if (video) {
       addNotification({
-        type: "video_ready",
+        type: "video_cambios",
         message: `${user?.name || "Cliente"} solicitó cambios en '${video.title}'`,
         date: now,
         read: false,
@@ -154,6 +161,88 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
       [videoId]: [newComment, ...(prev[videoId] || [])],
     }));
   }, [setComments, user]);
+
+  // Script functions
+  const approveScript = useCallback((scriptId: string) => {
+    const now = new Date().toISOString();
+    setScripts((prev) =>
+      prev.map((s) =>
+        s.id === scriptId
+          ? {
+              ...s,
+              status: "aprobado" as const,
+              statusHistory: [...s.statusHistory, { status: "Aprobado", date: now.split("T")[0], by: user?.name || "Admin" }],
+            }
+          : s
+      )
+    );
+    const script = allScripts.find((s) => s.id === scriptId);
+    if (script) {
+      addNotification({
+        type: "script_aprobado",
+        message: `${user?.name || "Admin"} aprobó el guión "${script.title}"`,
+        date: now,
+        read: false,
+        link: "/documentos",
+      });
+    }
+  }, [setScripts, allScripts, user, addNotification]);
+
+  const requestChangesScript = useCallback((scriptId: string, text: string) => {
+    const now = new Date().toISOString();
+    setScripts((prev) =>
+      prev.map((s) =>
+        s.id === scriptId
+          ? {
+              ...s,
+              status: "cambios_solicitados" as const,
+              statusHistory: [...s.statusHistory, { status: "Cambios solicitados", date: now.split("T")[0], by: user?.name || "Admin" }],
+            }
+          : s
+      )
+    );
+    const newComment: Comment = {
+      id: `sc_${Date.now()}`,
+      author: user?.name || "Admin",
+      isClient: user?.role === "cliente",
+      text,
+      date: now,
+    };
+    setScriptComments((prev) => ({
+      ...prev,
+      [scriptId]: [newComment, ...(prev[scriptId] || [])],
+    }));
+    const script = allScripts.find((s) => s.id === scriptId);
+    if (script) {
+      addNotification({
+        type: "script_cambios",
+        message: `${user?.name || "Admin"} solicitó cambios en "${script.title}"`,
+        date: now,
+        read: false,
+        link: "/documentos",
+      });
+    }
+  }, [setScripts, setScriptComments, allScripts, user, addNotification]);
+
+  const addScriptComment = useCallback((scriptId: string, commentText: string) => {
+    const newComment: Comment = {
+      id: `sc_${Date.now()}`,
+      author: user?.name || "Usuario",
+      isClient: user?.role === "cliente",
+      text: commentText,
+      date: new Date().toISOString(),
+    };
+    setScriptComments((prev) => ({
+      ...prev,
+      [scriptId]: [newComment, ...(prev[scriptId] || [])],
+    }));
+  }, [setScriptComments, user]);
+
+  const markScriptViewed = useCallback((scriptId: string) => {
+    setScripts((prev) =>
+      prev.map((s) => s.id === scriptId ? { ...s, visto: true } : s)
+    );
+  }, [setScripts]);
 
   const feedApifyToMetrics = useCallback((importedVideos: Video[], targetClienteId: string) => {
     const igPosts: PostMetric[] = importedVideos
@@ -238,7 +327,7 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
     const totalSkipped = videosSkipped + eventsSkipped;
 
     addNotification({
-      type: "video_ready",
+      type: "import_completado",
       message: `Importación: ${videosAdded} videos, ${eventsAdded} eventos${metricsResult.added > 0 ? `, ${metricsResult.added} métricas` : ""}${totalSkipped > 0 ? ` · ${totalSkipped} duplicados omitidos` : ""}`,
       date: new Date().toISOString(),
       read: false,
@@ -261,6 +350,7 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
         selectedClienteId, setSelectedClienteId,
         clients,
         importFromApify,
+        scriptComments, approveScript, requestChangesScript, addScriptComment, markScriptViewed,
       }}
     >
       {children}

@@ -26,20 +26,55 @@ export interface ImportResult {
 
 const APIFY_BASE = "https://api.apify.com/v2";
 
-export async function scrapeInstagramPosts(
-  urls: string[],
+type InputType = "directUrl" | "username";
+
+interface ClassifiedInput {
+  directUrls: string[];
+  usernames: string[];
+}
+
+function classifyInputs(inputs: string[]): ClassifiedInput {
+  const directUrls: string[] = [];
+  const usernames: string[] = [];
+
+  for (const input of inputs) {
+    const trimmed = input.trim();
+    if (!trimmed) continue;
+
+    // Check if it's a direct post/reel/tv URL
+    if (/\/(p|reel|reels|tv)\//i.test(trimmed)) {
+      directUrls.push(trimmed);
+    } else if (/^[a-zA-Z0-9._]+$/.test(trimmed)) {
+      // Plain username (no slashes)
+      usernames.push(trimmed);
+    } else if (/instagram\.com\/[A-Za-z0-9._]+\/?(\?.*)?$/i.test(trimmed)) {
+      // Profile URL - extract username
+      const match = trimmed.match(/instagram\.com\/([A-Za-z0-9._]+)/i);
+      if (match) usernames.push(match[1]);
+      else usernames.push(trimmed);
+    } else {
+      // Fallback: treat as username if it looks like one
+      if (/^[a-zA-Z0-9._]+$/.test(trimmed.replace(/https?:\/\/(www\.)?instagram\.com\/?/i, ""))) {
+        usernames.push(trimmed);
+      } else {
+        directUrls.push(trimmed);
+      }
+    }
+  }
+
+  return { directUrls, usernames };
+}
+
+async function runScraper(
+  body: Record<string, any>,
   apiKey: string
 ): Promise<ApifyInstagramPost[]> {
-  // 1. Start the run — instagram-post-scraper uses "username" field for URLs
   const startRes = await fetch(
     `${APIFY_BASE}/acts/apify~instagram-post-scraper/runs?token=${apiKey}&memory=2048`,
     {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        username: urls,
-        resultsLimit: 50,
-      }),
+      body: JSON.stringify(body),
     }
   );
 
@@ -56,7 +91,6 @@ export async function scrapeInstagramPosts(
     throw new Error("No se pudo obtener el ID del run. Verifica tu API key.");
   }
 
-  // 2. Poll for completion
   const MAX_ATTEMPTS = 40;
   const POLL_INTERVAL = 3000;
 
@@ -73,7 +107,6 @@ export async function scrapeInstagramPosts(
     const status = pollData.data?.status;
 
     if (status === "SUCCEEDED") {
-      // 3. Fetch results
       const dataRes = await fetch(
         `${APIFY_BASE}/datasets/${datasetId}/items?token=${apiKey}&clean=true&format=json`
       );
@@ -109,4 +142,38 @@ export async function scrapeInstagramPosts(
   }
 
   throw new Error("Timeout: el scraper tardó más de 120 segundos. Intenta con menos URLs.");
+}
+
+export async function scrapeInstagramPosts(
+  urls: string[],
+  apiKey: string
+): Promise<ApifyInstagramPost[]> {
+  const { directUrls, usernames } = classifyInputs(urls);
+
+  const promises: Promise<ApifyInstagramPost[]>[] = [];
+
+  if (directUrls.length > 0) {
+    promises.push(
+      runScraper(
+        { directUrls, resultsType: "posts", resultsLimit: 50 },
+        apiKey
+      )
+    );
+  }
+
+  if (usernames.length > 0) {
+    promises.push(
+      runScraper(
+        { username: usernames, resultsType: "posts", resultsLimit: 50 },
+        apiKey
+      )
+    );
+  }
+
+  if (promises.length === 0) {
+    throw new Error("No se detectaron URLs ni usernames válidos.");
+  }
+
+  const results = await Promise.all(promises);
+  return results.flat();
 }
