@@ -81,8 +81,8 @@ export default function ProfilePage() {
     );
   }
 
-  const socialEntries = Object.entries(profileData.socialNetworks || {});
-  const strategy = profileData.strategy;
+  const socialEntries = Object.entries(profileData?.socialNetworks || {});
+  const strategy = profileData?.strategy;
   const goal = strategy?.mainGoal ? GOALS_MAP[strategy.mainGoal] : null;
 
   return (
