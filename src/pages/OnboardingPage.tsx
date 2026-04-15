@@ -7,10 +7,16 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import {
   Camera, Check, ChevronRight, ChevronLeft, User, Share2, Target, FileUp,
-  Instagram, Globe, MapPin, Upload, X, FileText, Rocket, DollarSign, Crosshair, Trophy, BookOpen
+  Instagram, Globe, MapPin, Upload, X, FileText, Rocket, DollarSign, Crosshair, Trophy, BookOpen,
+  Sparkles, Loader2, AlertCircle, Settings, CheckCircle2
 } from "lucide-react";
+import { useAiToken } from "@/hooks/useAiToken";
+import { parseBlueprint, type BlueprintResult } from "@/services/aiParserService";
+import { SettingsModal } from "@/components/SettingsModal";
+import * as pdfjsLib from "pdfjs-dist";
 
 const INDUSTRIES = [
   "Salud y bienestar", "Moda y estilo", "Gastronomía", "Tecnología",
@@ -68,6 +74,9 @@ interface OnboardingData {
   blueprintName: string;
 }
 
+// Configure pdf.js worker
+pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.4.168/pdf.worker.min.mjs`;
+
 export default function OnboardingPage({ editMode = false, onComplete }: { editMode?: boolean; onComplete?: () => void }) {
   const { user } = useAuth();
   const navigate = useNavigate();
@@ -76,6 +85,14 @@ export default function OnboardingPage({ editMode = false, onComplete }: { editM
   const fileRef = useRef<HTMLInputElement>(null);
   const blueprintRef = useRef<HTMLInputElement>(null);
 
+  // AI parsing state
+  const { hasToken, token: aiToken, provider: aiProvider } = useAiToken();
+  const [blueprintText, setBlueprintText] = useState<string | null>(null);
+  const [isParsingAi, setIsParsingAi] = useState(false);
+  const [aiParseError, setAiParseError] = useState<string | null>(null);
+  const [aiParseResult, setAiParseResult] = useState<BlueprintResult | null>(null);
+  const [showSettingsModal, setShowSettingsModal] = useState(false);
+  const [aiFilledFields, setAiFilledFields] = useState<Set<string>>(new Set());
   const existingProfile = user?.id ? localStorage.getItem(`dv_client_profile_${user.id}`) : null;
   const parsed = existingProfile ? JSON.parse(existingProfile) : null;
 
@@ -129,13 +146,107 @@ export default function OnboardingPage({ editMode = false, onComplete }: { editM
     reader.readAsDataURL(file);
   };
 
-  const handleBlueprintChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleBlueprintChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
     if (file.size > 10 * 1024 * 1024) { alert("Máximo 10MB"); return; }
+
+    // Reset AI state
+    setAiParseError(null);
+    setAiParseResult(null);
+    setBlueprintText(null);
+
     const reader = new FileReader();
     reader.onload = () => update({ blueprintFile: reader.result as string, blueprintName: file.name });
     reader.readAsDataURL(file);
+
+    // Extract text for AI parsing
+    if (file.type === "application/pdf" || file.name.endsWith(".pdf")) {
+      try {
+        const arrayBuffer = await file.arrayBuffer();
+        const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+        const pages: string[] = [];
+        for (let i = 1; i <= pdf.numPages; i++) {
+          const page = await pdf.getPage(i);
+          const content = await page.getTextContent();
+          pages.push(content.items.map((item: any) => item.str).join(" "));
+        }
+        setBlueprintText(pages.join("\n\n"));
+      } catch {
+        setBlueprintText(null);
+      }
+    } else if (file.type.startsWith("image/")) {
+      // Images can't be parsed as text
+      setBlueprintText(null);
+    } else {
+      // Try reading as text for DOCX etc.
+      try {
+        const text = await file.text();
+        if (text.trim().length > 10) setBlueprintText(text);
+      } catch {
+        setBlueprintText(null);
+      }
+    }
+  };
+
+  const handleAiParse = async () => {
+    if (!blueprintText || !aiToken) return;
+    setIsParsingAi(true);
+    setAiParseError(null);
+    try {
+      const result = await parseBlueprint(blueprintText, aiProvider, aiToken);
+      setAiParseResult(result);
+    } catch (err: any) {
+      setAiParseError(err.message || "Error al analizar el documento.");
+    } finally {
+      setIsParsingAi(false);
+    }
+  };
+
+  const applyAiResult = (result: BlueprintResult) => {
+    const filled = new Set<string>();
+    const updates: Partial<OnboardingData> = {};
+
+    if (result.nombre && !data.fullName) {
+      updates.fullName = [result.nombre, result.apellido].filter(Boolean).join(" ");
+      filled.add("fullName");
+    }
+    if (result.negocio && !data.businessName) {
+      updates.businessName = result.negocio;
+      filled.add("businessName");
+    }
+    if (result.giro && !data.industry) {
+      const match = INDUSTRIES.find(i => i.toLowerCase().includes(result.giro!.toLowerCase()));
+      if (match) { updates.industry = match; filled.add("industry"); }
+    }
+    if (result.ciudad && !data.city) { updates.city = result.ciudad; filled.add("city"); }
+    if (result.pais && !data.country) { updates.country = result.pais; filled.add("country"); }
+
+    // Pre-fill social networks
+    if (result.redes?.length) {
+      const PLATFORM_MAP: Record<string, string> = {
+        instagram: "instagram", tiktok: "tiktok", facebook: "facebook",
+        youtube: "youtube", linkedin: "website", twitter: "website",
+        pinterest: "website", "google maps": "googleMaps", googlemaps: "googleMaps",
+      };
+      const newSocials = { ...data.socials };
+      result.redes.forEach(r => {
+        const key = PLATFORM_MAP[r.plataforma.toLowerCase()] || null;
+        if (key && newSocials[key] && !newSocials[key].active) {
+          newSocials[key] = {
+            active: true,
+            handle: r.usuario || "",
+            url: r.url || "",
+            followers: r.seguidores || 0,
+          };
+          filled.add(`social_${key}`);
+        }
+      });
+      updates.socials = newSocials;
+    }
+
+    if (Object.keys(updates).length) update(updates);
+    setAiFilledFields(filled);
   };
 
   const handleComplete = () => {
@@ -276,8 +387,8 @@ export default function OnboardingPage({ editMode = false, onComplete }: { editM
                   <input ref={fileRef} type="file" accept="image/jpeg,image/png" onChange={handlePhotoChange} className="hidden" />
                 </div>
 
-                <Field label="Nombre completo *" value={data.fullName} onChange={v => update({ fullName: v })} />
-                <Field label="Nombre de marca o negocio *" value={data.businessName} onChange={v => update({ businessName: v })} />
+                <Field label="Nombre completo *" value={data.fullName} onChange={v => update({ fullName: v })} aiFilled={aiFilledFields.has("fullName")} />
+                <Field label="Nombre de marca o negocio *" value={data.businessName} onChange={v => update({ businessName: v })} aiFilled={aiFilledFields.has("businessName")} />
 
                 <div>
                   <label className="text-xs text-muted-foreground mb-1.5 block">Industria / nicho *</label>
@@ -292,8 +403,8 @@ export default function OnboardingPage({ editMode = false, onComplete }: { editM
                 </div>
 
                 <div className="grid grid-cols-2 gap-3">
-                  <Field label="Ciudad" value={data.city} onChange={v => update({ city: v })} />
-                  <Field label="País" value={data.country} onChange={v => update({ country: v })} />
+                  <Field label="Ciudad" value={data.city} onChange={v => update({ city: v })} aiFilled={aiFilledFields.has("city")} />
+                  <Field label="País" value={data.country} onChange={v => update({ country: v })} aiFilled={aiFilledFields.has("country")} />
                 </div>
 
                 <Field label="WhatsApp de contacto" value={data.whatsapp} onChange={v => update({ whatsapp: v })} type="tel" placeholder="+52 668 234 3672" />
@@ -449,17 +560,82 @@ export default function OnboardingPage({ editMode = false, onComplete }: { editM
                 </div>
 
                 {data.blueprintFile ? (
-                  <div className="glass gold-border rounded-xl p-5 flex items-center gap-4">
-                    <div className="w-12 h-12 rounded-lg bg-primary/10 flex items-center justify-center">
-                      <FileText className="h-6 w-6 text-primary" />
+                  <div className="space-y-4">
+                    <div className="glass gold-border rounded-xl p-5 flex items-center gap-4">
+                      <div className="w-12 h-12 rounded-lg bg-primary/10 flex items-center justify-center">
+                        <FileText className="h-6 w-6 text-primary" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-foreground truncate">{data.blueprintName || "Archivo subido"}</p>
+                        <p className="text-xs text-muted-foreground">Listo para guardar</p>
+                      </div>
+                      <button onClick={() => { update({ blueprintFile: null, blueprintName: "" }); setBlueprintText(null); setAiParseResult(null); setAiParseError(null); }} className="p-2 rounded-lg hover:bg-secondary text-muted-foreground">
+                        <X className="h-4 w-4" />
+                      </button>
                     </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-foreground truncate">{data.blueprintName || "Archivo subido"}</p>
-                      <p className="text-xs text-muted-foreground">Listo para guardar</p>
-                    </div>
-                    <button onClick={() => update({ blueprintFile: null, blueprintName: "" })} className="p-2 rounded-lg hover:bg-secondary text-muted-foreground">
-                      <X className="h-4 w-4" />
-                    </button>
+
+                    {/* AI Parsing Section */}
+                    {hasToken && blueprintText && !aiParseResult && (
+                      <div className="space-y-3">
+                        <Button
+                          onClick={handleAiParse}
+                          disabled={isParsingAi}
+                          className="w-full rounded-xl relative overflow-hidden group gold-gradient text-primary-foreground hover:opacity-90"
+                        >
+                          <span className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-700" />
+                          {isParsingAi ? (
+                            <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Analizando documento...</>
+                          ) : (
+                            <><Sparkles className="h-4 w-4 mr-2" /> Analizar con IA</>
+                          )}
+                        </Button>
+                      </div>
+                    )}
+
+                    {hasToken && data.blueprintName && !blueprintText && data.blueprintName.match(/\.(jpg|jpeg|png|webp)$/i) && (
+                      <div className="glass rounded-xl p-3">
+                        <p className="text-xs text-muted-foreground text-center">Las imágenes se procesarán manualmente por ahora.</p>
+                      </div>
+                    )}
+
+                    {!hasToken && blueprintText && (
+                      <div className="glass rounded-xl p-4 space-y-3">
+                        <p className="text-xs text-muted-foreground text-center">
+                          Configura una API key de IA en Ajustes para analizar este documento automáticamente.
+                        </p>
+                        <Button variant="outline" size="sm" onClick={() => setShowSettingsModal(true)} className="mx-auto flex rounded-xl">
+                          <Settings className="h-4 w-4 mr-2" /> Ir a Ajustes
+                        </Button>
+                      </div>
+                    )}
+
+                    {aiParseError && (
+                      <Alert variant="destructive" className="rounded-xl">
+                        <AlertCircle className="h-4 w-4" />
+                        <AlertDescription className="flex items-center justify-between">
+                          <span className="text-sm">{aiParseError}</span>
+                          <Button variant="ghost" size="sm" onClick={() => setAiParseError(null)} className="text-xs shrink-0">
+                            Continuar manualmente
+                          </Button>
+                        </AlertDescription>
+                      </Alert>
+                    )}
+
+                    {aiParseResult && (
+                      <Alert className="rounded-xl border-status-approved/30 bg-status-approved/10">
+                        <CheckCircle2 className="h-4 w-4 text-status-approved" />
+                        <AlertDescription className="flex items-center justify-between">
+                          <span className="text-sm text-foreground">¡Análisis completado! Los datos se pre-llenarán en los pasos anteriores.</span>
+                          <Button
+                            size="sm"
+                            onClick={() => { applyAiResult(aiParseResult); setStep(0); }}
+                            className="gold-gradient text-primary-foreground rounded-xl text-xs shrink-0 ml-2"
+                          >
+                            Ver resultado →
+                          </Button>
+                        </AlertDescription>
+                      </Alert>
+                    )}
                   </div>
                 ) : (
                   <button
@@ -471,13 +647,11 @@ export default function OnboardingPage({ editMode = false, onComplete }: { editM
                     <p className="text-xs text-primary font-medium">Click para seleccionar archivo</p>
                   </button>
                 )}
-                <input ref={blueprintRef} type="file" accept=".pdf,.docx,.doc" onChange={handleBlueprintChange} className="hidden" />
-
-                <div className="glass rounded-xl p-4 text-center">
-                  <p className="text-xs text-muted-foreground">En futuras versiones, nuestro asistente de IA leerá este documento automáticamente para pre-configurar tu perfil. 🤖</p>
-                </div>
+                <input ref={blueprintRef} type="file" accept=".pdf,.docx,.doc,.jpg,.jpeg,.png,.webp" onChange={handleBlueprintChange} className="hidden" />
               </div>
             )}
+
+            {showSettingsModal && <SettingsModal onClose={() => setShowSettingsModal(false)} />}
           </motion.div>
         </AnimatePresence>
 
@@ -508,12 +682,19 @@ export default function OnboardingPage({ editMode = false, onComplete }: { editM
   );
 }
 
-function Field({ label, value, onChange, type = "text", placeholder }: {
-  label: string; value: string; onChange: (v: string) => void; type?: string; placeholder?: string;
+function Field({ label, value, onChange, type = "text", placeholder, aiFilled }: {
+  label: string; value: string; onChange: (v: string) => void; type?: string; placeholder?: string; aiFilled?: boolean;
 }) {
   return (
     <div>
-      <label className="text-xs text-muted-foreground mb-1.5 block">{label}</label>
+      <div className="flex items-center gap-2 mb-1.5">
+        <label className="text-xs text-muted-foreground">{label}</label>
+        {aiFilled && (
+          <span className="inline-flex items-center gap-1 text-[10px] font-medium text-primary bg-primary/10 px-1.5 py-0.5 rounded-full">
+            <Sparkles className="h-2.5 w-2.5" /> IA
+          </span>
+        )}
+      </div>
       <Input type={type} value={value} onChange={e => onChange(e.target.value)} placeholder={placeholder} className="bg-secondary border-border/50 rounded-xl" />
     </div>
   );
