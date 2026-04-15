@@ -300,17 +300,17 @@ export default function CalendarPage() {
           const firstPlatform = ev.platform[0];
           const borderColor = platformDotColors[firstPlatform] || "#888";
           return (
-            <button key={ev.id} onClick={() => ev.videoId && navigate("/videos")}
-              className="w-full flex items-center gap-3 px-5 py-4 border-b border-border/30 last:border-0 hover:bg-secondary/30 transition-colors text-left"
+            <div key={ev.id}
+              className="w-full flex items-center gap-3 px-5 py-4 border-b border-border/30 last:border-0 hover:bg-secondary/30 transition-colors text-left group"
               style={{ borderLeftWidth: "3px", borderLeftColor: borderColor }}
             >
-              <div className="flex-1 min-w-0">
+              <button onClick={() => ev.videoId && navigate("/videos")} className="flex-1 min-w-0 text-left">
                 <p className="text-sm font-medium text-foreground truncate">{ev.title}</p>
                 <p className="text-xs text-muted-foreground">
                   {new Date(ev.date).toLocaleDateString("es-MX", { weekday: "short", day: "numeric", month: "short" })}
                   {ev.time && ` · ${ev.time}`}
                 </p>
-              </div>
+              </button>
               <div className="flex gap-1 shrink-0">
                 {ev.platform.map((p) => (
                   <span key={p} className={`text-[10px] px-1.5 py-0.5 rounded-full ${platformColors[p] || "bg-secondary"} text-foreground`}>
@@ -318,10 +318,24 @@ export default function CalendarPage() {
                   </span>
                 ))}
               </div>
-            </button>
+              <button
+                onClick={() => setDeleteTarget(ev)}
+                className="p-1.5 rounded-lg text-muted-foreground hover:text-destructive opacity-0 group-hover:opacity-100 transition-opacity shrink-0"
+              >
+                <Trash2 className="h-4 w-4" />
+              </button>
+            </div>
           );
         })}
       </div>
+
+      <ConfirmDialog
+        open={!!deleteTarget}
+        onOpenChange={(o) => !o && setDeleteTarget(null)}
+        title="Eliminar evento"
+        description={`¿Estás seguro de eliminar "${deleteTarget?.title}"? Esta acción no se puede deshacer.`}
+        onConfirm={handleDeleteEvent}
+      />
 
       <AnimatePresence>{addEventDate && <AddEventModal date={addEventDate} onClose={() => setAddEventDate(null)} />}</AnimatePresence>
     </div>
