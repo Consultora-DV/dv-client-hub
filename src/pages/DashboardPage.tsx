@@ -2,7 +2,7 @@ import { motion } from "framer-motion";
 import { useAuth } from "@/contexts/AuthContext";
 import { useAppState } from "@/contexts/AppStateContext";
 import { usePermissions } from "@/hooks/usePermissions";
-import { Video, FileText, File, CalendarDays, Clock } from "lucide-react";
+import { Video as VideoIcon, FileText, File, CalendarDays, Clock, Inbox } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { formatDistanceToNow } from "date-fns";
 import { es } from "date-fns/locale";
@@ -15,7 +15,7 @@ const fadeUp = {
 export default function DashboardPage() {
   const { user } = useAuth();
   const { videos, documents, notifications, scripts, clients, allVideos, allDocuments } = useAppState();
-  const { isAdmin, isClient } = usePermissions();
+  const { isAdmin } = usePermissions();
   const navigate = useNavigate();
 
   const today = new Date().toLocaleDateString("es-MX", {
@@ -30,7 +30,7 @@ export default function DashboardPage() {
     .sort((a, b) => a.deliveryDate.localeCompare(b.deliveryDate))[0];
 
   const summaryCards = [
-    { label: "Videos pendientes", value: pendingVideos, icon: Video, color: "text-status-pending", link: "/videos" },
+    { label: "Videos pendientes", value: pendingVideos, icon: VideoIcon, color: "text-status-pending", link: "/videos" },
     { label: "Guiones nuevos", value: newScripts, icon: FileText, color: "text-primary", link: "/documentos" },
     { label: "Documentos recientes", value: recentDocs, icon: File, color: "text-status-published", link: "/documentos" },
     {
@@ -55,7 +55,6 @@ export default function DashboardPage() {
         <p className="text-muted-foreground text-sm mt-1 capitalize">{today}</p>
       </motion.div>
 
-      {/* Admin: client summary cards */}
       {isAdmin && (
         <motion.div {...fadeUp} transition={{ delay: 0.15 }}>
           <h2 className="text-lg font-display font-semibold text-foreground mb-4">Resumen por cliente</h2>
@@ -121,19 +120,26 @@ export default function DashboardPage() {
       <motion.div {...fadeUp} transition={{ delay: 0.4 }}>
         <h2 className="text-lg font-display font-semibold text-foreground mb-4">Actividad reciente</h2>
         <div className="glass gold-border rounded-xl overflow-hidden">
-          {feed.map((item, i) => (
-            <button
-              key={i}
-              onClick={() => navigate(item.link)}
-              className="w-full flex items-center gap-4 px-5 py-4 hover:bg-secondary/50 transition-colors border-b border-border/30 last:border-0 text-left"
-            >
-              <Clock className="h-4 w-4 text-muted-foreground shrink-0" />
-              <div className="flex-1 min-w-0">
-                <p className="text-sm text-foreground truncate">{item.text}</p>
-              </div>
-              <span className="text-xs text-muted-foreground shrink-0">{item.time}</span>
-            </button>
-          ))}
+          {feed.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-12 gap-3">
+              <Inbox className="h-10 w-10 text-muted-foreground/40" />
+              <p className="text-sm text-muted-foreground">Sin actividad reciente</p>
+            </div>
+          ) : (
+            feed.map((item, i) => (
+              <button
+                key={i}
+                onClick={() => navigate(item.link)}
+                className="w-full flex items-center gap-4 px-5 py-4 hover:bg-secondary/50 transition-colors border-b border-border/30 last:border-0 text-left"
+              >
+                <Clock className="h-4 w-4 text-muted-foreground shrink-0" />
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm text-foreground truncate">{item.text}</p>
+                </div>
+                <span className="text-xs text-muted-foreground shrink-0">{item.time}</span>
+              </button>
+            ))
+          )}
         </div>
       </motion.div>
     </div>
