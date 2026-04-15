@@ -38,6 +38,7 @@ interface AppStateContextType {
   requestChanges: (videoId: string, comment: string) => void;
   addComment: (videoId: string, text: string) => void;
   addNotification: (notification: Omit<Notification, "id">) => void;
+  isLoadingClients: boolean;
   selectedClienteId: string | null;
   setSelectedClienteId: (id: string | null) => void;
   clients: Client[];
@@ -55,6 +56,7 @@ const AppStateContext = createContext<AppStateContextType | null>(null);
 export function AppStateProvider({ children }: { children: ReactNode }) {
   const { user } = useAuth();
   const [clients, setClients] = useState<Client[]>([]);
+  const [isLoadingClients, setIsLoadingClients] = useState(true);
   const [allVideos, setVideos] = useLocalStorage<Video[]>("dv_videos_state", []);
   const [allDocuments, setDocuments] = useLocalStorage<Document[]>("dv_documents_state", []);
   const [allScripts, setScripts] = useLocalStorage<Script[]>("dv_scripts_state", []);
