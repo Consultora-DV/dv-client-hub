@@ -152,7 +152,7 @@ export default function CalendarPage() {
   const navigate = useNavigate();
   const { calendarEvents } = useAppState();
   const { canAddCalendarEvents } = usePermissions();
-  const [currentDate, setCurrentDate] = useState(new Date(2026, 3, 1));
+  const [currentDate, setCurrentDate] = useState(() => new Date());
   const [addEventDate, setAddEventDate] = useState<string | null>(null);
 
   const year = currentDate.getFullYear();

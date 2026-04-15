@@ -10,10 +10,21 @@ import { useReducedMotion } from "@/hooks/useReducedMotion";
 
 export default function DashboardPage() {
   const { user } = useAuth();
-  const { videos, documents, notifications, scripts, clients, allVideos, allDocuments, setSelectedClienteId, calendarEvents } = useAppState();
+  const { videos, documents, notifications, scripts, clients, allVideos, allDocuments, setSelectedClienteId, calendarEvents, isLoadingClients } = useAppState();
   const { isAdmin } = usePermissions();
   const navigate = useNavigate();
   const reduced = useReducedMotion();
+
+  if (isLoadingClients) {
+    return (
+      <div className="max-w-6xl mx-auto flex items-center justify-center py-20">
+        <div className="flex items-center gap-3 text-muted-foreground">
+          <div className="w-5 h-5 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+          <span className="text-sm">Cargando datos...</span>
+        </div>
+      </div>
+    );
+  }
 
   const fadeUp = reduced
     ? { initial: {}, animate: {} }

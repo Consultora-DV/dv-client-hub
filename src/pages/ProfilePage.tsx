@@ -67,6 +67,20 @@ export default function ProfilePage() {
   const displayIndustry = profileData?.industry || clientInfo?.especialidad || "";
   const displayEmail = clientInfo?.email || user?.email || "";
 
+  if (isAdmin && !selectedClienteId) {
+    return (
+      <div className="max-w-4xl mx-auto">
+        <motion.div {...fadeUp} className="glass gold-border rounded-xl p-10 text-center space-y-4">
+          <div className="w-16 h-16 mx-auto rounded-full bg-primary/10 flex items-center justify-center">
+            <Camera className="h-8 w-8 text-primary" />
+          </div>
+          <h2 className="text-xl font-display font-bold text-foreground">Selecciona un cliente</h2>
+          <p className="text-sm text-muted-foreground">Usa el selector de clientes en el menú superior para ver el perfil de un cliente.</p>
+        </motion.div>
+      </div>
+    );
+  }
+
   if (!profileData && !clientInfo) {
     return (
       <div className="max-w-4xl mx-auto">

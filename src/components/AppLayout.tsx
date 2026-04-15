@@ -51,7 +51,7 @@ export function AppLayout() {
           </main>
         </div>
         <a
-          href="https://wa.me/5216682343672?text=Hola%20Dante%2C%20tengo%20una%20pregunta"
+          href={`https://wa.me/${import.meta.env.VITE_WHATSAPP_NUMBER || "5216682343672"}?text=Hola%20Dante%2C%20tengo%20una%20pregunta`}
           target="_blank"
           rel="noopener noreferrer"
           className="fixed bottom-4 right-4 md:bottom-6 md:right-6 z-50 w-14 h-14 md:w-12 md:h-12 rounded-full flex items-center justify-center shadow-lg hover:scale-110 transition-transform"
