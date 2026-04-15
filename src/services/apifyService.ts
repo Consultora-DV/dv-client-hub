@@ -25,6 +25,9 @@ export interface ImportResult {
 }
 
 const APIFY_BASE = "https://api.apify.com/v2";
+const USERNAME_PATTERN = /^[a-zA-Z0-9._]+$/;
+const DIRECT_POST_PATTERN = /\/(p|reel|reels|tv)\/([A-Za-z0-9_-]+)/i;
+const DIRECT_SEGMENTS = new Set(["p", "reel", "reels", "tv"]);
 
 type InputType = "directUrl" | "username";
 
@@ -33,7 +36,53 @@ interface ClassifiedInput {
   usernames: string[];
 }
 
-function classifyInputs(inputs: string[]): ClassifiedInput {
+function uniqueValues(values: string[]) {
+  return Array.from(new Set(values.filter(Boolean)));
+}
+
+function normalizeInstagramUrl(value: string) {
+  try {
+    const url = new URL(value);
+    return `${url.origin.toLowerCase()}${url.pathname.replace(/\/+$/, "")}`;
+  } catch {
+    return value.trim().replace(/[?#].*$/, "").replace(/\/+$/, "");
+  }
+}
+
+function extractShortCode(value: string) {
+  return value.match(DIRECT_POST_PATTERN)?.[2] ?? null;
+}
+
+function extractUsernameFromInput(value: string) {
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+
+  if (USERNAME_PATTERN.test(trimmed)) {
+    return trimmed;
+  }
+
+  try {
+    const url = new URL(trimmed);
+    const segments = url.pathname.split("/").filter(Boolean);
+
+    if (segments.length === 0) return null;
+    if (DIRECT_SEGMENTS.has(segments[0].toLowerCase())) return null;
+
+    if (segments.length === 1) {
+      return USERNAME_PATTERN.test(segments[0]) ? segments[0] : null;
+    }
+
+    if (DIRECT_SEGMENTS.has(segments[1].toLowerCase())) {
+      return USERNAME_PATTERN.test(segments[0]) ? segments[0] : null;
+    }
+
+    return USERNAME_PATTERN.test(segments[0]) ? segments[0] : null;
+  } catch {
+    return null;
+  }
+}
+
+function detectInputType(inputs: string[]): ClassifiedInput {
   const directUrls: string[] = [];
   const usernames: string[] = [];
 
@@ -41,28 +90,43 @@ function classifyInputs(inputs: string[]): ClassifiedInput {
     const trimmed = input.trim();
     if (!trimmed) continue;
 
-    // Check if it's a direct post/reel/tv URL
-    if (/\/(p|reel|reels|tv)\//i.test(trimmed)) {
+    if (DIRECT_POST_PATTERN.test(trimmed)) {
       directUrls.push(trimmed);
-    } else if (/^[a-zA-Z0-9._]+$/.test(trimmed)) {
-      // Plain username (no slashes)
-      usernames.push(trimmed);
-    } else if (/instagram\.com\/[A-Za-z0-9._]+\/?(\?.*)?$/i.test(trimmed)) {
-      // Profile URL - extract username
-      const match = trimmed.match(/instagram\.com\/([A-Za-z0-9._]+)/i);
-      if (match) usernames.push(match[1]);
-      else usernames.push(trimmed);
+      continue;
+    }
+
+    const username = extractUsernameFromInput(trimmed);
+
+    if (username) {
+      usernames.push(username);
     } else {
-      // Fallback: treat as username if it looks like one
-      if (/^[a-zA-Z0-9._]+$/.test(trimmed.replace(/https?:\/\/(www\.)?instagram\.com\/?/i, ""))) {
-        usernames.push(trimmed);
-      } else {
-        directUrls.push(trimmed);
-      }
+      directUrls.push(trimmed);
     }
   }
 
-  return { directUrls, usernames };
+  return {
+    directUrls: uniqueValues(directUrls),
+    usernames: uniqueValues(usernames),
+  };
+}
+
+function buildScraperBody(directUrls: string[], usernames: string[]) {
+  return {
+    directUrls: uniqueValues(directUrls),
+    username: uniqueValues([
+      ...usernames,
+      ...directUrls
+        .map((url) => extractUsernameFromInput(url))
+        .filter((value): value is string => Boolean(value)),
+    ]),
+    resultsType: "posts",
+    resultsLimit: 50,
+  };
+}
+
+function shouldFallbackToProfileScrape(error: unknown) {
+  const message = error instanceof Error ? error.message : String(error);
+  return /input\.username is required/i.test(message);
 }
 
 async function runScraper(
@@ -144,30 +208,60 @@ async function runScraper(
   throw new Error("Timeout: el scraper tardó más de 120 segundos. Intenta con menos URLs.");
 }
 
+async function scrapeDirectUrls(
+  directUrls: string[],
+  apiKey: string
+): Promise<ApifyInstagramPost[]> {
+  try {
+    return await runScraper(buildScraperBody(directUrls, []), apiKey);
+  } catch (error) {
+    if (!shouldFallbackToProfileScrape(error)) {
+      throw error;
+    }
+
+    const usernames = uniqueValues(
+      directUrls
+        .map((url) => extractUsernameFromInput(url))
+        .filter((value): value is string => Boolean(value))
+    );
+
+    if (usernames.length === 0) {
+      throw error;
+    }
+
+    const requestedUrls = new Set(directUrls.map(normalizeInstagramUrl));
+    const requestedShortCodes = new Set(
+      directUrls
+        .map((url) => extractShortCode(url))
+        .filter((value): value is string => Boolean(value))
+    );
+
+    const fallbackResults = await runScraper(buildScraperBody([], usernames), apiKey);
+    const matchedResults = fallbackResults.filter((item) => {
+      return (
+        requestedShortCodes.has(item.shortCode) ||
+        requestedUrls.has(normalizeInstagramUrl(item.url))
+      );
+    });
+
+    return matchedResults.length > 0 ? matchedResults : fallbackResults;
+  }
+}
+
 export async function scrapeInstagramPosts(
   urls: string[],
   apiKey: string
 ): Promise<ApifyInstagramPost[]> {
-  const { directUrls, usernames } = classifyInputs(urls);
+  const { directUrls, usernames } = detectInputType(urls);
 
   const promises: Promise<ApifyInstagramPost[]>[] = [];
 
   if (directUrls.length > 0) {
-    promises.push(
-      runScraper(
-        { directUrls, resultsType: "posts", resultsLimit: 50 },
-        apiKey
-      )
-    );
+    promises.push(scrapeDirectUrls(directUrls, apiKey));
   }
 
   if (usernames.length > 0) {
-    promises.push(
-      runScraper(
-        { username: usernames, resultsType: "posts", resultsLimit: 50 },
-        apiKey
-      )
-    );
+    promises.push(runScraper(buildScraperBody([], usernames), apiKey));
   }
 
   if (promises.length === 0) {
@@ -175,5 +269,14 @@ export async function scrapeInstagramPosts(
   }
 
   const results = await Promise.all(promises);
-  return results.flat();
+  const uniquePosts = new Map<string, ApifyInstagramPost>();
+
+  for (const post of results.flat()) {
+    const key = post.id || post.shortCode || normalizeInstagramUrl(post.url) || `${post.ownerUsername}-${post.timestamp}`;
+    if (!uniquePosts.has(key)) {
+      uniquePosts.set(key, post);
+    }
+  }
+
+  return Array.from(uniquePosts.values());
 }
