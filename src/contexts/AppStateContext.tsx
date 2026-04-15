@@ -40,7 +40,7 @@ interface AppStateContextType {
   addNotification: (notification: Omit<Notification, "id">) => void;
   selectedClienteId: string | null;
   setSelectedClienteId: (id: string | null) => void;
-  clients: typeof clients;
+  clients: Client[];
   importFromApify: (videos: Video[], events: CalendarEvent[]) => ImportResult;
   // Script functions
   scriptComments: Record<string, Comment[]>;
