@@ -67,46 +67,47 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
   // Fetch clients (users with role "cliente" or no role) from DB
   useEffect(() => {
     async function loadClients() {
-      // Get all profiles
-      const { data: profiles } = await supabase.from("profiles").select("*");
-      if (!profiles) return;
+      try {
+        const { data: profiles, error: pErr } = await supabase.from("profiles").select("*");
+        if (pErr || !profiles) { console.error("Error loading profiles:", pErr); return; }
 
-      // Get all roles
-      const { data: roles } = await supabase.from("user_roles").select("*");
-      const roleMap = new Map<string, string>();
-      roles?.forEach((r) => roleMap.set(r.user_id, r.role));
+        const { data: roles, error: rErr } = await supabase.from("user_roles").select("*");
+        if (rErr) { console.error("Error loading roles:", rErr); }
+        const roleMap = new Map<string, string>();
+        roles?.forEach((r) => roleMap.set(r.user_id, r.role));
 
-      // Filter to only clients (no role = cliente, or role === "cliente")
-      const clientProfiles = profiles.filter((p) => {
-        const role = roleMap.get(p.user_id);
-        return !role || role === "cliente";
-      });
+        const clientProfiles = profiles.filter((p) => {
+          const role = roleMap.get(p.user_id);
+          return !role || role === "cliente";
+        });
 
-      const colors = ["#D4AF37", "#3B82F6", "#10B981", "#F59E0B", "#8B5CF6", "#EF4444"];
-      const mapped: Client[] = clientProfiles.map((p, i) => {
-        const profileData = (() => {
+        const colors = ["#D4AF37", "#3B82F6", "#10B981", "#F59E0B", "#8B5CF6", "#EF4444"];
+        const mapped: Client[] = clientProfiles.map((p, i) => {
+          let profileData = null;
           try {
-            return JSON.parse(localStorage.getItem(`dv_client_profile_${p.user_id}`) || "null");
-          } catch { return null; }
-        })();
+            profileData = JSON.parse(localStorage.getItem(`dv_client_profile_${p.user_id}`) || "null");
+          } catch { /* ignore */ }
 
-        return {
-          id: p.user_id,
-          nombre: p.display_name || p.email?.split("@")[0] || "Cliente",
-          empresa: profileData?.businessName || p.business || "",
-          especialidad: profileData?.industry || "",
-          avatar: (p.display_name || "CL").substring(0, 2).toUpperCase(),
-          colorAccent: colors[i % colors.length],
-          plataformas: profileData?.socialNetworks
-            ? Object.keys(profileData.socialNetworks)
-            : [],
-          estado: "activa" as const,
-          email: p.email || "",
-          rol: "cliente" as const,
-        };
-      });
+          return {
+            id: p.user_id,
+            nombre: p.display_name || p.email?.split("@")[0] || "Cliente",
+            empresa: profileData?.businessName || p.business || "",
+            especialidad: profileData?.industry || "",
+            avatar: (p.display_name || "CL").substring(0, 2).toUpperCase(),
+            colorAccent: colors[i % colors.length],
+            plataformas: profileData?.socialNetworks
+              ? Object.keys(profileData.socialNetworks)
+              : [],
+            estado: "activa" as const,
+            email: p.email || "",
+            rol: "cliente" as const,
+          };
+        });
 
-      setClients(mapped);
+        setClients(mapped);
+      } catch (err) {
+        console.error("Error in loadClients:", err);
+      }
     }
     loadClients();
   }, [user]);
