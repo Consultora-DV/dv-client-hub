@@ -53,7 +53,7 @@ export function ProfileModal({ onClose }: { onClose: () => void }) {
         setPwError("Las contraseñas no coinciden");
         return;
       }
-      localStorage.setItem(`dv_user_password_${user?.id}`, newPw);
+      // Password change acknowledged (no plaintext storage — will use server-side auth in future)
     }
 
     // Save photo
