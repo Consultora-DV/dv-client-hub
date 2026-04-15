@@ -574,7 +574,7 @@ export default function OnboardingPage({ editMode = false, onComplete }: { editM
                     </div>
 
                     {/* AI Parsing Section */}
-                    {hasToken && blueprintText && !aiParseResult && (
+                    {blueprintText && !aiParseResult && (
                       <div className="space-y-3">
                         <Button
                           onClick={handleAiParse}
@@ -591,20 +591,9 @@ export default function OnboardingPage({ editMode = false, onComplete }: { editM
                       </div>
                     )}
 
-                    {hasToken && data.blueprintName && !blueprintText && data.blueprintName.match(/\.(jpg|jpeg|png|webp)$/i) && (
+                    {data.blueprintName && !blueprintText && data.blueprintName.match(/\.(jpg|jpeg|png|webp)$/i) && (
                       <div className="glass rounded-xl p-3">
                         <p className="text-xs text-muted-foreground text-center">Las imágenes se procesarán manualmente por ahora.</p>
-                      </div>
-                    )}
-
-                    {!hasToken && blueprintText && (
-                      <div className="glass rounded-xl p-4 space-y-3">
-                        <p className="text-xs text-muted-foreground text-center">
-                          Configura una API key de IA en Ajustes para analizar este documento automáticamente.
-                        </p>
-                        <Button variant="outline" size="sm" onClick={() => setShowSettingsModal(true)} className="mx-auto flex rounded-xl">
-                          <Settings className="h-4 w-4 mr-2" /> Ir a Ajustes
-                        </Button>
                       </div>
                     )}
 
