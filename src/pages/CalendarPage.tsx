@@ -26,7 +26,7 @@ const contentTypes = ["reel", "story", "post", "carrusel", "short", "live", "res
 const DAYS = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"];
 
 function AddEventModal({ date, onClose }: { date: string; onClose: () => void }) {
-  const { setCalendarEvents } = useAppState();
+  const { setCalendarEvents, allCalendarEvents } = useAppState();
   const [title, setTitle] = useState("");
   const [platforms, setPlatforms] = useState<string[]>(["instagram"]);
   const [contentType, setContentType] = useState("reel");
@@ -39,6 +39,14 @@ function AddEventModal({ date, onClose }: { date: string; onClose: () => void })
 
   const handleSave = () => {
     if (!title.trim() || platforms.length === 0) return;
+    // Duplicate check: date + title + clienteId
+    const isDuplicate = allCalendarEvents.some(
+      (e) => e.date === date && e.title === title.trim() && e.clienteId === clienteId
+    );
+    if (isDuplicate) {
+      toast.error("Ya existe un evento con este título en esta fecha para este cliente.");
+      return;
+    }
     const newEvent: CalendarEvent = {
       id: `e_${Date.now()}`,
       clienteId,
