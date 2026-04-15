@@ -1,11 +1,12 @@
-import { createContext, useContext, ReactNode, useCallback, useMemo } from "react";
+import { createContext, useContext, ReactNode, useCallback, useMemo, useState, useEffect } from "react";
 import {
-  Video, Document, CalendarEvent, Notification, Comment, Script, clients,
+  Video, Document, CalendarEvent, Notification, Comment, Script, Client,
 } from "@/data/mockData";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 import { useAuth } from "@/contexts/AuthContext";
 import { PostMetric, PlatformMetrics, calculateMonthlySummary } from "@/services/metricsParser";
 import { filterDuplicates } from "@/lib/deduplication";
+import { supabase } from "@/integrations/supabase/client";
 
 export interface ImportResult {
   videosAdded: number;
