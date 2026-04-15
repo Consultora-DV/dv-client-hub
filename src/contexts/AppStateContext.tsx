@@ -5,6 +5,7 @@ import {
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 import { useAuth } from "@/contexts/AuthContext";
 import { PostMetric, PlatformMetrics, calculateMonthlySummary } from "@/services/metricsParser";
+import { filterDuplicates } from "@/lib/deduplication";
 
 interface AppStateContextType {
   videos: Video[];
