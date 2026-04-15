@@ -13,7 +13,7 @@ import { usePermissions } from "@/hooks/usePermissions";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 import { useAppState } from "@/contexts/AppStateContext";
 import {
-  PlatformMetrics, PostMetric, parseMetricsCSV, calculateMonthlySummary,
+  PlatformMetrics, PostMetric, parseMetricsCSV, parseMetricsPDF, calculateMonthlySummary,
   formatNumber, formatEngagement, formatWatchTime,
 } from "@/services/metricsParser";
 import { filterDuplicates } from "@/lib/deduplication";
@@ -111,9 +111,9 @@ function UploadZone({ platform, metrics, onUpload, onRemove }: {
       <Upload className={`h-8 w-8 ${pInfo.color}`} />
       <div>
         <p className="text-sm font-medium text-foreground">Sube tu reporte de {pInfo.label}</p>
-        <p className="text-xs text-muted-foreground">CSV separado por punto y coma (;)</p>
+        <p className="text-xs text-muted-foreground">CSV o PDF (reporte de métricas)</p>
       </div>
-      <input ref={fileRef} type="file" accept=".csv,.tsv,.txt" onChange={(e) => { const f = e.target.files?.[0]; if (f) onUpload(f); if (fileRef.current) fileRef.current.value = ""; }} className="hidden" />
+      <input ref={fileRef} type="file" accept=".csv,.tsv,.txt,.pdf" onChange={(e) => { const f = e.target.files?.[0]; if (f) onUpload(f); if (fileRef.current) fileRef.current.value = ""; }} className="hidden" />
     </label>
   );
 }
@@ -298,7 +298,20 @@ function PlatformTab({ platform, clienteId }: { platform: "instagram" | "tiktok"
 
   const handleUpload = async (file: File) => {
     try {
-      const { platform: detected, posts: parsedPosts } = await parseMetricsCSV(file);
+      const isPdf = file.name.toLowerCase().endsWith(".pdf");
+      let detected: string;
+      let parsedPosts: PostMetric[];
+
+      if (isPdf) {
+        const result = await parseMetricsPDF(file, platform);
+        detected = result.platform;
+        parsedPosts = result.posts;
+      } else {
+        const result = await parseMetricsCSV(file);
+        detected = result.platform;
+        parsedPosts = result.posts;
+      }
+
       if (detected !== platform) {
         const pName = PLATFORMS.find((p) => p.key === detected)?.label || detected;
         sonnerToast.error(`Este archivo parece ser de ${pName}. Cárgalo en el tab de ${pName}.`);
@@ -318,7 +331,8 @@ function PlatformTab({ platform, clienteId }: { platform: "instagram" | "tiktok"
         monthlySummary: summary,
       });
 
-      const msg = `${unique.length} posts nuevos de ${pInfo.label}${duplicates.length > 0 ? ` · ${duplicates.length} ya existían (omitidos)` : ""}`;
+      const source = isPdf ? "PDF" : "CSV";
+      const msg = `${unique.length} posts nuevos de ${pInfo.label} (${source})${duplicates.length > 0 ? ` · ${duplicates.length} ya existían (omitidos)` : ""}`;
       sonnerToast.success(msg);
     } catch (err: any) {
       sonnerToast.error(err.message || "Error al parsear el archivo");
