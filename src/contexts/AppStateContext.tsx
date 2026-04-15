@@ -54,6 +54,7 @@ const AppStateContext = createContext<AppStateContextType | null>(null);
 
 export function AppStateProvider({ children }: { children: ReactNode }) {
   const { user } = useAuth();
+  const [clients, setClients] = useState<Client[]>([]);
   const [allVideos, setVideos] = useLocalStorage<Video[]>("dv_videos_state", []);
   const [allDocuments, setDocuments] = useLocalStorage<Document[]>("dv_documents_state", []);
   const [allScripts, setScripts] = useLocalStorage<Script[]>("dv_scripts_state", []);
@@ -62,6 +63,53 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
   const [comments, setComments] = useLocalStorage<Record<string, Comment[]>>("dv_comments_state", {});
   const [scriptComments, setScriptComments] = useLocalStorage<Record<string, Comment[]>>("dv_scripts_comments", {});
   const [selectedClienteId, setSelectedClienteId] = useLocalStorage<string | null>("dv_selected_cliente", null);
+
+  // Fetch clients (users with role "cliente" or no role) from DB
+  useEffect(() => {
+    async function loadClients() {
+      // Get all profiles
+      const { data: profiles } = await supabase.from("profiles").select("*");
+      if (!profiles) return;
+
+      // Get all roles
+      const { data: roles } = await supabase.from("user_roles").select("*");
+      const roleMap = new Map<string, string>();
+      roles?.forEach((r) => roleMap.set(r.user_id, r.role));
+
+      // Filter to only clients (no role = cliente, or role === "cliente")
+      const clientProfiles = profiles.filter((p) => {
+        const role = roleMap.get(p.user_id);
+        return !role || role === "cliente";
+      });
+
+      const colors = ["#D4AF37", "#3B82F6", "#10B981", "#F59E0B", "#8B5CF6", "#EF4444"];
+      const mapped: Client[] = clientProfiles.map((p, i) => {
+        const profileData = (() => {
+          try {
+            return JSON.parse(localStorage.getItem(`dv_client_profile_${p.user_id}`) || "null");
+          } catch { return null; }
+        })();
+
+        return {
+          id: p.user_id,
+          nombre: p.display_name || p.email?.split("@")[0] || "Cliente",
+          empresa: profileData?.businessName || p.business || "",
+          especialidad: profileData?.industry || "",
+          avatar: (p.display_name || "CL").substring(0, 2).toUpperCase(),
+          colorAccent: colors[i % colors.length],
+          plataformas: profileData?.socialNetworks
+            ? Object.keys(profileData.socialNetworks)
+            : [],
+          estado: "activa" as const,
+          email: p.email || "",
+          rol: "cliente" as const,
+        };
+      });
+
+      setClients(mapped);
+    }
+    loadClients();
+  }, [user]);
 
   const isClient = user?.role === "cliente";
   const clienteId = isClient ? user?.clienteId : selectedClienteId;
