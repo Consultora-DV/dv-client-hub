@@ -323,19 +323,32 @@ export default function CalendarPage() {
         {mobileEvents.map((ev) => {
           const firstPlatform = ev.platform[0];
           const borderColor = platformDotColors[firstPlatform] || "#888";
+          const igUrl = ev.igShortCode ? `https://www.instagram.com/reel/${ev.igShortCode}/` : null;
           return (
             <div key={ev.id}
-              className="w-full flex items-center gap-3 px-5 py-4 border-b border-border/30 last:border-0 hover:bg-secondary/30 transition-colors text-left group"
+              className="w-full flex items-start gap-3 px-5 py-4 border-b border-border/30 last:border-0 hover:bg-secondary/30 transition-colors text-left group"
               style={{ borderLeftWidth: "3px", borderLeftColor: borderColor }}
             >
-              <button onClick={() => ev.videoId && navigate("/videos")} className="flex-1 min-w-0 text-left">
+              <div className="flex-1 min-w-0">
                 <p className="text-sm font-medium text-foreground truncate">{ev.title}</p>
                 <p className="text-xs text-muted-foreground">
                   {new Date(ev.date).toLocaleDateString("es-MX", { weekday: "short", day: "numeric", month: "short" })}
                   {ev.time && ` · ${ev.time}`}
                 </p>
-              </button>
-              <div className="flex gap-1 shrink-0">
+                <div className="flex gap-2 mt-1.5">
+                  {ev.videoId && (
+                    <button onClick={() => navigate("/videos")} className="flex items-center gap-1 text-[11px] text-primary hover:underline">
+                      <Play className="h-3 w-3" /> Videos
+                    </button>
+                  )}
+                  {igUrl && (
+                    <a href={igUrl} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 text-[11px] text-primary hover:underline">
+                      <ExternalLink className="h-3 w-3" /> Instagram
+                    </a>
+                  )}
+                </div>
+              </div>
+              <div className="flex gap-1 shrink-0 mt-1">
                 {ev.platform.map((p) => (
                   <span key={p} className={`text-[10px] px-1.5 py-0.5 rounded-full ${platformColors[p] || "bg-secondary"} text-foreground`}>
                     {platformLabels[p]?.slice(0, 2)}
