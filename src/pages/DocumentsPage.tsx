@@ -29,78 +29,41 @@ const typeLabels: Record<string, string> = { pdf: "PDF", doc: "Documento", sheet
 
 function ScriptDetailModal({ script, onClose }: { script: Script; onClose: () => void }) {
   const { user } = useAuth();
-  const { setScripts, addNotification } = useAppState();
+  const { approveScript, requestChangesScript, addScriptComment, scriptComments } = useAppState();
   const { canApprove } = usePermissions();
   const [newComment, setNewComment] = useState("");
   const [showChangesInput, setShowChangesInput] = useState(false);
   const [changesText, setChangesText] = useState("");
 
-  const scriptComments: Comment[] = script.comments || [];
+  const comments: Comment[] = scriptComments[script.id] || [];
   const status = scriptStatusConfig[script.status];
   const client = clients.find((c) => c.id === script.clienteId);
 
   const handleApprove = useCallback(() => {
-    const now = new Date().toISOString();
-    setScripts((prev) =>
-      prev.map((s) =>
-        s.id === script.id
-          ? { ...s, status: "aprobado" as const, statusHistory: [...s.statusHistory, { status: "Aprobado", date: now.split("T")[0], by: user?.name || "Cliente" }] }
-          : s
-      )
-    );
-    addNotification({
-      type: "guion_nuevo",
-      message: `${user?.name || "Cliente"} aprobó el guión '${script.title}'`,
-      date: now,
-      read: false,
-      link: "/documentos",
-    });
+    approveScript(script.id);
     onClose();
-  }, [script, setScripts, addNotification, user, onClose]);
+  }, [script.id, approveScript, onClose]);
 
   const handleRequestChanges = useCallback(() => {
     if (showChangesInput && changesText.trim()) {
-      const now = new Date().toISOString();
-      const newC: Comment = { id: `sc_${Date.now()}`, author: user?.name || "Cliente", isClient: user?.role === "cliente", text: changesText.trim(), date: now };
-      setScripts((prev) =>
-        prev.map((s) =>
-          s.id === script.id
-            ? {
-                ...s,
-                status: "cambios_solicitados" as const,
-                comments: [newC, ...s.comments],
-                statusHistory: [...s.statusHistory, { status: "Cambios solicitados", date: now.split("T")[0], by: user?.name || "Cliente" }],
-              }
-            : s
-        )
-      );
-      addNotification({
-        type: "guion_nuevo",
-        message: `${user?.name || "Cliente"} solicitó cambios en '${script.title}'`,
-        date: now,
-        read: false,
-        link: "/documentos",
-      });
+      requestChangesScript(script.id, changesText.trim());
       onClose();
     } else {
       setShowChangesInput(true);
     }
-  }, [showChangesInput, changesText, script, setScripts, addNotification, user, onClose]);
+  }, [showChangesInput, changesText, script.id, requestChangesScript, onClose]);
 
   const handleSendComment = useCallback(() => {
     if (!newComment.trim()) return;
-    const newC: Comment = { id: `sc_${Date.now()}`, author: user?.name || "Usuario", isClient: user?.role === "cliente", text: newComment.trim(), date: new Date().toISOString() };
-    setScripts((prev) =>
-      prev.map((s) => s.id === script.id ? { ...s, comments: [newC, ...s.comments] } : s)
-    );
+    addScriptComment(script.id, newComment.trim());
     setNewComment("");
-  }, [newComment, script, setScripts, user]);
+  }, [newComment, script.id, addScriptComment]);
 
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
       className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm p-4" onClick={onClose}>
       <motion.div initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.95, opacity: 0 }}
-        onClick={(e) => e.stopPropagation()} className="glass gold-border gold-glow rounded-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+        onClick={(e) => e.stopPropagation()} className="glass gold-border gold-glow rounded-2xl w-full max-w-2xl max-w-[95vw] max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between p-5 border-b border-border/50">
           <h2 className="font-display text-lg font-semibold text-foreground">{script.title}</h2>
           <button onClick={onClose} className="p-2 rounded-lg hover:bg-secondary text-muted-foreground"><X className="h-5 w-5" /></button>
@@ -135,10 +98,10 @@ function ScriptDetailModal({ script, onClose }: { script: Script; onClose: () =>
           )}
 
           <div>
-            <h3 className="text-sm font-semibold text-foreground mb-3">Comentarios ({scriptComments.length})</h3>
+            <h3 className="text-sm font-semibold text-foreground mb-3">Comentarios ({comments.length})</h3>
             <div className="space-y-3 mb-4 max-h-60 overflow-y-auto">
-              {scriptComments.length === 0 && <p className="text-sm text-muted-foreground">Sin comentarios aún.</p>}
-              {scriptComments.map((c) => (
+              {comments.length === 0 && <p className="text-sm text-muted-foreground">Sin comentarios aún.</p>}
+              {comments.map((c) => (
                 <div key={c.id} className={`rounded-xl p-3 text-sm ${
                   c.isClient ? "ml-8 border-l-2" : "bg-secondary mr-8 border-l-2 border-l-primary/50"
                 }`} style={c.isClient && client ? { backgroundColor: client.colorAccent + "15", borderLeftColor: client.colorAccent } : undefined}>
@@ -194,7 +157,6 @@ function AddDocumentModal({ onClose }: { onClose: () => void }) {
 
   const handleSave = () => {
     if (!name.trim()) return;
-    // Duplicate check: name + clienteId or driveLink + clienteId
     const isDuplicate = allDocuments.some((d) => {
       if (driveLink && driveLink !== "#" && d.driveLink === driveLink && d.clienteId === clienteId) return true;
       return d.name === name.trim() && d.clienteId === clienteId;
@@ -220,7 +182,7 @@ function AddDocumentModal({ onClose }: { onClose: () => void }) {
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
       className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm p-4" onClick={onClose}>
       <motion.div initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.95, opacity: 0 }}
-        onClick={(e) => e.stopPropagation()} className="glass gold-border gold-glow rounded-2xl w-full max-w-lg">
+        onClick={(e) => e.stopPropagation()} className="glass gold-border gold-glow rounded-2xl w-full max-w-lg max-w-[95vw]">
         <div className="flex items-center justify-between p-5 border-b border-border/50">
           <h2 className="font-display text-lg font-semibold text-foreground">Agregar Documento</h2>
           <button onClick={onClose} className="p-2 rounded-lg hover:bg-secondary text-muted-foreground"><X className="h-5 w-5" /></button>
@@ -270,7 +232,7 @@ function AddDocumentModal({ onClose }: { onClose: () => void }) {
 export default function DocumentsPage() {
   const [showAddModal, setShowAddModal] = useState(false);
   const [selectedScript, setSelectedScript] = useState<Script | null>(null);
-  const { documents, scripts, setScripts } = useAppState();
+  const { documents, scripts, markScriptViewed } = useAppState();
   const { canUpload, isClient } = usePermissions();
   const [filterClienteId, setFilterClienteId] = useState<string>("all");
 
@@ -278,9 +240,8 @@ export default function DocumentsPage() {
   const filteredScripts = filterClienteId === "all" ? scripts : scripts.filter((s) => s.clienteId === filterClienteId);
 
   const handleOpenScript = (script: Script) => {
-    // Mark as visto
     if (!script.visto && script.driveLink && script.driveLink !== "#") {
-      setScripts((prev) => prev.map((s) => s.id === script.id ? { ...s, visto: true } : s));
+      markScriptViewed(script.id);
     }
     setSelectedScript(script);
   };
@@ -289,9 +250,9 @@ export default function DocumentsPage() {
     e.stopPropagation();
     if (!script.driveLink || script.driveLink === "#") return;
     if (!script.visto) {
-      setScripts((prev) => prev.map((s) => s.id === script.id ? { ...s, visto: true } : s));
+      markScriptViewed(script.id);
     }
-    window.open(script.driveLink, "_blank");
+    window.open(script.driveLink, "_blank", "noopener,noreferrer");
   };
 
   return (
@@ -337,6 +298,9 @@ export default function DocumentsPage() {
 
         <TabsContent value="scripts" className="mt-4">
           <div className="glass gold-border rounded-xl overflow-hidden">
+            {filteredScripts.length === 0 && (
+              <p className="p-6 text-sm text-muted-foreground text-center">Sin guiones aún.</p>
+            )}
             {filteredScripts.map((s, i) => {
               const status = scriptStatusConfig[s.status];
               const client = clients.find((c) => c.id === s.clienteId);
@@ -353,7 +317,6 @@ export default function DocumentsPage() {
                     </div>
                     <p className="text-xs text-muted-foreground mt-0.5">{new Date(s.date).toLocaleDateString("es-MX", { day: "numeric", month: "long", year: "numeric" })}</p>
                   </div>
-                  {/* Visto indicator */}
                   {s.visto ? (
                     <span className="text-status-approved shrink-0" title="Visto"><Eye className="h-4 w-4" /></span>
                   ) : (
@@ -377,6 +340,9 @@ export default function DocumentsPage() {
 
         <TabsContent value="docs" className="mt-4">
           <div className="glass gold-border rounded-xl overflow-hidden">
+            {filteredDocuments.length === 0 && (
+              <p className="p-6 text-sm text-muted-foreground text-center">Sin documentos aún.</p>
+            )}
             {filteredDocuments.map((d, i) => {
               const Icon = typeIcons[d.type] || File;
               const client = clients.find((c) => c.id === d.clienteId);

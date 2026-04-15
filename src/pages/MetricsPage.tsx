@@ -9,6 +9,7 @@ import { Upload, X, BarChart3, Instagram, Youtube, Facebook, ExternalLink } from
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { usePermissions } from "@/hooks/usePermissions";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 import { useAppState } from "@/contexts/AppStateContext";
@@ -129,15 +130,17 @@ function TopPostsChart({ posts, accent, label }: { posts: PostMetric[]; accent: 
   return (
     <div className="glass gold-border rounded-xl p-5">
       <h3 className="text-sm font-semibold text-foreground mb-4">{label}</h3>
-      <ResponsiveContainer width="100%" height={250}>
-        <BarChart data={top10}>
-          <CartesianGrid strokeDasharray="3 3" stroke="hsl(240,15%,18%)" />
-          <XAxis dataKey="name" stroke="hsl(240,10%,55%)" fontSize={10} angle={-20} textAnchor="end" height={60} />
-          <YAxis stroke="hsl(240,10%,55%)" fontSize={12} />
-          <Tooltip contentStyle={{ backgroundColor: "hsl(240,20%,12%)", border: "1px solid hsl(240,15%,18%)", borderRadius: "8px" }} />
-          <Bar dataKey="views" fill={accent} radius={[4, 4, 0, 0]} name="Views" />
-        </BarChart>
-      </ResponsiveContainer>
+      <div className="overflow-x-auto">
+        <ResponsiveContainer width="100%" height={250}>
+          <BarChart data={top10}>
+            <CartesianGrid strokeDasharray="3 3" stroke="hsl(240,15%,18%)" />
+            <XAxis dataKey="name" stroke="hsl(240,10%,55%)" fontSize={10} angle={-20} textAnchor="end" height={60} />
+            <YAxis stroke="hsl(240,10%,55%)" fontSize={12} />
+            <Tooltip contentStyle={{ backgroundColor: "hsl(240,20%,12%)", border: "1px solid hsl(240,15%,18%)", borderRadius: "8px" }} />
+            <Bar dataKey="views" fill={accent} radius={[4, 4, 0, 0]} name="Views" />
+          </BarChart>
+        </ResponsiveContainer>
+      </div>
     </div>
   );
 }
@@ -147,15 +150,17 @@ function MonthlyLineChart({ data, accent }: { data: { label: string; totalViews:
   return (
     <div className="glass gold-border rounded-xl p-5">
       <h3 className="text-sm font-semibold text-foreground mb-4">Rendimiento mensual</h3>
-      <ResponsiveContainer width="100%" height={250}>
-        <LineChart data={data}>
-          <CartesianGrid strokeDasharray="3 3" stroke="hsl(240,15%,18%)" />
-          <XAxis dataKey="label" stroke="hsl(240,10%,55%)" fontSize={12} />
-          <YAxis stroke="hsl(240,10%,55%)" fontSize={12} />
-          <Tooltip contentStyle={{ backgroundColor: "hsl(240,20%,12%)", border: "1px solid hsl(240,15%,18%)", borderRadius: "8px" }} />
-          <Line type="monotone" dataKey="totalViews" stroke={accent} strokeWidth={2} dot={{ r: 4 }} name="Views" />
-        </LineChart>
-      </ResponsiveContainer>
+      <div className="overflow-x-auto">
+        <ResponsiveContainer width="100%" height={250}>
+          <LineChart data={data}>
+            <CartesianGrid strokeDasharray="3 3" stroke="hsl(240,15%,18%)" />
+            <XAxis dataKey="label" stroke="hsl(240,10%,55%)" fontSize={12} />
+            <YAxis stroke="hsl(240,10%,55%)" fontSize={12} />
+            <Tooltip contentStyle={{ backgroundColor: "hsl(240,20%,12%)", border: "1px solid hsl(240,15%,18%)", borderRadius: "8px" }} />
+            <Line type="monotone" dataKey="totalViews" stroke={accent} strokeWidth={2} dot={{ r: 4 }} name="Views" />
+          </LineChart>
+        </ResponsiveContainer>
+      </div>
     </div>
   );
 }
@@ -165,18 +170,20 @@ function MonthlyGroupedBars({ data }: { data: { label: string; totalLikes: numbe
   return (
     <div className="glass gold-border rounded-xl p-5">
       <h3 className="text-sm font-semibold text-foreground mb-4">Likes + Comments + Shares por mes</h3>
-      <ResponsiveContainer width="100%" height={250}>
-        <BarChart data={data}>
-          <CartesianGrid strokeDasharray="3 3" stroke="hsl(240,15%,18%)" />
-          <XAxis dataKey="label" stroke="hsl(240,10%,55%)" fontSize={12} />
-          <YAxis stroke="hsl(240,10%,55%)" fontSize={12} />
-          <Tooltip contentStyle={{ backgroundColor: "hsl(240,20%,12%)", border: "1px solid hsl(240,15%,18%)", borderRadius: "8px" }} />
-          <Legend />
-          <Bar dataKey="totalLikes" fill="hsl(330,70%,55%)" name="Likes" radius={[2, 2, 0, 0]} />
-          <Bar dataKey="totalComments" fill="hsl(42,52%,54%)" name="Comments" radius={[2, 2, 0, 0]} />
-          <Bar dataKey="totalShares" fill="hsl(160,60%,45%)" name="Shares" radius={[2, 2, 0, 0]} />
-        </BarChart>
-      </ResponsiveContainer>
+      <div className="overflow-x-auto">
+        <ResponsiveContainer width="100%" height={250}>
+          <BarChart data={data}>
+            <CartesianGrid strokeDasharray="3 3" stroke="hsl(240,15%,18%)" />
+            <XAxis dataKey="label" stroke="hsl(240,10%,55%)" fontSize={12} />
+            <YAxis stroke="hsl(240,10%,55%)" fontSize={12} />
+            <Tooltip contentStyle={{ backgroundColor: "hsl(240,20%,12%)", border: "1px solid hsl(240,15%,18%)", borderRadius: "8px" }} />
+            <Legend />
+            <Bar dataKey="totalLikes" fill="hsl(330,70%,55%)" name="Likes" radius={[2, 2, 0, 0]} />
+            <Bar dataKey="totalComments" fill="hsl(42,52%,54%)" name="Comments" radius={[2, 2, 0, 0]} />
+            <Bar dataKey="totalShares" fill="hsl(160,60%,45%)" name="Shares" radius={[2, 2, 0, 0]} />
+          </BarChart>
+        </ResponsiveContainer>
+      </div>
     </div>
   );
 }
@@ -286,7 +293,7 @@ function EmptyState({ platform }: { platform: string }) {
       <BarChart3 className="h-12 w-12 text-muted-foreground/40" />
       <div>
         <p className="text-foreground font-medium">Sin datos de {pInfo?.label || platform} aún</p>
-        <p className="text-sm text-muted-foreground mt-1">Sube tu reporte CSV para comenzar.</p>
+        <p className="text-sm text-muted-foreground mt-1">Sube tu reporte CSV o PDF para comenzar.</p>
       </div>
     </div>
   );
@@ -350,39 +357,20 @@ function PlatformTab({ platform, clienteId }: { platform: "instagram" | "tiktok"
         <EmptyState platform={platform} />
       ) : (
         <>
-          {/* 4. KPI Cards */}
           <KPICards posts={metrics!.posts} />
-
-          {/* 5. Podio Top 3 */}
           <TopPodium posts={metrics!.posts} platform={platform} />
-
-          {/* 6. Tendencia de Engagement */}
           {isIgOrTt && <EngagementTrend posts={metrics!.posts} accent={pInfo.accent} />}
-
-          {/* 7. Efectividad del Hook */}
           {isIgOrTt && <HookEffectiveness posts={metrics!.posts} platform={platform as "instagram" | "tiktok"} />}
-
-          {/* 8. Platform-specific */}
           {platform === "tiktok" && <TrafficSources posts={metrics!.posts} />}
           {platform === "instagram" && <SaveRate posts={metrics!.posts} />}
-
-          {/* 9. Existing charts */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <TopPostsChart posts={metrics!.posts} accent={pInfo.accent} label={`Vistas por ${platform === "instagram" ? "reel" : "video"}`} />
             <MonthlyLineChart data={metrics!.monthlySummary} accent={pInfo.accent} />
           </div>
           <MonthlyGroupedBars data={metrics!.monthlySummary} />
-
-          {/* 10. Heatmap */}
           <HeatMap posts={metrics!.posts} accent={pInfo.accent} />
-
-          {/* 11. Consistencia */}
           <PublishConsistency posts={metrics!.posts} accent={pInfo.accent} />
-
-          {/* 12. Ratio C/L */}
           <CommentsLikesRatio posts={metrics!.posts} />
-
-          {/* 13. Tabla completa */}
           {isIgOrTt && <PostsTable posts={metrics!.posts} platform={platform as "instagram" | "tiktok"} />}
         </>
       )}
@@ -396,14 +384,14 @@ function GeneralTab({ clienteId }: { clienteId: string | null }) {
   const [ytMetrics] = usePlatformMetrics(clienteId, "youtube");
   const [fbMetrics] = usePlatformMetrics(clienteId, "facebook");
 
-  const allPlatforms = [
+  const allPlatformsData = [
     { key: "instagram", label: "Instagram", metrics: igMetrics, color: "hsl(330,70%,55%)" },
     { key: "tiktok", label: "TikTok", metrics: ttMetrics, color: "#69C9D0" },
     { key: "youtube", label: "YouTube", metrics: ytMetrics, color: "#FF0000" },
     { key: "facebook", label: "Facebook", metrics: fbMetrics, color: "#1877F2" },
   ];
 
-  const withData = allPlatforms.filter((p) => p.metrics && p.metrics.posts.length > 0);
+  const withData = allPlatformsData.filter((p) => p.metrics && p.metrics.posts.length > 0);
 
   if (withData.length === 0) {
     return (
@@ -412,7 +400,7 @@ function GeneralTab({ clienteId }: { clienteId: string | null }) {
           <BarChart3 className="h-12 w-12 text-muted-foreground/40" />
           <div>
             <p className="text-foreground font-medium">Sin datos de métricas aún</p>
-            <p className="text-sm text-muted-foreground mt-1">Sube reportes CSV en cada pestaña de plataforma para ver el resumen general.</p>
+            <p className="text-sm text-muted-foreground mt-1">Sube reportes CSV o PDF en cada pestaña de plataforma para ver el resumen general.</p>
           </div>
         </div>
         <div className="pt-4 border-t border-border/20">
@@ -423,7 +411,7 @@ function GeneralTab({ clienteId }: { clienteId: string | null }) {
     );
   }
 
-  const summaryCards = allPlatforms.map((p) => ({
+  const summaryCards = allPlatformsData.map((p) => ({
     label: p.label,
     posts: p.metrics?.posts.length || 0,
     color: p.color,
@@ -456,18 +444,20 @@ function GeneralTab({ clienteId }: { clienteId: string | null }) {
       {withData.length >= 2 && crossChartData.length > 0 && (
         <div className="glass gold-border rounded-xl p-5">
           <h3 className="text-sm font-semibold text-foreground mb-4">Comparación de views por mes</h3>
-          <ResponsiveContainer width="100%" height={300}>
-            <BarChart data={crossChartData}>
-              <CartesianGrid strokeDasharray="3 3" stroke="hsl(240,15%,18%)" />
-              <XAxis dataKey="label" stroke="hsl(240,10%,55%)" fontSize={12} />
-              <YAxis stroke="hsl(240,10%,55%)" fontSize={12} />
-              <Tooltip contentStyle={{ backgroundColor: "hsl(240,20%,12%)", border: "1px solid hsl(240,15%,18%)", borderRadius: "8px" }} />
-              <Legend />
-              {withData.map((p) => (
-                <Bar key={p.key} dataKey={p.key} fill={p.color} name={p.label} radius={[2, 2, 0, 0]} />
-              ))}
-            </BarChart>
-          </ResponsiveContainer>
+          <div className="overflow-x-auto">
+            <ResponsiveContainer width="100%" height={300}>
+              <BarChart data={crossChartData}>
+                <CartesianGrid strokeDasharray="3 3" stroke="hsl(240,15%,18%)" />
+                <XAxis dataKey="label" stroke="hsl(240,10%,55%)" fontSize={12} />
+                <YAxis stroke="hsl(240,10%,55%)" fontSize={12} />
+                <Tooltip contentStyle={{ backgroundColor: "hsl(240,20%,12%)", border: "1px solid hsl(240,15%,18%)", borderRadius: "8px" }} />
+                <Legend />
+                {withData.map((p) => (
+                  <Bar key={p.key} dataKey={p.key} fill={p.color} name={p.label} radius={[2, 2, 0, 0]} />
+                ))}
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
         </div>
       )}
 
@@ -480,21 +470,50 @@ function GeneralTab({ clienteId }: { clienteId: string | null }) {
 }
 
 export default function MetricsPage() {
-  const { canUpload } = usePermissions();
-  const { selectedClienteId, clients } = useAppState();
+  const { isAdmin, isClient } = usePermissions();
+  const { selectedClienteId, setSelectedClienteId, clients } = useAppState();
   const [activeTab, setActiveTab] = useLocalStorage<string>("dv_metrics_active_tab", "general");
 
   const clienteId = selectedClienteId;
   const client = clients.find((c) => c.id === clienteId);
+  const showClientSelector = isAdmin || (!isClient);
+
+  const titleText = client
+    ? `Métricas — ${client.nombre}`
+    : selectedClienteId === null
+    ? "Métricas — Todos los clientes"
+    : "Métricas";
 
   return (
     <div className="max-w-6xl mx-auto space-y-6">
       <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
-        <h1 className="text-2xl font-display font-bold text-foreground">Métricas</h1>
+        <h1 className="text-2xl font-display font-bold text-foreground">{titleText}</h1>
         <p className="text-sm text-muted-foreground mt-1">
-          {client ? client.nombre : "Selecciona un cliente para ver sus métricas"}
+          {client ? client.empresa : "Selecciona un cliente para ver sus métricas"}
         </p>
       </motion.div>
+
+      {showClientSelector && (
+        <div>
+          <label className="text-xs text-muted-foreground mb-1.5 block">Ver métricas de:</label>
+          <Select value={selectedClienteId || "all"} onValueChange={(v) => setSelectedClienteId(v === "all" ? null : v)}>
+            <SelectTrigger className="w-[280px] bg-secondary border-border/50 rounded-xl h-9 text-sm">
+              <SelectValue placeholder="Todos los clientes" />
+            </SelectTrigger>
+            <SelectContent className="glass gold-border">
+              <SelectItem value="all">Todos los clientes</SelectItem>
+              {clients.map((c) => (
+                <SelectItem key={c.id} value={c.id}>
+                  <span className="flex items-center gap-2">
+                    <span className="w-2 h-2 rounded-full" style={{ backgroundColor: c.colorAccent }} />
+                    {c.nombre}
+                  </span>
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      )}
 
       <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v)}>
         <TabsList className="bg-secondary/50 border border-border/30 h-auto p-1 flex-wrap">
