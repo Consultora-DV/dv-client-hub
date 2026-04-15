@@ -1,4 +1,5 @@
 import { useState, useCallback } from "react";
+import { EmptyState } from "@/components/EmptyState";
 import { toast } from "sonner";
 import { motion, AnimatePresence } from "framer-motion";
 import { ExternalLink, FileText, File, Table, Presentation, Plus, X, Upload, Eye, EyeOff, Check, AlertTriangle } from "lucide-react";
@@ -280,7 +281,8 @@ export default function DocumentsPage() {
         <TabsContent value="scripts" className="mt-4">
           <div className="glass gold-border rounded-xl overflow-hidden">
             {filteredScripts.length === 0 && (
-              <p className="p-6 text-sm text-muted-foreground text-center">Sin guiones aún.</p>
+              <EmptyState icon={FileText} title="Sin guiones aún" description="Los guiones aparecerán aquí cuando se agreguen al sistema." />
+            )}
             )}
             {filteredScripts.map((s, i) => {
               const status = scriptStatusConfig[s.status];
@@ -322,7 +324,8 @@ export default function DocumentsPage() {
         <TabsContent value="docs" className="mt-4">
           <div className="glass gold-border rounded-xl overflow-hidden">
             {filteredDocuments.length === 0 && (
-              <p className="p-6 text-sm text-muted-foreground text-center">Sin documentos aún.</p>
+              <EmptyState icon={File} title="Sin documentos aún" description="Los documentos aparecerán aquí cuando se agreguen al sistema." />
+            )}
             )}
             {filteredDocuments.map((d, i) => {
               const Icon = typeIcons[d.type] || File;
