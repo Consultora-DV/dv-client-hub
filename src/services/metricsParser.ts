@@ -311,7 +311,6 @@ export async function parseMetricsPDF(file: File, forcePlatform?: "instagram" | 
 
   return { platform, posts };
 }
-}
 
 // Format helpers
 export function formatNumber(n: number): string {
