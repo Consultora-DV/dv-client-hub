@@ -1,7 +1,7 @@
 import { useState, useMemo } from "react";
 import { toast } from "sonner";
 import { motion, AnimatePresence } from "framer-motion";
-import { ChevronLeft, ChevronRight, X, Plus } from "lucide-react";
+import { ChevronLeft, ChevronRight, X, Plus, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -11,6 +11,7 @@ import { useNavigate } from "react-router-dom";
 import { useAppState } from "@/contexts/AppStateContext";
 import { usePermissions } from "@/hooks/usePermissions";
 import { CalendarEvent } from "@/data/mockData";
+import { ConfirmDialog } from "@/components/ConfirmDialog";
 
 const platformColors: Record<string, string> = {
   instagram: "bg-instagram",
@@ -150,10 +151,17 @@ function EventPill({ event }: { event: CalendarEvent }) {
 
 export default function CalendarPage() {
   const navigate = useNavigate();
-  const { calendarEvents } = useAppState();
+  const { calendarEvents, setCalendarEvents } = useAppState();
   const { canAddCalendarEvents } = usePermissions();
   const [currentDate, setCurrentDate] = useState(() => new Date());
   const [addEventDate, setAddEventDate] = useState<string | null>(null);
+  const [contentTypeFilter, setContentTypeFilter] = useState("all");
+  const [deleteTarget, setDeleteTarget] = useState<CalendarEvent | null>(null);
+
+  const filteredEvents = useMemo(() => {
+    if (contentTypeFilter === "all") return calendarEvents;
+    return calendarEvents.filter((e) => e.contentType === contentTypeFilter);
+  }, [calendarEvents, contentTypeFilter]);
 
   const year = currentDate.getFullYear();
   const month = currentDate.getMonth();
