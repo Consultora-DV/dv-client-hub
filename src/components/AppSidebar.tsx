@@ -36,6 +36,7 @@ export function AppSidebar() {
     { title: isClient ? "Mis Documentos" : "Documentos", url: "/documentos", icon: FileText },
     { title: "Calendario", url: "/calendario", icon: Calendar },
     { title: "Métricas", url: "/metricas", icon: BarChart3 },
+    { title: isClient ? "Mi Perfil" : "Perfil del cliente", url: "/perfil", icon: User },
     ...(isAdmin ? [{ title: "Usuarios", url: "/usuarios", icon: Users }] : []),
   ];
 
