@@ -16,6 +16,7 @@ import MetricsPage from "@/pages/MetricsPage";
 import UsersPage from "@/pages/UsersPage";
 import OnboardingPage from "@/pages/OnboardingPage";
 import ProfilePage from "@/pages/ProfilePage";
+import ResetPasswordPage from "@/pages/ResetPasswordPage";
 import NotFound from "@/pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -45,6 +46,7 @@ function AppRoutes() {
   if (!isAuthenticated) {
     return (
       <Routes>
+        <Route path="/reset-password" element={<ResetPasswordPage />} />
         <Route path="*" element={<AuthPage />} />
       </Routes>
     );

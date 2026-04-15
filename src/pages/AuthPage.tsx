@@ -1,6 +1,7 @@
 import { useState, useMemo } from "react";
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
+import { supabase } from "@/integrations/supabase/client";
 import { motion } from "framer-motion";
 import { Mail, Lock, User } from "lucide-react";
 import { Input } from "@/components/ui/input";
@@ -46,8 +47,29 @@ export default function AuthPage() {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [name, setName] = useState("");
   const [loading, setLoading] = useState(false);
+  const [forgotMode, setForgotMode] = useState(false);
+  const [forgotEmail, setForgotEmail] = useState("");
+  const [forgotLoading, setForgotLoading] = useState(false);
 
   const passwordValid = password.length >= 8 && /\d/.test(password) && /[A-Z]/.test(password);
+
+  const handleForgotPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!forgotEmail) return;
+    setForgotLoading(true);
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(forgotEmail, {
+        redirectTo: `${window.location.origin}/reset-password`,
+      });
+      if (error) throw error;
+      toast.success("Se envió un enlace de recuperación a tu correo");
+      setForgotMode(false);
+    } catch (err: any) {
+      toast.error(err.message || "Error al enviar correo de recuperación");
+    } finally {
+      setForgotLoading(false);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -145,6 +167,16 @@ export default function AuthPage() {
               </div>
             )}
 
+            {isLogin && (
+              <button
+                type="button"
+                onClick={() => setForgotMode(true)}
+                className="text-xs text-primary hover:underline w-full text-right"
+              >
+                ¿Olvidaste tu contraseña?
+              </button>
+            )}
+
             <Button
               type="submit"
               disabled={loading || (!isLogin && !passwordValid)}
@@ -161,6 +193,56 @@ export default function AuthPage() {
             </button>
           </p>
         </div>
+
+        {/* Forgot password modal */}
+        {forgotMode && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm p-4"
+            onClick={() => setForgotMode(false)}
+          >
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              onClick={(e) => e.stopPropagation()}
+              className="glass gold-border gold-glow rounded-2xl w-full max-w-sm p-6 space-y-4"
+            >
+              <h3 className="text-lg font-semibold text-foreground text-center">Recuperar contraseña</h3>
+              <p className="text-sm text-muted-foreground text-center">
+                Ingresa tu correo y te enviaremos un enlace para restablecer tu contraseña.
+              </p>
+              <form onSubmit={handleForgotPassword} className="space-y-4">
+                <div className="relative">
+                  <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    type="email"
+                    placeholder="Tu correo electrónico"
+                    value={forgotEmail}
+                    onChange={(e) => setForgotEmail(e.target.value)}
+                    className="pl-10 h-12 bg-secondary border-border/50 rounded-xl"
+                    required
+                    autoFocus
+                  />
+                </div>
+                <Button
+                  type="submit"
+                  disabled={forgotLoading}
+                  className="w-full h-12 gold-gradient text-primary-foreground font-semibold rounded-xl"
+                >
+                  {forgotLoading ? "Enviando..." : "Enviar enlace"}
+                </Button>
+                <button
+                  type="button"
+                  onClick={() => setForgotMode(false)}
+                  className="w-full text-sm text-muted-foreground hover:text-foreground"
+                >
+                  Cancelar
+                </button>
+              </form>
+            </motion.div>
+          </motion.div>
+        )}
       </motion.div>
     </div>
   );
