@@ -69,7 +69,15 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
     async function loadClients() {
       try {
         const { data: profiles, error: pErr } = await supabase.from("profiles").select("*");
-        if (pErr || !profiles) { console.error("Error loading profiles:", pErr); return; }
+        if (pErr || !profiles) {
+          console.error("Error loading profiles:", pErr);
+          // Fallback to cache
+          try {
+            const cached = localStorage.getItem("dv_clients_cache");
+            if (cached) setClients(JSON.parse(cached));
+          } catch { /* ignore */ }
+          return;
+        }
 
         const { data: roles, error: rErr } = await supabase.from("user_roles").select("*");
         if (rErr) { console.error("Error loading roles:", rErr); }
@@ -105,8 +113,13 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
         });
 
         setClients(mapped);
+        localStorage.setItem("dv_clients_cache", JSON.stringify(mapped));
       } catch (err) {
         console.error("Error in loadClients:", err);
+        try {
+          const cached = localStorage.getItem("dv_clients_cache");
+          if (cached) setClients(JSON.parse(cached));
+        } catch { /* ignore */ }
       }
     }
     loadClients();
