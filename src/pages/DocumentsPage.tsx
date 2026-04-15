@@ -325,7 +325,6 @@ export default function DocumentsPage() {
             {filteredDocuments.length === 0 && (
               <EmptyState icon={File} title="Sin documentos aún" description="Los documentos aparecerán aquí cuando se agreguen al sistema." />
             )}
-            )}
             {filteredDocuments.map((d, i) => {
               const Icon = typeIcons[d.type] || File;
               const client = appClients.find((c) => c.id === d.clienteId);
