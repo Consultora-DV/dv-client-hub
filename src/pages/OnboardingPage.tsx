@@ -76,13 +76,16 @@ interface OnboardingData {
 import { PDF_WORKER_URL } from "@/lib/pdfConfig";
 pdfjsLib.GlobalWorkerOptions.workerSrc = PDF_WORKER_URL;
 
-export default function OnboardingPage({ editMode = false, onComplete }: { editMode?: boolean; onComplete?: () => void }) {
+export default function OnboardingPage({ editMode = false, onComplete, targetUserId }: { editMode?: boolean; onComplete?: () => void; targetUserId?: string }) {
   const { user } = useAuth();
   const navigate = useNavigate();
   const [step, setStep] = useState(0);
   const [showWelcome, setShowWelcome] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
   const blueprintRef = useRef<HTMLInputElement>(null);
+
+  // Use targetUserId if provided (admin editing client), otherwise fall back to logged-in user
+  const profileUserId = targetUserId || user?.id;
 
   // AI parsing state
   const [blueprintText, setBlueprintText] = useState<string | null>(null);
@@ -91,7 +94,7 @@ export default function OnboardingPage({ editMode = false, onComplete }: { editM
   const [aiParseResult, setAiParseResult] = useState<BlueprintResult | null>(null);
   
   const [aiFilledFields, setAiFilledFields] = useState<Set<string>>(new Set());
-  const existingProfile = user?.id ? localStorage.getItem(`dv_client_profile_${user.id}`) : null;
+  const existingProfile = profileUserId ? localStorage.getItem(`dv_client_profile_${profileUserId}`) : null;
   const parsed = existingProfile ? JSON.parse(existingProfile) : null;
 
   const [data, setData] = useState<OnboardingData>(() => ({
