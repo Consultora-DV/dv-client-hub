@@ -200,13 +200,13 @@ export default function ProfilePage() {
       {/* Blueprint */}
       <motion.div {...fadeUp} transition={{ delay: 0.4 }}>
         <h2 className="text-lg font-display font-semibold text-foreground mb-4">Expediente / Blueprint</h2>
-        {profileData.blueprintFile ? (
+        {profileData?.blueprintFile ? (
           <div className="glass gold-border rounded-xl p-5 flex items-center gap-4">
             <div className="w-12 h-12 rounded-lg bg-primary/10 flex items-center justify-center">
               <FileText className="h-6 w-6 text-primary" />
             </div>
             <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium text-foreground truncate">{profileData.blueprintName || "Expediente"}</p>
+              <p className="text-sm font-medium text-foreground truncate">{profileData?.blueprintName || "Expediente"}</p>
               <p className="text-xs text-muted-foreground">Archivo guardado</p>
             </div>
             <Button variant="outline" size="sm" className="rounded-xl" onClick={() => setEditingOnboarding(true)}>
