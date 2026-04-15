@@ -4,6 +4,7 @@ import { AppSidebar } from "@/components/AppSidebar";
 import { NotificationBell } from "@/components/NotificationBell";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { ClientSelector } from "@/components/ClientSelector";
+import { ClientSocialLinks } from "@/components/ClientSocialLinks";
 import { ImportModal } from "@/components/ImportModal";
 import { MessageCircle, Download } from "lucide-react";
 import { Outlet } from "react-router-dom";
@@ -25,6 +26,7 @@ export function AppLayout() {
             <div className="flex items-center gap-3">
               <SidebarTrigger className="text-muted-foreground hover:text-foreground" />
               <ClientSelector />
+              <ClientSocialLinks />
             </div>
             <div className="flex items-center gap-1">
               {canImport && (
