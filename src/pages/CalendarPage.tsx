@@ -10,7 +10,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { useNavigate } from "react-router-dom";
 import { useAppState } from "@/contexts/AppStateContext";
 import { usePermissions } from "@/hooks/usePermissions";
-import { CalendarEvent, clients } from "@/data/mockData";
+import { CalendarEvent } from "@/data/mockData";
 
 const platformColors: Record<string, string> = {
   instagram: "bg-instagram",
@@ -37,12 +37,12 @@ const contentTypes = ["reel", "story", "post", "carrusel", "short", "live", "res
 const DAYS = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"];
 
 function AddEventModal({ date, onClose }: { date: string; onClose: () => void }) {
-  const { setCalendarEvents, allCalendarEvents } = useAppState();
+  const { setCalendarEvents, allCalendarEvents, clients } = useAppState();
   const [title, setTitle] = useState("");
   const [platforms, setPlatforms] = useState<string[]>(["instagram"]);
   const [contentType, setContentType] = useState("reel");
   const [time, setTime] = useState("12:00");
-  const [clienteId, setClienteId] = useState(clients[0].id);
+  const [clienteId, setClienteId] = useState(clients[0]?.id || "");
 
   const togglePlatform = (p: string) => {
     setPlatforms((prev) => prev.includes(p) ? prev.filter((x) => x !== p) : [...prev, p]);

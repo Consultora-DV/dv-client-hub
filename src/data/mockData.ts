@@ -113,7 +113,7 @@ export interface Notification {
   link: string;
 }
 
-export const clients: Client[] = [];
+
 
 export const currentUser = {
   name: "Consultora DV",
