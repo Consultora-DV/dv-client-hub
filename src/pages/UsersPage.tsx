@@ -90,31 +90,17 @@ function InviteUserModal({ onClose, onInvited }: {
 
     setLoading(true);
     try {
-      // Sign up the user with a temporary password they'll need to reset
-      const tempPassword = crypto.randomUUID().slice(0, 16) + "Aa1!";
-      const { data, error } = await supabase.auth.signUp({
-        email: email.trim(),
-        password: tempPassword,
-        options: {
-          data: { display_name: name.trim() || email.split("@")[0] },
-          emailRedirectTo: window.location.origin,
-        },
+      const { data, error } = await supabase.functions.invoke("invite-user", {
+        body: { email: email.trim(), name: name.trim() || undefined, role },
       });
 
-      if (error) throw error;
+      if (error) throw new Error(error.message);
+      if (data?.error) throw new Error(data.error);
 
-      if (data.user) {
-        // Assign the selected role
-        if (role !== "cliente") {
-          await supabase.from("user_roles").insert({ user_id: data.user.id, role });
-        }
-
-        // Generate a shareable registration link instead
-        const link = `${window.location.origin}/auth`;
-        setInviteLink(link);
-        toast.success(`Usuario ${email} registrado exitosamente`);
-        onInvited();
-      }
+      const link = `${window.location.origin}/auth`;
+      setInviteLink(link);
+      toast.success(`Usuario ${email} registrado exitosamente`);
+      onInvited();
     } catch (err: any) {
       toast.error("Error: " + (err.message || "No se pudo crear el usuario"));
     } finally {
@@ -230,29 +216,31 @@ export default function UsersPage() {
     const { data: profiles } = await supabase.from("profiles").select("*");
     if (!profiles) { setLoading(false); return; }
 
-    const managed: ManagedUser[] = [];
-    for (const p of profiles) {
-      const { data: roleData } = await supabase
-        .from("user_roles")
-        .select("role")
-        .eq("user_id", p.user_id)
-        .maybeSingle();
-      managed.push({
-        id: p.id,
-        user_id: p.user_id,
-        name: p.display_name || p.email || "Usuario",
-        email: p.email || "",
-        role: (roleData?.role as UserRole) ?? "cliente",
-      });
-    }
+    const userIds = profiles.map((p) => p.user_id);
+    const { data: allRoles } = await supabase
+      .from("user_roles")
+      .select("user_id, role")
+      .in("user_id", userIds);
+
+    const roleMap = new Map<string, string>();
+    allRoles?.forEach((r) => roleMap.set(r.user_id, r.role));
+
+    const managed: ManagedUser[] = profiles.map((p) => ({
+      id: p.id,
+      user_id: p.user_id,
+      name: p.display_name || p.email || "Usuario",
+      email: p.email || "",
+      role: (roleMap.get(p.user_id) as UserRole) ?? "cliente",
+    }));
+
     setUsers(managed);
     setLoading(false);
   };
 
   const handleSaveRole = async (userId: string, role: UserRole) => {
-    const { error } = await supabase
-      .from("user_roles")
-      .upsert({ user_id: userId, role }, { onConflict: "user_id,role" });
+    // Delete existing role first, then insert new one
+    await supabase.from("user_roles").delete().eq("user_id", userId);
+    const { error } = await supabase.from("user_roles").insert({ user_id: userId, role });
     if (error) {
       toast.error("Error al actualizar rol: " + error.message);
     } else {
