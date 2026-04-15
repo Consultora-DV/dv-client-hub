@@ -104,12 +104,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     setIsAuthenticated(true);
   }, []);
 
-  const register = useCallback((name: string, email: string, password: string) => {
+  const register = useCallback((name: string, email: string, _password: string) => {
     const newPending: PendingUser = {
       id: `pu_${Date.now()}`,
       name,
       email,
-      password,
+      password: "••••••••", // Never store plaintext passwords
       date: new Date().toISOString(),
       status: "pendiente",
     };

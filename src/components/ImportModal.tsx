@@ -11,7 +11,7 @@ import { useAppState } from "@/contexts/AppStateContext";
 import { useNavigate } from "react-router-dom";
 import { scrapeInstagramPosts, ApifyInstagramPost } from "@/services/apifyService";
 import { mapPostsToAppData } from "@/services/importMapper";
-import { useApifyToken } from "@/hooks/useApifyToken";
+
 
 type Step = "input" | "loading" | "preview" | "success";
 
@@ -37,8 +37,7 @@ function isValidInput(input: string): boolean {
 export function ImportModal({ onClose }: { onClose: () => void }) {
   const navigate = useNavigate();
   const { importFromApify, allVideos } = useAppState();
-  const { token: localToken } = useApifyToken();
-  const apiKey = import.meta.env.VITE_APIFY_API_KEY || localToken;
+  // Apify token is now managed server-side via edge function
 
   const [step, setStep] = useState<Step>("input");
   const [urlText, setUrlText] = useState("");
@@ -67,14 +66,13 @@ export function ImportModal({ onClose }: { onClose: () => void }) {
   }, [step]);
 
   const handleAnalyze = useCallback(async () => {
-    if (!apiKey) return;
     setStep("loading");
     setError(null);
     cancelRef.current = false;
     setLoadingMsgIdx(0);
 
     try {
-      const results = await scrapeInstagramPosts(validInputs, apiKey);
+      const results = await scrapeInstagramPosts(validInputs);
       if (cancelRef.current) return;
       setPosts(results);
       setSelectedPosts(new Set(results.map((p) => p.shortCode)));
@@ -84,7 +82,7 @@ export function ImportModal({ onClose }: { onClose: () => void }) {
       setError(err.message || "Error desconocido");
       setStep("input");
     }
-  }, [apiKey, validInputs]);
+  }, [validInputs]);
 
   const handleCancel = () => {
     cancelRef.current = true;
@@ -146,14 +144,6 @@ export function ImportModal({ onClose }: { onClose: () => void }) {
           <AnimatePresence mode="wait">
             {step === "input" && (
               <motion.div key="input" initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 20 }} className="space-y-4">
-                {!apiKey && (
-                  <div className="rounded-xl bg-destructive/15 border border-destructive/30 p-4 space-y-2">
-                    <p className="text-sm text-destructive font-medium">API key de Apify no configurada</p>
-                    <p className="text-xs text-destructive/80">
-                      Agrega <code className="bg-destructive/20 px-1 rounded">VITE_APIFY_API_KEY</code> en las variables de entorno, o configúrala desde el panel de Configuración.
-                    </p>
-                  </div>
-                )}
 
                 {error && (
                   <div className="rounded-xl bg-destructive/15 border border-destructive/30 p-4">
@@ -218,7 +208,7 @@ export function ImportModal({ onClose }: { onClose: () => void }) {
 
                 <Button
                   onClick={handleAnalyze}
-                  disabled={validInputs.length === 0 || !clienteId || !apiKey}
+                  disabled={validInputs.length === 0 || !clienteId}
                   className="w-full gold-gradient text-primary-foreground rounded-xl h-11"
                 >
                   Analizar posts →
