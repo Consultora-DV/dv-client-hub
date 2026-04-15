@@ -95,20 +95,21 @@ export default function ProfilePage() {
               <img src={photo} alt="Avatar" className="w-full h-full object-cover" />
             ) : (
               <div className="w-full h-full gold-gradient flex items-center justify-center text-3xl font-bold text-primary-foreground">
-                {(profileData.fullName || "?").substring(0, 2).toUpperCase()}
+                {displayName.substring(0, 2).toUpperCase()}
               </div>
             )}
           </div>
           <div className="text-center sm:text-left flex-1">
-            <h1 className="text-2xl font-display font-bold text-foreground">{profileData.fullName}</h1>
-            {profileData.businessName && <p className="text-sm text-primary font-medium">{profileData.businessName}</p>}
+            <h1 className="text-2xl font-display font-bold text-foreground">{displayName}</h1>
+            {displayBusiness && <p className="text-sm text-primary font-medium">{displayBusiness}</p>}
+            {displayEmail && <p className="text-xs text-muted-foreground">{displayEmail}</p>}
             <p className="text-xs text-muted-foreground mt-1">
-              {[profileData.industry, [profileData.city, profileData.country].filter(Boolean).join(", ")].filter(Boolean).join(" · ")}
+              {[displayIndustry, [profileData?.city, profileData?.country].filter(Boolean).join(", ")].filter(Boolean).join(" · ")}
             </p>
             <Badge className="mt-2 bg-status-approved/20 text-status-approved border-status-approved/30">Cliente activo</Badge>
           </div>
           <Button onClick={() => setEditingOnboarding(true)} variant="outline" className="rounded-xl shrink-0">
-            <Edit className="h-4 w-4 mr-2" /> Editar perfil
+            <Edit className="h-4 w-4 mr-2" /> {profileData ? "Editar perfil" : "Completar perfil"}
           </Button>
         </div>
       </motion.div>
