@@ -120,9 +120,13 @@ function AddEventModal({ date, onClose }: { date: string; onClose: () => void })
   );
 }
 
-function EventPill({ event }: { event: CalendarEvent }) {
+function EventPill({ event, onNavigate }: { event: CalendarEvent; onNavigate: (path: string) => void }) {
+  const { allVideos } = useAppState();
   const firstPlatform = event.platform[0];
   const dotColor = platformDotColors[firstPlatform] || "#888";
+
+  const linkedVideo = event.videoId ? allVideos.find((v) => v.id === event.videoId) : null;
+  const igUrl = event.igShortCode ? `https://www.instagram.com/reel/${event.igShortCode}/` : (linkedVideo?.embedUrl || null);
 
   return (
     <TooltipProvider delayDuration={200}>
@@ -133,7 +137,7 @@ function EventPill({ event }: { event: CalendarEvent }) {
             <span className="text-[10px] text-foreground truncate">{event.title.slice(0, 15)}</span>
           </div>
         </TooltipTrigger>
-        <TooltipContent className="glass gold-border p-3 max-w-[200px]">
+        <TooltipContent className="glass gold-border p-3 max-w-[220px]" onClick={(e) => e.stopPropagation()}>
           <p className="text-sm font-medium text-foreground">{event.title}</p>
           {event.time && <p className="text-xs text-muted-foreground mt-1">{event.time}</p>}
           <div className="flex gap-1 mt-1.5 flex-wrap">
@@ -143,12 +147,32 @@ function EventPill({ event }: { event: CalendarEvent }) {
               </span>
             ))}
           </div>
+          <div className="flex flex-col gap-1 mt-2">
+            {event.videoId && (
+              <button
+                onClick={(e) => { e.stopPropagation(); onNavigate("/videos"); }}
+                className="flex items-center gap-1 text-[11px] text-primary hover:underline"
+              >
+                <Play className="h-3 w-3" /> Ver en Videos
+              </button>
+            )}
+            {igUrl && (
+              <a
+                href={igUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={(e) => e.stopPropagation()}
+                className="flex items-center gap-1 text-[11px] text-primary hover:underline"
+              >
+                <ExternalLink className="h-3 w-3" /> Ver en Instagram
+              </a>
+            )}
+          </div>
         </TooltipContent>
       </Tooltip>
     </TooltipProvider>
   );
 }
-
 export default function CalendarPage() {
   const navigate = useNavigate();
   const { calendarEvents, setCalendarEvents } = useAppState();
