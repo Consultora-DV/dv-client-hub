@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { toast } from "sonner";
 import { motion, AnimatePresence } from "framer-motion";
 import { Video, clients } from "@/data/mockData";
 import { X, ExternalLink, Check, AlertTriangle, Plus, Instagram } from "lucide-react";
@@ -269,7 +270,7 @@ function AddVideoModal({ onClose }: { onClose: () => void }) {
       return v.title === title.trim() && v.clienteId === clienteId && v.deliveryDate === format(deliveryDate, "yyyy-MM-dd");
     });
     if (isDuplicate) {
-      (await import("sonner")).toast.error("Ya existe un video con esta URL para este cliente.");
+      toast.error("Ya existe un video con esta URL para este cliente.");
       return;
     }
     const newVideo: Video = {
