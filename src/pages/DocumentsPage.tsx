@@ -268,26 +268,8 @@ export default function DocumentsPage() {
         )}
       </motion.div>
 
-      {!isClient && (
-        <div className="flex items-center gap-2">
-          <Select value={filterClienteId} onValueChange={setFilterClienteId}>
-            <SelectTrigger className="w-56 bg-secondary border-border/50 rounded-xl">
-              <SelectValue placeholder="Todos los clientes" />
-            </SelectTrigger>
-            <SelectContent className="glass gold-border">
-              <SelectItem value="all">Todos los clientes</SelectItem>
-              {clients.map((c) => (
-                <SelectItem key={c.id} value={c.id}>
-                  <span className="flex items-center gap-2">
-                    <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: c.colorAccent }} />
-                    {c.nombre}
-                  </span>
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-      )}
+
+
 
       <Tabs defaultValue="scripts">
         <TabsList className="bg-secondary border border-border/50">
@@ -302,7 +284,7 @@ export default function DocumentsPage() {
             )}
             {filteredScripts.map((s, i) => {
               const status = scriptStatusConfig[s.status];
-              const client = clients.find((c) => c.id === s.clienteId);
+              const client = appClients.find((c) => c.id === s.clienteId);
               const commentCount = (s.comments || []).length;
               return (
                 <motion.button key={s.id} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.05 }}
@@ -344,7 +326,7 @@ export default function DocumentsPage() {
             )}
             {filteredDocuments.map((d, i) => {
               const Icon = typeIcons[d.type] || File;
-              const client = clients.find((c) => c.id === d.clienteId);
+              const client = appClients.find((c) => c.id === d.clienteId);
               return (
                 <motion.div key={d.id} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.05 }}
                   className="flex items-center gap-4 px-5 py-4 border-b border-border/30 last:border-0 hover:bg-secondary/30 transition-colors">
