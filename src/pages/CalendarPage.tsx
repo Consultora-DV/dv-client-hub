@@ -228,6 +228,7 @@ export default function CalendarPage() {
         ))}
       </div>
 
+      <div className="flex items-center justify-between">
         <Button variant="ghost" size="icon" onClick={prev} className="text-muted-foreground hover:text-foreground"><ChevronLeft className="h-5 w-5" /></Button>
         <h2 className="text-lg font-semibold text-foreground capitalize">{monthName}</h2>
         <Button variant="ghost" size="icon" onClick={next} className="text-muted-foreground hover:text-foreground"><ChevronRight className="h-5 w-5" /></Button>
