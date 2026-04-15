@@ -405,6 +405,12 @@ function GeneralTab({ clienteId }: { clienteId: string | null }) {
           </ResponsiveContainer>
         </div>
       )}
+
+      {/* PDF Report Capture */}
+      <div className="pt-4 border-t border-border/20">
+        <h3 className="text-sm font-semibold text-foreground mb-4">Reportes PDF (Metricool)</h3>
+        <PdfReportCapture clienteId={clienteId} />
+      </div>
     </div>
   );
 }
