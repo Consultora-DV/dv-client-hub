@@ -281,7 +281,7 @@ export default function CalendarPage() {
                     </div>
                     <div className="mt-1 space-y-0.5">
                       {visible.map((ev) => (
-                        <EventPill key={ev.id} event={ev} />
+                        <EventPill key={ev.id} event={ev} onNavigate={navigate} />
                       ))}
                       {extra > 0 && (
                         <Popover>
@@ -296,7 +296,7 @@ export default function CalendarPage() {
                           <PopoverContent className="glass gold-border p-2 w-48" onClick={(e) => e.stopPropagation()}>
                             <div className="space-y-1">
                               {events.slice(3).map((ev) => (
-                                <EventPill key={ev.id} event={ev} />
+                                <EventPill key={ev.id} event={ev} onNavigate={navigate} />
                               ))}
                             </div>
                           </PopoverContent>
