@@ -14,9 +14,22 @@ import DocumentsPage from "@/pages/DocumentsPage";
 import CalendarPage from "@/pages/CalendarPage";
 import MetricsPage from "@/pages/MetricsPage";
 import UsersPage from "@/pages/UsersPage";
+import OnboardingPage from "@/pages/OnboardingPage";
+import ProfilePage from "@/pages/ProfilePage";
 import NotFound from "@/pages/NotFound";
 
 const queryClient = new QueryClient();
+
+function OnboardingGuard({ children }: { children: React.ReactNode }) {
+  const { user } = useAuth();
+  if (user?.role === "cliente" && user?.id) {
+    const done = localStorage.getItem(`dv_onboarding_complete_${user.id}`);
+    if (done !== "true") {
+      return <Navigate to="/onboarding" replace />;
+    }
+  }
+  return <>{children}</>;
+}
 
 function AppRoutes() {
   const { isAuthenticated, isLoading } = useAuth();
@@ -42,13 +55,15 @@ function AppRoutes() {
       <Routes>
         <Route path="/" element={<Navigate to="/dashboard" replace />} />
         <Route path="/auth" element={<Navigate to="/dashboard" replace />} />
-        <Route element={<AppLayout />}>
+        <Route path="/onboarding" element={<OnboardingPage />} />
+        <Route element={<OnboardingGuard><AppLayout /></OnboardingGuard>}>
           <Route path="/dashboard" element={<DashboardPage />} />
           <Route path="/videos" element={<VideosPage />} />
           <Route path="/documentos" element={<DocumentsPage />} />
           <Route path="/calendario" element={<CalendarPage />} />
           <Route path="/metricas" element={<MetricsPage />} />
           <Route path="/usuarios" element={<UsersPage />} />
+          <Route path="/perfil" element={<ProfilePage />} />
         </Route>
         <Route path="*" element={<NotFound />} />
       </Routes>

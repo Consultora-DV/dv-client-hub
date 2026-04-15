@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { LayoutDashboard, Video, FileText, Calendar, BarChart3, MessageCircle, Users, Settings, Cog } from "lucide-react";
+import { LayoutDashboard, Video, FileText, Calendar, BarChart3, MessageCircle, Users, Settings, Cog, User } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useAuth } from "@/contexts/AuthContext";
 import { useAppState } from "@/contexts/AppStateContext";
