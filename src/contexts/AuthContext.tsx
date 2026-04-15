@@ -123,7 +123,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     setUser((prev) => prev ? { ...prev, ...updates } : prev);
     // Also persist to DB
     if (session?.user) {
-      const dbUpdates: Record<string, string> = {};
+      const dbUpdates: { display_name?: string; email?: string; business?: string } = {};
       if (updates.name) dbUpdates.display_name = updates.name;
       if (updates.email) dbUpdates.email = updates.email;
       if (updates.business) dbUpdates.business = updates.business;
