@@ -167,6 +167,16 @@ export default function AuthPage() {
               </div>
             )}
 
+            {isLogin && (
+              <button
+                type="button"
+                onClick={() => setForgotMode(true)}
+                className="text-xs text-primary hover:underline w-full text-right"
+              >
+                ¿Olvidaste tu contraseña?
+              </button>
+            )}
+
             <Button
               type="submit"
               disabled={loading || (!isLogin && !passwordValid)}
@@ -182,6 +192,57 @@ export default function AuthPage() {
               {isLogin ? "Regístrate" : "Inicia sesión"}
             </button>
           </p>
+        </div>
+
+        {/* Forgot password modal */}
+        {forgotMode && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm p-4"
+            onClick={() => setForgotMode(false)}
+          >
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              onClick={(e) => e.stopPropagation()}
+              className="glass gold-border gold-glow rounded-2xl w-full max-w-sm p-6 space-y-4"
+            >
+              <h3 className="text-lg font-semibold text-foreground text-center">Recuperar contraseña</h3>
+              <p className="text-sm text-muted-foreground text-center">
+                Ingresa tu correo y te enviaremos un enlace para restablecer tu contraseña.
+              </p>
+              <form onSubmit={handleForgotPassword} className="space-y-4">
+                <div className="relative">
+                  <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    type="email"
+                    placeholder="Tu correo electrónico"
+                    value={forgotEmail}
+                    onChange={(e) => setForgotEmail(e.target.value)}
+                    className="pl-10 h-12 bg-secondary border-border/50 rounded-xl"
+                    required
+                    autoFocus
+                  />
+                </div>
+                <Button
+                  type="submit"
+                  disabled={forgotLoading}
+                  className="w-full h-12 gold-gradient text-primary-foreground font-semibold rounded-xl"
+                >
+                  {forgotLoading ? "Enviando..." : "Enviar enlace"}
+                </Button>
+                <button
+                  type="button"
+                  onClick={() => setForgotMode(false)}
+                  className="w-full text-sm text-muted-foreground hover:text-foreground"
+                >
+                  Cancelar
+                </button>
+              </form>
+            </motion.div>
+          </motion.div>
+        )}
         </div>
       </motion.div>
     </div>
