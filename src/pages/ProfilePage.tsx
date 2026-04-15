@@ -40,7 +40,7 @@ function formatFollowers(n: number): string {
 
 export default function ProfilePage() {
   const { user } = useAuth();
-  const { selectedClienteId } = useAppState();
+  const { selectedClienteId, clients } = useAppState();
   const { isAdmin, isClient } = usePermissions();
   const navigate = useNavigate();
   const reduced = useReducedMotion();
@@ -50,6 +50,9 @@ export default function ProfilePage() {
   const profileData = targetUserId ? JSON.parse(localStorage.getItem(`dv_client_profile_${targetUserId}`) || "null") : null;
   const photo = targetUserId ? localStorage.getItem(`dv_user_profile_photo_${targetUserId}`) : null;
 
+  // Fallback: get basic info from clients list if no onboarding data
+  const clientInfo = clients.find((c) => c.id === targetUserId);
+
   const fadeUp = reduced
     ? { initial: {}, animate: {} }
     : { initial: { opacity: 0, y: 20 }, animate: { opacity: 1, y: 0 } };
@@ -58,22 +61,21 @@ export default function ProfilePage() {
     return <OnboardingPage editMode onComplete={() => setEditingOnboarding(false)} />;
   }
 
-  if (!profileData) {
+  // Build a merged profile: onboarding data takes priority, fallback to DB data
+  const displayName = profileData?.fullName || clientInfo?.nombre || user?.name || "Cliente";
+  const displayBusiness = profileData?.businessName || clientInfo?.empresa || "";
+  const displayIndustry = profileData?.industry || clientInfo?.especialidad || "";
+  const displayEmail = clientInfo?.email || user?.email || "";
+
+  if (!profileData && !clientInfo) {
     return (
       <div className="max-w-4xl mx-auto">
         <motion.div {...fadeUp} className="glass gold-border rounded-xl p-10 text-center space-y-4">
           <div className="w-16 h-16 mx-auto rounded-full bg-primary/10 flex items-center justify-center">
             <Edit className="h-8 w-8 text-primary" />
           </div>
-          <h2 className="text-xl font-display font-bold text-foreground">Perfil no completado</h2>
-          <p className="text-sm text-muted-foreground">
-            {isClient ? "Completa tu perfil para que tu consultor pueda trabajar mejor contigo." : "Este cliente aún no ha completado su perfil."}
-          </p>
-          {isClient && (
-            <Button onClick={() => setEditingOnboarding(true)} className="gold-gradient text-primary-foreground rounded-xl">
-              Completar perfil
-            </Button>
-          )}
+          <h2 className="text-xl font-display font-bold text-foreground">Sin perfil seleccionado</h2>
+          <p className="text-sm text-muted-foreground">Selecciona un cliente desde el menú superior para ver su perfil.</p>
         </motion.div>
       </div>
     );
