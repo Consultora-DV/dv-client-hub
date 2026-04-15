@@ -144,7 +144,8 @@ function ScriptDetailModal({ script, onClose }: { script: Script; onClose: () =>
 }
 
 function AddDocumentModal({ onClose }: { onClose: () => void }) {
-  const { setDocuments, allDocuments, clients: appClients } = useAppState();
+  const { setDocuments, allDocuments, setScripts, allScripts, clients: appClients } = useAppState();
+  const [category, setCategory] = useState<"documento" | "guion">("documento");
   const [name, setName] = useState("");
   const [type, setType] = useState<Document["type"]>("pdf");
   const [driveLink, setDriveLink] = useState("");
@@ -160,24 +161,48 @@ function AddDocumentModal({ onClose }: { onClose: () => void }) {
 
   const handleSave = () => {
     if (!name.trim()) return;
-    const isDuplicate = allDocuments.some((d) => {
-      if (driveLink && driveLink !== "#" && d.driveLink === driveLink && d.clienteId === clienteId) return true;
-      return d.name === name.trim() && d.clienteId === clienteId;
-    });
-    if (isDuplicate) {
-      toast.error("Ya existe un documento con este nombre para este cliente.");
-      return;
+
+    if (category === "guion") {
+      const isDuplicate = allScripts.some((s) => s.title === name.trim() && s.clienteId === clienteId);
+      if (isDuplicate) {
+        toast.error("Ya existe un guión con este nombre para este cliente.");
+        return;
+      }
+      const newScript: Script = {
+        id: `s_${Date.now()}`,
+        clienteId,
+        title: name.trim(),
+        date: new Date().toISOString().split("T")[0],
+        status: "nuevo",
+        driveLink: driveLink || "#",
+        isNew: true,
+        visto: false,
+        comments: [],
+        statusHistory: [{ status: "Creado", date: new Date().toISOString().split("T")[0], by: "Sistema" }],
+      };
+      setScripts((prev) => [newScript, ...prev]);
+      toast.success("Guión agregado correctamente");
+    } else {
+      const isDuplicate = allDocuments.some((d) => {
+        if (driveLink && driveLink !== "#" && d.driveLink === driveLink && d.clienteId === clienteId) return true;
+        return d.name === name.trim() && d.clienteId === clienteId;
+      });
+      if (isDuplicate) {
+        toast.error("Ya existe un documento con este nombre para este cliente.");
+        return;
+      }
+      const newDoc: Document = {
+        id: `d_${Date.now()}`,
+        clienteId,
+        name: name.trim(),
+        type,
+        date: new Date().toISOString().split("T")[0],
+        driveLink: driveLink || "#",
+        isNew: true,
+      };
+      setDocuments((prev) => [newDoc, ...prev]);
+      toast.success("Documento agregado correctamente");
     }
-    const newDoc: Document = {
-      id: `d_${Date.now()}`,
-      clienteId,
-      name: name.trim(),
-      type,
-      date: new Date().toISOString().split("T")[0],
-      driveLink: driveLink || "#",
-      isNew: true,
-    };
-    setDocuments((prev) => [newDoc, ...prev]);
     onClose();
   };
 
@@ -187,22 +212,53 @@ function AddDocumentModal({ onClose }: { onClose: () => void }) {
       <motion.div initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.95, opacity: 0 }}
         onClick={(e) => e.stopPropagation()} className="glass gold-border gold-glow rounded-2xl w-full max-w-lg w-[95vw]">
         <div className="flex items-center justify-between p-5 border-b border-border/50">
-          <h2 className="font-display text-lg font-semibold text-foreground">Agregar Documento</h2>
+          <h2 className="font-display text-lg font-semibold text-foreground">Agregar</h2>
           <button onClick={onClose} className="p-2 rounded-lg hover:bg-secondary text-muted-foreground"><X className="h-5 w-5" /></button>
         </div>
         <div className="p-5 space-y-4">
-          <div><label className="text-xs text-muted-foreground mb-1.5 block">Nombre del documento</label>
-            <Input value={name} onChange={(e) => setName(e.target.value)} className="bg-secondary border-border/50 rounded-xl" placeholder="Ej: Brief de marca" /></div>
-          <div><label className="text-xs text-muted-foreground mb-1.5 block">Tipo</label>
-            <Select value={type} onValueChange={(v) => setType(v as Document["type"])}>
-              <SelectTrigger className="bg-secondary border-border/50 rounded-xl"><SelectValue /></SelectTrigger>
-              <SelectContent className="glass gold-border">
-                <SelectItem value="pdf">PDF</SelectItem>
-                <SelectItem value="doc">Documento</SelectItem>
-                <SelectItem value="sheet">Hoja de cálculo</SelectItem>
-                <SelectItem value="slide">Presentación</SelectItem>
-              </SelectContent>
-            </Select></div>
+          {/* Category selector */}
+          <div>
+            <label className="text-xs text-muted-foreground mb-1.5 block">¿Qué deseas agregar?</label>
+            <div className="flex gap-2">
+              <button
+                onClick={() => setCategory("guion")}
+                className={`flex-1 px-4 py-2.5 rounded-xl text-sm font-medium transition-colors border ${
+                  category === "guion"
+                    ? "bg-primary/20 text-primary border-primary/30"
+                    : "bg-secondary/50 text-muted-foreground border-border/50 hover:bg-secondary"
+                }`}
+              >
+                📝 Guión
+              </button>
+              <button
+                onClick={() => setCategory("documento")}
+                className={`flex-1 px-4 py-2.5 rounded-xl text-sm font-medium transition-colors border ${
+                  category === "documento"
+                    ? "bg-primary/20 text-primary border-primary/30"
+                    : "bg-secondary/50 text-muted-foreground border-border/50 hover:bg-secondary"
+                }`}
+              >
+                📄 Documento
+              </button>
+            </div>
+          </div>
+
+          <div><label className="text-xs text-muted-foreground mb-1.5 block">{category === "guion" ? "Título del guión" : "Nombre del documento"}</label>
+            <Input value={name} onChange={(e) => setName(e.target.value)} className="bg-secondary border-border/50 rounded-xl" placeholder={category === "guion" ? "Ej: Guión episodio 5" : "Ej: Brief de marca"} /></div>
+
+          {category === "documento" && (
+            <div><label className="text-xs text-muted-foreground mb-1.5 block">Tipo</label>
+              <Select value={type} onValueChange={(v) => setType(v as Document["type"])}>
+                <SelectTrigger className="bg-secondary border-border/50 rounded-xl"><SelectValue /></SelectTrigger>
+                <SelectContent className="glass gold-border">
+                  <SelectItem value="pdf">PDF</SelectItem>
+                  <SelectItem value="doc">Documento</SelectItem>
+                  <SelectItem value="sheet">Hoja de cálculo</SelectItem>
+                  <SelectItem value="slide">Presentación</SelectItem>
+                </SelectContent>
+              </Select></div>
+          )}
+
           <div><label className="text-xs text-muted-foreground mb-1.5 block">Link de Google Drive (opcional)</label>
             <Input value={driveLink} onChange={(e) => setDriveLink(e.target.value)} className="bg-secondary border-border/50 rounded-xl" placeholder="https://drive.google.com/..." /></div>
           <div><label className="text-xs text-muted-foreground mb-1.5 block">Subir archivo (opcional, máx 10MB)</label>
@@ -225,7 +281,9 @@ function AddDocumentModal({ onClose }: { onClose: () => void }) {
                 {appClients.map((c) => <SelectItem key={c.id} value={c.id}>{c.nombre}</SelectItem>)}
               </SelectContent>
             </Select></div>
-          <Button onClick={handleSave} disabled={!name.trim()} className="w-full gold-gradient text-primary-foreground rounded-xl h-11">Guardar documento</Button>
+          <Button onClick={handleSave} disabled={!name.trim()} className="w-full gold-gradient text-primary-foreground rounded-xl h-11">
+            {category === "guion" ? "Guardar guión" : "Guardar documento"}
+          </Button>
         </div>
       </motion.div>
     </motion.div>
