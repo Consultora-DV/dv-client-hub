@@ -5,8 +5,7 @@ import {
   LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
   ResponsiveContainer, Legend,
 } from "recharts";
-import { Upload, X, BarChart3, Instagram, Youtube, Facebook, AlertTriangle } from "lucide-react";
-import PdfReportCapture from "@/components/PdfReportCapture";
+import { Upload, X, BarChart3, Instagram, Youtube, Facebook, ExternalLink } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -18,6 +17,16 @@ import {
   formatNumber, formatEngagement, formatWatchTime,
 } from "@/services/metricsParser";
 import { filterDuplicates } from "@/lib/deduplication";
+import PdfReportCapture from "@/components/PdfReportCapture";
+import PostLink from "@/components/metrics/PostLink";
+import TopPodium from "@/components/metrics/TopPodium";
+import EngagementTrend from "@/components/metrics/EngagementTrend";
+import HookEffectiveness from "@/components/metrics/HookEffectiveness";
+import TrafficSources from "@/components/metrics/TrafficSources";
+import SaveRate from "@/components/metrics/SaveRate";
+import HeatMap from "@/components/metrics/HeatMap";
+import PublishConsistency from "@/components/metrics/PublishConsistency";
+import CommentsLikesRatio from "@/components/metrics/CommentsLikesRatio";
 
 const PLATFORMS = [
   { key: "general", label: "General", icon: BarChart3, color: "text-primary", bgActive: "gold-gradient text-primary-foreground", accent: "hsl(42,52%,54%)" },
@@ -40,21 +49,30 @@ function KPICards({ posts }: { posts: PostMetric[] }) {
   const avgEng = posts.length > 0 ? posts.reduce((s, p) => s + p.engagement, 0) / posts.length : 0;
   const best = posts.reduce<PostMetric | null>((top, p) => !top || p.views > top.views ? p : top, null);
 
-  const cards = [
-    { label: "Total Views", value: formatNumber(totalViews), color: "text-primary" },
-    { label: "Total Likes", value: formatNumber(totalLikes), color: "text-pink-500" },
-    { label: "Engagement promedio", value: formatEngagement(avgEng), color: "text-cyan-400" },
-    { label: "Mejor video", value: best ? `${best.title.slice(0, 25)}… (${formatNumber(best.views)})` : "—", color: "text-status-approved" },
-  ];
-
   return (
     <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-      {cards.map((c) => (
-        <div key={c.label} className="glass gold-border rounded-xl p-4">
-          <p className="text-xs text-muted-foreground">{c.label}</p>
-          <p className={`text-xl font-bold ${c.color} mt-1 truncate`}>{c.value}</p>
-        </div>
-      ))}
+      <div className="glass gold-border rounded-xl p-4">
+        <p className="text-xs text-muted-foreground">Total Views</p>
+        <p className="text-xl font-bold text-primary mt-1">{formatNumber(totalViews)}</p>
+      </div>
+      <div className="glass gold-border rounded-xl p-4">
+        <p className="text-xs text-muted-foreground">Total Likes</p>
+        <p className="text-xl font-bold text-pink-500 mt-1">{formatNumber(totalLikes)}</p>
+      </div>
+      <div className="glass gold-border rounded-xl p-4">
+        <p className="text-xs text-muted-foreground">Engagement promedio</p>
+        <p className="text-xl font-bold text-cyan-400 mt-1">{formatEngagement(avgEng)}</p>
+      </div>
+      <div className="glass gold-border rounded-xl p-4">
+        <p className="text-xs text-muted-foreground">Mejor video</p>
+        {best ? (
+          <PostLink url={best.url} showIcon className="text-lg font-bold text-status-approved mt-1 truncate block">
+            {best.title.slice(0, 20)}… ({formatNumber(best.views)})
+          </PostLink>
+        ) : (
+          <p className="text-xl font-bold text-status-approved mt-1">—</p>
+        )}
+      </div>
     </div>
   );
 }
@@ -104,6 +122,7 @@ function TopPostsChart({ posts, accent, label }: { posts: PostMetric[]; accent: 
   const top10 = [...posts].sort((a, b) => b.views - a.views).slice(0, 10).map((p) => ({
     name: p.title.slice(0, 30) || "Sin título",
     views: p.views,
+    id: p.id,
   }));
   if (top10.length === 0) return null;
 
@@ -222,13 +241,19 @@ function PostsTable({ posts, platform }: { posts: PostMetric[]; platform: "insta
             {sorted.map((p) => (
               <TableRow key={p.id}>
                 <TableCell>
-                  {p.thumbnail ? (
-                    <img src={p.thumbnail} alt="" className="w-10 h-10 rounded object-cover" onError={(e) => { (e.target as HTMLImageElement).src = "/placeholder.svg"; }} />
-                  ) : (
-                    <div className="w-10 h-10 rounded bg-secondary" />
-                  )}
+                  <PostLink url={p.url}>
+                    {p.thumbnail ? (
+                      <img src={p.thumbnail} alt="" className="w-10 h-10 rounded object-cover cursor-pointer" onError={(e) => { (e.target as HTMLImageElement).src = "/placeholder.svg"; }} />
+                    ) : (
+                      <div className="w-10 h-10 rounded bg-secondary" />
+                    )}
+                  </PostLink>
                 </TableCell>
-                <TableCell className="max-w-[200px] truncate text-xs">{p.title.slice(0, 50) || "—"}</TableCell>
+                <TableCell className="max-w-[200px] truncate text-xs">
+                  <PostLink url={p.url} showIcon>
+                    {(p.title || "—").slice(0, 50)}
+                  </PostLink>
+                </TableCell>
                 <TableCell className="text-xs text-muted-foreground">{p.date.slice(0, 10)}</TableCell>
                 <TableCell className="text-xs font-medium">{formatNumber(p.views)}</TableCell>
                 <TableCell className="text-xs">{formatNumber(p.likes)}</TableCell>
@@ -280,14 +305,8 @@ function PlatformTab({ platform, clienteId }: { platform: "instagram" | "tiktok"
         return;
       }
 
-      // Deduplicate against existing posts
       const existingPosts = metrics?.posts || [];
-      const { unique, duplicates } = filterDuplicates(
-        parsedPosts,
-        existingPosts,
-        (p) => p.url || p.id
-      );
-
+      const { unique, duplicates } = filterDuplicates(parsedPosts, existingPosts, (p) => p.url || p.id);
       const allPosts = [...existingPosts, ...unique];
       const summary = calculateMonthlySummary(allPosts);
       setMetrics({
@@ -306,21 +325,51 @@ function PlatformTab({ platform, clienteId }: { platform: "instagram" | "tiktok"
     }
   };
 
+  const hasPosts = metrics && metrics.posts.length > 0;
+  const isIgOrTt = platform === "instagram" || platform === "tiktok";
+
   return (
     <div className="space-y-6">
       <UploadZone platform={platform} metrics={metrics} onUpload={handleUpload} onRemove={() => setMetrics(null)} />
 
-      {!metrics || metrics.posts.length === 0 ? (
+      {!hasPosts ? (
         <EmptyState platform={platform} />
       ) : (
         <>
-          <KPICards posts={metrics.posts} />
+          {/* 4. KPI Cards */}
+          <KPICards posts={metrics!.posts} />
+
+          {/* 5. Podio Top 3 */}
+          <TopPodium posts={metrics!.posts} platform={platform} />
+
+          {/* 6. Tendencia de Engagement */}
+          {isIgOrTt && <EngagementTrend posts={metrics!.posts} accent={pInfo.accent} />}
+
+          {/* 7. Efectividad del Hook */}
+          {isIgOrTt && <HookEffectiveness posts={metrics!.posts} platform={platform as "instagram" | "tiktok"} />}
+
+          {/* 8. Platform-specific */}
+          {platform === "tiktok" && <TrafficSources posts={metrics!.posts} />}
+          {platform === "instagram" && <SaveRate posts={metrics!.posts} />}
+
+          {/* 9. Existing charts */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <TopPostsChart posts={metrics.posts} accent={pInfo.accent} label={`Vistas por ${platform === "instagram" ? "reel" : "video"}`} />
-            <MonthlyLineChart data={metrics.monthlySummary} accent={pInfo.accent} />
+            <TopPostsChart posts={metrics!.posts} accent={pInfo.accent} label={`Vistas por ${platform === "instagram" ? "reel" : "video"}`} />
+            <MonthlyLineChart data={metrics!.monthlySummary} accent={pInfo.accent} />
           </div>
-          <MonthlyGroupedBars data={metrics.monthlySummary} />
-          <PostsTable posts={metrics.posts} platform={platform as "instagram" | "tiktok"} />
+          <MonthlyGroupedBars data={metrics!.monthlySummary} />
+
+          {/* 10. Heatmap */}
+          <HeatMap posts={metrics!.posts} accent={pInfo.accent} />
+
+          {/* 11. Consistencia */}
+          <PublishConsistency posts={metrics!.posts} accent={pInfo.accent} />
+
+          {/* 12. Ratio C/L */}
+          <CommentsLikesRatio posts={metrics!.posts} />
+
+          {/* 13. Tabla completa */}
+          {isIgOrTt && <PostsTable posts={metrics!.posts} platform={platform as "instagram" | "tiktok"} />}
         </>
       )}
     </div>
@@ -344,24 +393,28 @@ function GeneralTab({ clienteId }: { clienteId: string | null }) {
 
   if (withData.length === 0) {
     return (
-      <div className="glass gold-border rounded-xl p-12 flex flex-col items-center gap-4 text-center">
-        <BarChart3 className="h-12 w-12 text-muted-foreground/40" />
-        <div>
-          <p className="text-foreground font-medium">Sin datos de métricas aún</p>
-          <p className="text-sm text-muted-foreground mt-1">Sube reportes CSV en cada pestaña de plataforma para ver el resumen general.</p>
+      <div className="space-y-6">
+        <div className="glass gold-border rounded-xl p-12 flex flex-col items-center gap-4 text-center">
+          <BarChart3 className="h-12 w-12 text-muted-foreground/40" />
+          <div>
+            <p className="text-foreground font-medium">Sin datos de métricas aún</p>
+            <p className="text-sm text-muted-foreground mt-1">Sube reportes CSV en cada pestaña de plataforma para ver el resumen general.</p>
+          </div>
+        </div>
+        <div className="pt-4 border-t border-border/20">
+          <h3 className="text-sm font-semibold text-foreground mb-4">Reportes PDF (Metricool)</h3>
+          <PdfReportCapture clienteId={clienteId} />
         </div>
       </div>
     );
   }
 
-  // Summary cards per platform
   const summaryCards = allPlatforms.map((p) => ({
     label: p.label,
     posts: p.metrics?.posts.length || 0,
     color: p.color,
   }));
 
-  // Cross-platform monthly comparison (if 2+ platforms)
   const crossData: Record<string, Record<string, number>> = {};
   for (const p of withData) {
     for (const m of p.metrics!.monthlySummary) {
@@ -370,11 +423,9 @@ function GeneralTab({ clienteId }: { clienteId: string | null }) {
       (crossData[m.month] as any)[p.key] = m.totalViews;
     }
   }
-  const crossChartData = Object.values(crossData).sort((a: any, b: any) => 
-    (Object.keys(crossData).find((k) => crossData[k] === a) || "").localeCompare(
-      Object.keys(crossData).find((k) => crossData[k] === b) || ""
-    )
-  );
+  const crossChartData = Object.entries(crossData)
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([, v]) => v);
 
   return (
     <div className="space-y-6">
@@ -406,7 +457,6 @@ function GeneralTab({ clienteId }: { clienteId: string | null }) {
         </div>
       )}
 
-      {/* PDF Report Capture */}
       <div className="pt-4 border-t border-border/20">
         <h3 className="text-sm font-semibold text-foreground mb-4">Reportes PDF (Metricool)</h3>
         <PdfReportCapture clienteId={clienteId} />
