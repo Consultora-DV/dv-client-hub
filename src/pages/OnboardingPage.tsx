@@ -104,7 +104,7 @@ export default function OnboardingPage({ editMode = false, onComplete, targetUse
     city: parsed?.city || "",
     country: parsed?.country || "",
     whatsapp: parsed?.whatsapp || "",
-    photo: user?.id ? localStorage.getItem(`dv_user_profile_photo_${user.id}`) : null,
+    photo: profileUserId ? localStorage.getItem(`dv_user_profile_photo_${profileUserId}`) : null,
     socials: parsed?.socialNetworks
       ? Object.fromEntries(
           SOCIAL_NETWORKS.map(sn => [
@@ -119,7 +119,7 @@ export default function OnboardingPage({ editMode = false, onComplete, targetUse
     targetAudience: parsed?.strategy?.targetAudience || "",
     tone: parsed?.strategy?.tone || [],
     contentPillars: parsed?.strategy?.contentPillars || [],
-    blueprintFile: parsed?.blueprintFile || (user?.id ? localStorage.getItem(`dv_client_blueprint_${user.id}`) : null),
+    blueprintFile: parsed?.blueprintFile || (profileUserId ? localStorage.getItem(`dv_client_blueprint_${profileUserId}`) : null),
     blueprintName: parsed?.blueprintName || "",
   }));
 
@@ -250,7 +250,7 @@ export default function OnboardingPage({ editMode = false, onComplete, targetUse
   };
 
   const handleComplete = () => {
-    if (!user?.id) return;
+    if (!profileUserId) return;
 
     const socialNetworks: Record<string, any> = {};
     Object.entries(data.socials).forEach(([key, sn]) => {
@@ -278,10 +278,10 @@ export default function OnboardingPage({ editMode = false, onComplete, targetUse
       blueprintName: data.blueprintName || undefined,
     };
 
-    localStorage.setItem(`dv_client_profile_${user.id}`, JSON.stringify(profile));
-    if (data.photo) localStorage.setItem(`dv_user_profile_photo_${user.id}`, data.photo);
-    if (data.blueprintFile) localStorage.setItem(`dv_client_blueprint_${user.id}`, data.blueprintFile);
-    localStorage.setItem(`dv_onboarding_complete_${user.id}`, "true");
+    localStorage.setItem(`dv_client_profile_${profileUserId}`, JSON.stringify(profile));
+    if (data.photo) localStorage.setItem(`dv_user_profile_photo_${profileUserId}`, data.photo);
+    if (data.blueprintFile) localStorage.setItem(`dv_client_blueprint_${profileUserId}`, data.blueprintFile);
+    localStorage.setItem(`dv_onboarding_complete_${profileUserId}`, "true");
 
     if (editMode && onComplete) {
       onComplete();
