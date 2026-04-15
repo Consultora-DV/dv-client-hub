@@ -147,7 +147,6 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
   }, [setComments, user]);
 
   const feedApifyToMetrics = useCallback((importedVideos: Video[], targetClienteId: string) => {
-    // Convert imported IG videos to PostMetric and persist to metrics state
     const igPosts: PostMetric[] = importedVideos
       .filter((v) => v.igShortCode)
       .map((v) => ({
@@ -167,15 +166,18 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
           : 0,
       }));
 
-    if (igPosts.length === 0) return 0;
+    if (igPosts.length === 0) return { added: 0, skipped: 0 };
 
     const metricsKey = `dv_metrics_${targetClienteId}_instagram`;
     try {
       const existing: PlatformMetrics | null = JSON.parse(localStorage.getItem(metricsKey) || "null");
       const existingPosts = existing?.posts || [];
-      const existingIds = new Set(existingPosts.map((p) => p.id));
-      const newPosts = igPosts.filter((p) => !existingIds.has(p.id));
-      const allPosts = [...existingPosts, ...newPosts];
+      const { unique, duplicates } = filterDuplicates(
+        igPosts,
+        existingPosts,
+        (p) => p.url || p.id
+      );
+      const allPosts = [...existingPosts, ...unique];
       const summary = calculateMonthlySummary(allPosts);
 
       const updated: PlatformMetrics = {
@@ -187,33 +189,54 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
         monthlySummary: summary,
       };
       localStorage.setItem(metricsKey, JSON.stringify(updated));
-      return newPosts.length;
+      return { added: unique.length, skipped: duplicates.length };
     } catch {
-      return 0;
+      return { added: 0, skipped: 0 };
     }
   }, []);
 
   const importFromApify = useCallback((newVideos: Video[], newEvents: CalendarEvent[]) => {
     const targetClient = newVideos[0]?.clienteId || newEvents[0]?.clienteId || "";
 
+    let videosAdded = 0;
+    let videosSkipped = 0;
+    let eventsAdded = 0;
+    let eventsSkipped = 0;
+
     setVideos((prev) => {
-      const ids = new Set(prev.map((v) => v.id));
-      return [...prev, ...newVideos.filter((v) => !ids.has(v.id))];
-    });
-    setCalendarEvents((prev) => {
-      const ids = new Set(prev.map((e) => e.id));
-      return [...prev, ...newEvents.filter((e) => !ids.has(e.id))];
+      const { unique, duplicates } = filterDuplicates(
+        newVideos,
+        prev,
+        (v) => v.embedUrl || `${v.title}|${v.clienteId}|${v.deliveryDate}`
+      );
+      videosAdded = unique.length;
+      videosSkipped = duplicates.length;
+      return [...prev, ...unique];
     });
 
-    const metricsCount = feedApifyToMetrics(newVideos, targetClient);
+    setCalendarEvents((prev) => {
+      const { unique, duplicates } = filterDuplicates(
+        newEvents,
+        prev,
+        (e) => (e as any).igShortCode || `${e.date}|${e.title}|${e.clienteId}`
+      );
+      eventsAdded = unique.length;
+      eventsSkipped = duplicates.length;
+      return [...prev, ...unique];
+    });
+
+    const metricsResult = feedApifyToMetrics(newVideos, targetClient);
+    const totalSkipped = videosSkipped + eventsSkipped;
 
     addNotification({
       type: "video_ready",
-      message: `Importación completada: ${newVideos.length} videos y ${newEvents.length} eventos de Instagram${metricsCount > 0 ? ` · Métricas actualizadas con ${metricsCount} posts` : ""}`,
+      message: `Importación: ${videosAdded} videos, ${eventsAdded} eventos${metricsResult.added > 0 ? `, ${metricsResult.added} métricas` : ""}${totalSkipped > 0 ? ` · ${totalSkipped} duplicados omitidos` : ""}`,
       date: new Date().toISOString(),
       read: false,
       link: "/videos",
     });
+
+    return { videosAdded, videosSkipped, eventsAdded, eventsSkipped, metricsAdded: metricsResult.added, metricsSkipped: metricsResult.skipped };
   }, [setVideos, setCalendarEvents, addNotification, feedApifyToMetrics]);
 
   return (
