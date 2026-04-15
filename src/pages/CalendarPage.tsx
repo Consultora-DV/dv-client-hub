@@ -1,7 +1,7 @@
 import { useState, useMemo } from "react";
 import { toast } from "sonner";
 import { motion, AnimatePresence } from "framer-motion";
-import { ChevronLeft, ChevronRight, X, Plus } from "lucide-react";
+import { ChevronLeft, ChevronRight, X, Plus, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -11,6 +11,7 @@ import { useNavigate } from "react-router-dom";
 import { useAppState } from "@/contexts/AppStateContext";
 import { usePermissions } from "@/hooks/usePermissions";
 import { CalendarEvent } from "@/data/mockData";
+import { ConfirmDialog } from "@/components/ConfirmDialog";
 
 const platformColors: Record<string, string> = {
   instagram: "bg-instagram",
@@ -150,10 +151,17 @@ function EventPill({ event }: { event: CalendarEvent }) {
 
 export default function CalendarPage() {
   const navigate = useNavigate();
-  const { calendarEvents } = useAppState();
+  const { calendarEvents, setCalendarEvents } = useAppState();
   const { canAddCalendarEvents } = usePermissions();
   const [currentDate, setCurrentDate] = useState(() => new Date());
   const [addEventDate, setAddEventDate] = useState<string | null>(null);
+  const [contentTypeFilter, setContentTypeFilter] = useState("all");
+  const [deleteTarget, setDeleteTarget] = useState<CalendarEvent | null>(null);
+
+  const filteredEvents = useMemo(() => {
+    if (contentTypeFilter === "all") return calendarEvents;
+    return calendarEvents.filter((e) => e.contentType === contentTypeFilter);
+  }, [calendarEvents, contentTypeFilter]);
 
   const year = currentDate.getFullYear();
   const month = currentDate.getMonth();
@@ -169,7 +177,7 @@ export default function CalendarPage() {
 
   const getEventsForDay = (day: number) => {
     const dateStr = `${year}-${String(month + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
-    return calendarEvents.filter((e) => e.date === dateStr);
+    return filteredEvents.filter((e) => e.date === dateStr);
   };
 
   const handleDayClick = (day: number) => {
@@ -182,9 +190,16 @@ export default function CalendarPage() {
   const next = () => setCurrentDate(new Date(year, month + 1, 1));
   const monthName = currentDate.toLocaleDateString("es-MX", { month: "long", year: "numeric" });
 
-  const mobileEvents = calendarEvents
+  const mobileEvents = filteredEvents
     .filter((e) => { const d = new Date(e.date); return d.getMonth() === month && d.getFullYear() === year; })
     .sort((a, b) => a.date.localeCompare(b.date));
+
+  const handleDeleteEvent = () => {
+    if (!deleteTarget) return;
+    setCalendarEvents((prev) => prev.filter((e) => e.id !== deleteTarget.id));
+    toast.success(`Evento "${deleteTarget.title}" eliminado`);
+    setDeleteTarget(null);
+  };
 
   return (
     <div className="max-w-5xl mx-auto space-y-6">
@@ -192,6 +207,26 @@ export default function CalendarPage() {
         <h1 className="text-2xl font-display font-bold text-foreground">Calendario Editorial</h1>
         <p className="text-sm text-muted-foreground mt-1">Planificación de publicaciones</p>
       </motion.div>
+
+      {/* Content type filter */}
+      <div className="flex gap-2 flex-wrap">
+        {[
+          { key: "all", label: "Todos" },
+          ...contentTypes.map((t) => ({ key: t, label: t.charAt(0).toUpperCase() + t.slice(1) })),
+        ].map((f) => (
+          <button
+            key={f.key}
+            onClick={() => setContentTypeFilter(f.key)}
+            className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors border ${
+              contentTypeFilter === f.key
+                ? "bg-primary/20 text-primary border-primary/30"
+                : "bg-secondary/50 text-muted-foreground border-border/50 hover:bg-secondary"
+            }`}
+          >
+            {f.label}
+          </button>
+        ))}
+      </div>
 
       <div className="flex items-center justify-between">
         <Button variant="ghost" size="icon" onClick={prev} className="text-muted-foreground hover:text-foreground"><ChevronLeft className="h-5 w-5" /></Button>
@@ -265,17 +300,17 @@ export default function CalendarPage() {
           const firstPlatform = ev.platform[0];
           const borderColor = platformDotColors[firstPlatform] || "#888";
           return (
-            <button key={ev.id} onClick={() => ev.videoId && navigate("/videos")}
-              className="w-full flex items-center gap-3 px-5 py-4 border-b border-border/30 last:border-0 hover:bg-secondary/30 transition-colors text-left"
+            <div key={ev.id}
+              className="w-full flex items-center gap-3 px-5 py-4 border-b border-border/30 last:border-0 hover:bg-secondary/30 transition-colors text-left group"
               style={{ borderLeftWidth: "3px", borderLeftColor: borderColor }}
             >
-              <div className="flex-1 min-w-0">
+              <button onClick={() => ev.videoId && navigate("/videos")} className="flex-1 min-w-0 text-left">
                 <p className="text-sm font-medium text-foreground truncate">{ev.title}</p>
                 <p className="text-xs text-muted-foreground">
                   {new Date(ev.date).toLocaleDateString("es-MX", { weekday: "short", day: "numeric", month: "short" })}
                   {ev.time && ` · ${ev.time}`}
                 </p>
-              </div>
+              </button>
               <div className="flex gap-1 shrink-0">
                 {ev.platform.map((p) => (
                   <span key={p} className={`text-[10px] px-1.5 py-0.5 rounded-full ${platformColors[p] || "bg-secondary"} text-foreground`}>
@@ -283,10 +318,24 @@ export default function CalendarPage() {
                   </span>
                 ))}
               </div>
-            </button>
+              <button
+                onClick={() => setDeleteTarget(ev)}
+                className="p-1.5 rounded-lg text-muted-foreground hover:text-destructive opacity-0 group-hover:opacity-100 transition-opacity shrink-0"
+              >
+                <Trash2 className="h-4 w-4" />
+              </button>
+            </div>
           );
         })}
       </div>
+
+      <ConfirmDialog
+        open={!!deleteTarget}
+        onOpenChange={(o) => !o && setDeleteTarget(null)}
+        title="Eliminar evento"
+        description={`¿Estás seguro de eliminar "${deleteTarget?.title}"? Esta acción no se puede deshacer.`}
+        onConfirm={handleDeleteEvent}
+      />
 
       <AnimatePresence>{addEventDate && <AddEventModal date={addEventDate} onClose={() => setAddEventDate(null)} />}</AnimatePresence>
     </div>

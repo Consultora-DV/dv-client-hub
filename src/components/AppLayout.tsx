@@ -6,6 +6,7 @@ import { ThemeToggle } from "@/components/ThemeToggle";
 import { ClientSelector } from "@/components/ClientSelector";
 import { ClientSocialLinks } from "@/components/ClientSocialLinks";
 import { ImportModal } from "@/components/ImportModal";
+import { GlobalSearch } from "@/components/GlobalSearch";
 import { MessageCircle, Download } from "lucide-react";
 import { Outlet } from "react-router-dom";
 import { usePermissions } from "@/hooks/usePermissions";
@@ -29,6 +30,7 @@ export function AppLayout() {
               <ClientSocialLinks />
             </div>
             <div className="flex items-center gap-1">
+              <GlobalSearch />
               {canImport && (
                 <Tooltip>
                   <TooltipTrigger asChild>

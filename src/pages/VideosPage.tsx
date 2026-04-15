@@ -2,8 +2,10 @@ import { useState, useMemo } from "react";
 import { toast } from "sonner";
 import { motion, AnimatePresence } from "framer-motion";
 import { Video } from "@/data/mockData";
-import { X, ExternalLink, Check, AlertTriangle, Plus, Instagram } from "lucide-react";
+import { X, ExternalLink, Check, AlertTriangle, Plus, Instagram, Trash2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { ListPagination } from "@/components/ListPagination";
+import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
@@ -370,8 +372,11 @@ function AddVideoModal({ onClose }: { onClose: () => void }) {
 export default function VideosPage() {
   const [selected, setSelected] = useState<Video | null>(null);
   const [showAddModal, setShowAddModal] = useState(false);
-  const { videos, comments } = useAppState();
+  const [deleteTarget, setDeleteTarget] = useState<Video | null>(null);
+  const { videos, comments, setVideos } = useAppState();
   const { canAddVideos } = usePermissions();
+  const [page, setPage] = useState(1);
+  const PER_PAGE = 15;
 
   const [statusFilter, setStatusFilter] = useState<StatusFilter>(() => {
     return (sessionStorage.getItem("dv_video_filter") as StatusFilter) || "all";
@@ -379,6 +384,7 @@ export default function VideosPage() {
 
   const handleFilterChange = (f: StatusFilter) => {
     setStatusFilter(f);
+    setPage(1);
     sessionStorage.setItem("dv_video_filter", f);
   };
 
@@ -387,6 +393,9 @@ export default function VideosPage() {
     return videos.filter((v) => v.status === statusFilter);
   }, [videos, statusFilter]);
 
+  const totalPages = Math.max(1, Math.ceil(filteredVideos.length / PER_PAGE));
+  const paginatedVideos = filteredVideos.slice((page - 1) * PER_PAGE, page * PER_PAGE);
+
   const statusCounts = useMemo(() => {
     const counts: Record<string, number> = { all: videos.length };
     for (const v of videos) {
@@ -394,6 +403,13 @@ export default function VideosPage() {
     }
     return counts;
   }, [videos]);
+
+  const handleDelete = () => {
+    if (!deleteTarget) return;
+    setVideos((prev) => prev.filter((v) => v.id !== deleteTarget.id));
+    toast.success(`Video "${deleteTarget.title}" eliminado`);
+    setDeleteTarget(null);
+  };
 
   return (
     <div className="max-w-6xl mx-auto space-y-6">
@@ -431,16 +447,36 @@ export default function VideosPage() {
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
-        {filteredVideos.map((video) => (
-          <VideoCard key={video.id} video={video} commentCount={(comments[video.id] || []).length} onClick={() => setSelected(video)} />
+        {paginatedVideos.map((video) => (
+          <div key={video.id} className="relative group">
+            <VideoCard video={video} commentCount={(comments[video.id] || []).length} onClick={() => setSelected(video)} />
+            <button
+              onClick={(e) => { e.stopPropagation(); setDeleteTarget(video); }}
+              className="absolute top-3 right-3 p-1.5 rounded-lg bg-background/80 text-muted-foreground hover:text-destructive opacity-0 group-hover:opacity-100 transition-opacity z-10"
+              title="Eliminar video"
+            >
+              <Trash2 className="h-4 w-4" />
+            </button>
+          </div>
         ))}
-        {filteredVideos.length === 0 && (
+        {paginatedVideos.length === 0 && (
           <div className="col-span-full glass gold-border rounded-xl p-12 flex flex-col items-center gap-3 text-center">
             <Check className="h-10 w-10 text-muted-foreground/40" />
             <p className="text-sm text-muted-foreground">No hay videos con este filtro</p>
           </div>
         )}
       </div>
+
+      <ListPagination currentPage={page} totalPages={totalPages} onPageChange={setPage} />
+
+      <ConfirmDialog
+        open={!!deleteTarget}
+        onOpenChange={(o) => !o && setDeleteTarget(null)}
+        title="Eliminar video"
+        description={`¿Estás seguro de eliminar "${deleteTarget?.title}"? Esta acción no se puede deshacer.`}
+        onConfirm={handleDelete}
+      />
+
       <AnimatePresence>
         {selected && <VideoDetail video={videos.find((v) => v.id === selected.id) || selected} onClose={() => setSelected(null)} />}
         {showAddModal && <AddVideoModal onClose={() => setShowAddModal(false)} />}
