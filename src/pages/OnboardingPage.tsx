@@ -91,7 +91,7 @@ export default function OnboardingPage({ editMode = false, onComplete }: { editM
   const [isParsingAi, setIsParsingAi] = useState(false);
   const [aiParseError, setAiParseError] = useState<string | null>(null);
   const [aiParseResult, setAiParseResult] = useState<BlueprintResult | null>(null);
-  const [showSettingsModal, setShowSettingsModal] = useState(false);
+  
   const [aiFilledFields, setAiFilledFields] = useState<Set<string>>(new Set());
   const existingProfile = user?.id ? localStorage.getItem(`dv_client_profile_${user.id}`) : null;
   const parsed = existingProfile ? JSON.parse(existingProfile) : null;
@@ -639,7 +639,7 @@ export default function OnboardingPage({ editMode = false, onComplete }: { editM
               </div>
             )}
 
-            {showSettingsModal && <SettingsModal onClose={() => setShowSettingsModal(false)} />}
+            
           </motion.div>
         </AnimatePresence>
 
