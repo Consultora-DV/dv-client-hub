@@ -516,7 +516,7 @@ export default function DocumentsPage() {
                     </div>
                     <p className="text-xs text-muted-foreground mt-0.5">
                       {new Date(d.date).toLocaleDateString("es-MX", { day: "numeric", month: "long", year: "numeric" })}
-                      {!hasAnyLink && <span className="ml-2 text-yellow-500">· Sin archivo adjunto</span>}
+                      {!hasAnyLink && <span className="ml-2 text-status-changes">· Sin archivo adjunto</span>}
                     </p>
                   </div>
                   {client && <span className="text-[10px] px-1.5 py-0.5 rounded-full shrink-0" style={{ backgroundColor: client.colorAccent + "22", color: client.colorAccent }}>{client.avatar}</span>}
