@@ -6,6 +6,7 @@ import {
   ResponsiveContainer, Legend,
 } from "recharts";
 import { Upload, X, BarChart3, Instagram, Youtube, Facebook, AlertTriangle } from "lucide-react";
+import PdfReportCapture from "@/components/PdfReportCapture";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -404,6 +405,12 @@ function GeneralTab({ clienteId }: { clienteId: string | null }) {
           </ResponsiveContainer>
         </div>
       )}
+
+      {/* PDF Report Capture */}
+      <div className="pt-4 border-t border-border/20">
+        <h3 className="text-sm font-semibold text-foreground mb-4">Reportes PDF (Metricool)</h3>
+        <PdfReportCapture clienteId={clienteId} />
+      </div>
     </div>
   );
 }

@@ -46,6 +46,24 @@ export interface PlatformMetrics {
   monthlySummary: MonthlyMetric[];
 }
 
+export interface MonthlySnapshot {
+  id: string;
+  clienteId: string;
+  platform: string;
+  period: string; // "Ene 2026", "Feb 2026", etc.
+  month: string; // "2026-01" for sorting
+  followers: number;
+  growthPct: number;
+  totalInteractions: number;
+  reach: number;
+  postsPublished: number;
+  impressions?: number;
+  profileVisits?: number;
+  notes?: string;
+  capturedAt: string;
+  sourceFile?: string;
+}
+
 const MONTH_LABELS: Record<string, string> = {
   "01": "Ene", "02": "Feb", "03": "Mar", "04": "Abr",
   "05": "May", "06": "Jun", "07": "Jul", "08": "Ago",
