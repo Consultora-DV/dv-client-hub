@@ -11,11 +11,9 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import {
   Camera, Check, ChevronRight, ChevronLeft, User, Share2, Target, FileUp,
   Instagram, Globe, MapPin, Upload, X, FileText, Rocket, DollarSign, Crosshair, Trophy, BookOpen,
-  Sparkles, Loader2, AlertCircle, Settings, CheckCircle2
+  Sparkles, Loader2, AlertCircle, CheckCircle2
 } from "lucide-react";
-import { useAiToken } from "@/hooks/useAiToken";
 import { parseBlueprint, type BlueprintResult } from "@/services/aiParserService";
-import { SettingsModal } from "@/components/SettingsModal";
 import * as pdfjsLib from "pdfjs-dist";
 
 const INDUSTRIES = [
