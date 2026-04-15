@@ -47,6 +47,21 @@ export default function ProfilePage() {
   const [editingOnboarding, setEditingOnboarding] = useState(false);
 
   const targetUserId = isClient ? user?.id : selectedClienteId || user?.id;
+
+  // Migration: data was previously saved under admin's ID — copy to client's ID if missing
+  if (isAdmin && selectedClienteId && user?.id && selectedClienteId !== user.id) {
+    const clientKey = `dv_client_profile_${selectedClienteId}`;
+    const adminKey = `dv_client_profile_${user.id}`;
+    if (!localStorage.getItem(clientKey) && localStorage.getItem(adminKey)) {
+      localStorage.setItem(clientKey, localStorage.getItem(adminKey)!);
+      const photoKey = `dv_user_profile_photo_${user.id}`;
+      if (localStorage.getItem(photoKey)) localStorage.setItem(`dv_user_profile_photo_${selectedClienteId}`, localStorage.getItem(photoKey)!);
+      const bpKey = `dv_client_blueprint_${user.id}`;
+      if (localStorage.getItem(bpKey)) localStorage.setItem(`dv_client_blueprint_${selectedClienteId}`, localStorage.getItem(bpKey)!);
+      localStorage.setItem(`dv_onboarding_complete_${selectedClienteId}`, "true");
+    }
+  }
+
   const profileData = targetUserId ? JSON.parse(localStorage.getItem(`dv_client_profile_${targetUserId}`) || "null") : null;
   const photo = targetUserId ? localStorage.getItem(`dv_user_profile_photo_${targetUserId}`) : null;
 
