@@ -36,10 +36,10 @@ function isValidInput(input: string): boolean {
 
 export function ImportModal({ onClose }: { onClose: () => void }) {
   const navigate = useNavigate();
-  const { importFromApify, allVideos, clients } = useAppState();
+  const { importFromApify, allVideos, clients, selectedClienteId } = useAppState();
   const [step, setStep] = useState<Step>("input");
   const [urlText, setUrlText] = useState("");
-  const [clienteId, setClienteId] = useState(clients[0]?.id || "");
+  const [clienteId, setClienteId] = useState(selectedClienteId || clients[0]?.id || "");
   const [posts, setPosts] = useState<ApifyInstagramPost[]>([]);
   const [selectedPosts, setSelectedPosts] = useState<Set<string>>(new Set());
   const [loadingMsgIdx, setLoadingMsgIdx] = useState(0);
