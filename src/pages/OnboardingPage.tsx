@@ -49,12 +49,12 @@ interface SocialNetwork {
 }
 
 const SOCIAL_NETWORKS = [
-  { key: "instagram", label: "Instagram", color: "from-pink-500 to-purple-600", icon: Instagram },
-  { key: "tiktok", label: "TikTok", color: "from-gray-900 to-cyan-500", icon: Share2 },
-  { key: "facebook", label: "Facebook", color: "from-blue-600 to-blue-500", icon: Globe },
-  { key: "youtube", label: "YouTube", color: "from-red-600 to-red-500", icon: Globe },
-  { key: "googleMaps", label: "Google Maps / Negocio", color: "from-green-600 to-green-400", icon: MapPin },
-  { key: "website", label: "Sitio web", color: "from-gray-500 to-gray-400", icon: Globe },
+  { key: "instagram", label: "Instagram", color: "from-pink-500 to-purple-600", icon: Instagram, metricLabel: "Seguidores" },
+  { key: "tiktok", label: "TikTok", color: "from-gray-900 to-cyan-500", icon: Share2, metricLabel: "Seguidores" },
+  { key: "facebook", label: "Facebook", color: "from-blue-600 to-blue-500", icon: Globe, metricLabel: "Seguidores" },
+  { key: "youtube", label: "YouTube", color: "from-red-600 to-red-500", icon: Globe, metricLabel: "Suscriptores" },
+  { key: "googleMaps", label: "Google Maps / Negocio", color: "from-green-600 to-green-400", icon: MapPin, metricLabel: "Reseñas" },
+  { key: "website", label: "Sitio web", color: "from-gray-500 to-gray-400", icon: Globe, metricLabel: "" },
 ];
 
 interface OnboardingData {
@@ -133,8 +133,7 @@ export default function OnboardingPage({ editMode = false, onComplete }: { editM
 
   const canNext = (s: number) => {
     if (s === 0) return data.fullName.trim() && data.businessName.trim() && data.industry;
-    if (s === 1) return Object.values(data.socials).some(sn => sn.active);
-    return true;
+    return true; // Step 2 (redes) is now optional
   };
 
   const handlePhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -415,7 +414,7 @@ export default function OnboardingPage({ editMode = false, onComplete }: { editM
               <div className="space-y-4">
                 <div className="text-center mb-6">
                   <h2 className="text-xl font-display font-bold text-foreground">Tus redes sociales</h2>
-                  <p className="text-sm text-muted-foreground mt-1">Activa al menos una red social para continuar</p>
+                  <p className="text-sm text-muted-foreground mt-1">Agrega tus redes sociales si lo deseas. Este paso es opcional.</p>
                 </div>
 
                 {SOCIAL_NETWORKS.map(sn => {
@@ -452,10 +451,10 @@ export default function OnboardingPage({ editMode = false, onComplete }: { editM
                             onChange={e => update({ socials: { ...data.socials, [sn.key]: { ...val, url: e.target.value } } })}
                             className="bg-secondary border-border/50 rounded-xl text-sm"
                           />
-                          {sn.key !== "website" && (
+                          {sn.key !== "website" && sn.metricLabel && (
                             <Input
                               type="number"
-                              placeholder="Seguidores actuales"
+                              placeholder={`${sn.metricLabel} actuales`}
                               value={val.followers || ""}
                               onChange={e => update({ socials: { ...data.socials, [sn.key]: { ...val, followers: parseInt(e.target.value) || 0 } } })}
                               className="bg-secondary border-border/50 rounded-xl text-sm"
