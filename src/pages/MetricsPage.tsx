@@ -515,18 +515,21 @@ export default function MetricsPage() {
         </div>
       )}
 
-      <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v)}>
+      <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as string)}>
         <TabsList className="bg-secondary/50 border border-border/30 h-auto p-1 flex-wrap">
-          {PLATFORMS.map((p) => (
-            <TabsTrigger
-              key={p.key}
-              value={p.key}
-              className={`data-[state=active]:${p.bgActive} gap-1.5 text-xs sm:text-sm`}
-            >
-              <p.icon className={`h-4 w-4 ${p.color}`} />
-              {p.label}
-            </TabsTrigger>
-          ))}
+          {PLATFORMS.map((p) => {
+            const isActive = activeTab === p.key;
+            return (
+              <TabsTrigger
+                key={p.key}
+                value={p.key}
+                className={`gap-1.5 text-xs sm:text-sm transition-all ${isActive ? p.bgActive : ""}`}
+              >
+                <p.icon className={`h-4 w-4 ${isActive ? "" : p.color}`} />
+                {p.label}
+              </TabsTrigger>
+            );
+          })}
         </TabsList>
 
         <TabsContent value="general">
