@@ -190,11 +190,11 @@ export default function OnboardingPage({ editMode = false, onComplete }: { editM
   };
 
   const handleAiParse = async () => {
-    if (!blueprintText || !aiToken) return;
+    if (!blueprintText) return;
     setIsParsingAi(true);
     setAiParseError(null);
     try {
-      const result = await parseBlueprint(blueprintText, aiProvider, aiToken);
+      const result = await parseBlueprint(blueprintText);
       setAiParseResult(result);
     } catch (err: any) {
       setAiParseError(err.message || "Error al analizar el documento.");
