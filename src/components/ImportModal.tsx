@@ -22,10 +22,16 @@ const loadingMessages = [
   "Casi listo...",
 ];
 
-function isValidInstagramUrl(url: string): boolean {
-  return /instagram\.com\/.+\/(p|reel|reels|tv)\/[A-Za-z0-9_-]+/i.test(url) ||
-    /instagram\.com\/(p|reel|reels|tv)\/[A-Za-z0-9_-]+/i.test(url) ||
-    /instagram\.com\/[A-Za-z0-9_.]+\/?$/i.test(url);
+function isValidInput(input: string): boolean {
+  const trimmed = input.trim();
+  if (!trimmed) return false;
+  // Post/reel/tv URLs
+  if (/instagram\.com\/.*(p|reel|reels|tv)\/[A-Za-z0-9_-]+/i.test(trimmed)) return true;
+  // Profile URLs
+  if (/instagram\.com\/[A-Za-z0-9._]+\/?(\?.*)?$/i.test(trimmed)) return true;
+  // Plain usernames
+  if (/^[a-zA-Z0-9._]+$/.test(trimmed)) return true;
+  return false;
 }
 
 export function ImportModal({ onClose }: { onClose: () => void }) {
@@ -44,15 +50,14 @@ export function ImportModal({ onClose }: { onClose: () => void }) {
   const [result, setResult] = useState<{ videosAdded: number; eventsAdded: number; skipped: number; errors: string[]; metricsUpdated: number; metricsSkipped: number } | null>(null);
   const cancelRef = useRef(false);
 
-  const urls = urlText
+  const inputs = urlText
     .split("\n")
     .map((l) => l.trim())
     .filter(Boolean);
 
-  const validUrls = urls.filter(isValidInstagramUrl);
-  const invalidUrls = urls.filter((u) => !isValidInstagramUrl(u));
+  const validInputs = inputs.filter(isValidInput);
+  const invalidInputs = inputs.filter((u) => !isValidInput(u));
 
-  // Loading message rotation
   useEffect(() => {
     if (step !== "loading") return;
     const interval = setInterval(() => {
@@ -69,7 +74,7 @@ export function ImportModal({ onClose }: { onClose: () => void }) {
     setLoadingMsgIdx(0);
 
     try {
-      const results = await scrapeInstagramPosts(validUrls, apiKey);
+      const results = await scrapeInstagramPosts(validInputs, apiKey);
       if (cancelRef.current) return;
       setPosts(results);
       setSelectedPosts(new Set(results.map((p) => p.shortCode)));
@@ -79,7 +84,7 @@ export function ImportModal({ onClose }: { onClose: () => void }) {
       setError(err.message || "Error desconocido");
       setStep("input");
     }
-  }, [apiKey, validUrls]);
+  }, [apiKey, validInputs]);
 
   const handleCancel = () => {
     cancelRef.current = true;
@@ -91,7 +96,6 @@ export function ImportModal({ onClose }: { onClose: () => void }) {
     const client = clients.find((c) => c.id === clienteId);
     const { videos, events } = mapPostsToAppData(selected, clienteId, client?.nombre || "");
 
-    // importFromApify now handles all deduplication internally
     const result = importFromApify(videos, events);
 
     setResult({
@@ -128,7 +132,6 @@ export function ImportModal({ onClose }: { onClose: () => void }) {
         onClick={(e) => e.stopPropagation()}
         className="glass gold-border gold-glow rounded-2xl w-full max-w-2xl max-h-[90vh] overflow-hidden flex flex-col"
       >
-        {/* Header */}
         <div className="flex items-center justify-between p-5 border-b border-border/50 shrink-0">
           <div className="flex items-center gap-3">
             <Download className="h-5 w-5 text-primary" />
@@ -139,10 +142,8 @@ export function ImportModal({ onClose }: { onClose: () => void }) {
           </button>
         </div>
 
-        {/* Body */}
         <div className="flex-1 overflow-y-auto p-5">
           <AnimatePresence mode="wait">
-            {/* STEP 1: Input */}
             {step === "input" && (
               <motion.div key="input" initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 20 }} className="space-y-4">
                 {!apiKey && (
@@ -164,33 +165,33 @@ export function ImportModal({ onClose }: { onClose: () => void }) {
                 )}
 
                 <div>
-                  <label className="text-xs text-muted-foreground mb-1.5 block">Links de Instagram</label>
+                  <label className="text-xs text-muted-foreground mb-1.5 block">Links de Instagram o nombres de usuario</label>
                   <Textarea
                     value={urlText}
                     onChange={(e) => setUrlText(e.target.value)}
-                    placeholder={"Pega aquí los links de Instagram, uno por línea:\nhttps://www.instagram.com/p/ABC123/\nhttps://www.instagram.com/reel/XYZ789/"}
+                    placeholder={"Pega links de Instagram (posts, reels) o nombres de usuario:\nhttps://www.instagram.com/reel/ABC123/\nhttps://www.instagram.com/p/XYZ789/\nbiancaaldamaboutique"}
                     className="bg-secondary border-border/50 rounded-xl resize-none min-h-[140px] font-mono text-xs"
                     rows={6}
                   />
                   <div className="flex items-center gap-3 mt-2">
-                    {urls.length > 0 && (
+                    {inputs.length > 0 && (
                       <span className="text-xs text-muted-foreground">
-                        {validUrls.length} link{validUrls.length !== 1 ? "s" : ""} detectado{validUrls.length !== 1 ? "s" : ""}
+                        {validInputs.length} input{validInputs.length !== 1 ? "s" : ""} detectado{validInputs.length !== 1 ? "s" : ""}
                       </span>
                     )}
-                    {invalidUrls.length > 0 && (
+                    {invalidInputs.length > 0 && (
                       <span className="text-xs text-destructive">
-                        {invalidUrls.length} URL{invalidUrls.length !== 1 ? "s" : ""} inválida{invalidUrls.length !== 1 ? "s" : ""}
+                        {invalidInputs.length} inválido{invalidInputs.length !== 1 ? "s" : ""}
                       </span>
                     )}
                   </div>
                 </div>
 
-                {invalidUrls.length > 0 && (
+                {invalidInputs.length > 0 && (
                   <div className="space-y-1">
-                    {invalidUrls.map((u, i) => (
+                    {invalidInputs.map((u, i) => (
                       <div key={i} className="text-xs text-destructive bg-destructive/10 rounded-lg px-3 py-1.5 truncate">
-                        ✕ {u} — URL inválida
+                        ✕ {u} — formato no reconocido
                       </div>
                     ))}
                   </div>
@@ -217,7 +218,7 @@ export function ImportModal({ onClose }: { onClose: () => void }) {
 
                 <Button
                   onClick={handleAnalyze}
-                  disabled={validUrls.length === 0 || !clienteId || !apiKey}
+                  disabled={validInputs.length === 0 || !clienteId || !apiKey}
                   className="w-full gold-gradient text-primary-foreground rounded-xl h-11"
                 >
                   Analizar posts →
@@ -225,7 +226,6 @@ export function ImportModal({ onClose }: { onClose: () => void }) {
               </motion.div>
             )}
 
-            {/* STEP 2: Loading */}
             {step === "loading" && (
               <motion.div key="loading" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="flex flex-col items-center justify-center py-16 space-y-6">
                 <div className="relative w-16 h-16">
@@ -252,10 +252,8 @@ export function ImportModal({ onClose }: { onClose: () => void }) {
               </motion.div>
             )}
 
-            {/* STEP 3: Preview */}
             {step === "preview" && (
               <motion.div key="preview" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className="space-y-4">
-                {/* Summary card */}
                 <div className="flex gap-4 p-4 rounded-xl bg-secondary/50 border border-border/50">
                   <div className="text-center">
                     <p className="text-2xl font-bold text-foreground">{posts.length}</p>
@@ -271,7 +269,6 @@ export function ImportModal({ onClose }: { onClose: () => void }) {
                   </div>
                 </div>
 
-                {/* Posts list */}
                 <div className="space-y-2 max-h-[400px] overflow-y-auto pr-1">
                   {posts.map((post) => {
                     const typeBadge = post.type === "Video"
@@ -331,7 +328,6 @@ export function ImportModal({ onClose }: { onClose: () => void }) {
               </motion.div>
             )}
 
-            {/* STEP 4: Success */}
             {step === "success" && result && (
               <motion.div key="success" initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0 }} className="flex flex-col items-center py-10 space-y-6">
                 <motion.div

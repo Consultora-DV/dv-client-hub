@@ -2,21 +2,22 @@ import { motion } from "framer-motion";
 import { useAuth } from "@/contexts/AuthContext";
 import { useAppState } from "@/contexts/AppStateContext";
 import { usePermissions } from "@/hooks/usePermissions";
-import { Video as VideoIcon, FileText, File, CalendarDays, Clock, Inbox } from "lucide-react";
+import { Video as VideoIcon, FileText, File, CalendarDays, Clock, Inbox, CheckCircle, FileCheck, FolderOpen, CalendarX, BarChart3 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { formatDistanceToNow } from "date-fns";
 import { es } from "date-fns/locale";
-
-const fadeUp = {
-  initial: { opacity: 0, y: 20 },
-  animate: { opacity: 1, y: 0 },
-};
+import { useReducedMotion } from "@/hooks/useReducedMotion";
 
 export default function DashboardPage() {
   const { user } = useAuth();
-  const { videos, documents, notifications, scripts, clients, allVideos, allDocuments } = useAppState();
+  const { videos, documents, notifications, scripts, clients, allVideos, allDocuments, setSelectedClienteId, calendarEvents } = useAppState();
   const { isAdmin } = usePermissions();
   const navigate = useNavigate();
+  const reduced = useReducedMotion();
+
+  const fadeUp = reduced
+    ? { initial: {}, animate: {} }
+    : { initial: { opacity: 0, y: 20 }, animate: { opacity: 1, y: 0 } };
 
   const today = new Date().toLocaleDateString("es-MX", {
     weekday: "long", year: "numeric", month: "long", day: "numeric",
@@ -25,18 +26,42 @@ export default function DashboardPage() {
   const pendingVideos = videos.filter((v) => v.status === "pending").length;
   const newScripts = scripts.filter((s) => s.isNew).length;
   const recentDocs = documents.filter((d) => d.isNew).length;
-  const nextPub = videos
-    .filter((v) => v.status !== "published")
-    .sort((a, b) => a.deliveryDate.localeCompare(b.deliveryDate))[0];
+  const nextPub = calendarEvents
+    .filter((e) => new Date(e.date) >= new Date())
+    .sort((a, b) => a.date.localeCompare(b.date))[0];
 
   const summaryCards = [
-    { label: "Videos pendientes", value: pendingVideos, icon: VideoIcon, color: "text-status-pending", link: "/videos" },
-    { label: "Guiones nuevos", value: newScripts, icon: FileText, color: "text-primary", link: "/documentos" },
-    { label: "Documentos recientes", value: recentDocs, icon: File, color: "text-status-published", link: "/documentos" },
+    {
+      label: "Videos pendientes",
+      value: pendingVideos,
+      icon: pendingVideos === 0 ? CheckCircle : VideoIcon,
+      color: pendingVideos === 0 ? "text-status-approved" : "text-status-pending",
+      emptyText: "Sin pendientes",
+      link: "/videos",
+    },
+    {
+      label: "Guiones nuevos",
+      value: newScripts,
+      icon: newScripts === 0 ? FileCheck : FileText,
+      color: newScripts === 0 ? "text-status-approved" : "text-primary",
+      emptyText: "Al día",
+      link: "/documentos",
+    },
+    {
+      label: "Documentos recientes",
+      value: recentDocs,
+      icon: recentDocs === 0 ? FolderOpen : File,
+      color: recentDocs === 0 ? "text-muted-foreground" : "text-status-published",
+      emptyText: "Sin documentos nuevos",
+      link: "/documentos",
+    },
     {
       label: "Próxima publicación",
-      value: nextPub?.deliveryDate ? new Date(nextPub.deliveryDate).toLocaleDateString("es-MX", { day: "numeric", month: "short" }) : "—",
-      icon: CalendarDays, color: "text-status-approved", link: "/calendario",
+      value: nextPub?.date ? new Date(nextPub.date).toLocaleDateString("es-MX", { day: "numeric", month: "short" }) : null,
+      icon: nextPub ? CalendarDays : CalendarX,
+      color: nextPub ? "text-status-approved" : "text-muted-foreground",
+      emptyText: "Sin publicaciones programadas",
+      link: "/calendario",
     },
   ];
 
@@ -45,6 +70,11 @@ export default function DashboardPage() {
     time: formatDistanceToNow(new Date(n.date), { addSuffix: true, locale: es }),
     link: n.link,
   }));
+
+  const handleClientNav = (clientId: string, path: string) => {
+    setSelectedClienteId(clientId);
+    navigate(path);
+  };
 
   return (
     <div className="max-w-6xl mx-auto space-y-8">
@@ -66,10 +96,9 @@ export default function DashboardPage() {
               const newDocs = cd.filter((d) => d.isNew).length;
               const next = cv.filter((v) => v.status !== "published").sort((a, b) => a.deliveryDate.localeCompare(b.deliveryDate))[0];
               return (
-                <button
+                <div
                   key={client.id}
-                  onClick={() => navigate("/videos")}
-                  className="glass gold-border glass-hover rounded-xl p-5 text-left"
+                  className="glass gold-border rounded-xl p-5"
                 >
                   <div className="flex items-center gap-3 mb-3">
                     <div className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold text-foreground" style={{ backgroundColor: client.colorAccent + "33" }}>
@@ -80,7 +109,7 @@ export default function DashboardPage() {
                       <p className="text-[10px] text-muted-foreground">{client.empresa}</p>
                     </div>
                   </div>
-                  <div className="grid grid-cols-3 gap-2 text-center">
+                  <div className="grid grid-cols-3 gap-2 text-center mb-3">
                     <div>
                       <p className="text-lg font-bold text-status-pending">{pending}</p>
                       <p className="text-[10px] text-muted-foreground">Pendientes</p>
@@ -94,14 +123,34 @@ export default function DashboardPage() {
                       <p className="text-[10px] text-muted-foreground">Próxima pub.</p>
                     </div>
                   </div>
-                </button>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => handleClientNav(client.id, "/videos")}
+                      className="flex-1 text-xs px-2 py-1.5 rounded-lg bg-secondary hover:bg-secondary/80 text-foreground transition-colors"
+                    >
+                      Videos →
+                    </button>
+                    <button
+                      onClick={() => handleClientNav(client.id, "/documentos")}
+                      className="flex-1 text-xs px-2 py-1.5 rounded-lg bg-secondary hover:bg-secondary/80 text-foreground transition-colors"
+                    >
+                      Documentos →
+                    </button>
+                    <button
+                      onClick={() => handleClientNav(client.id, "/metricas")}
+                      className="flex-1 text-xs px-2 py-1.5 rounded-lg bg-secondary hover:bg-secondary/80 text-foreground transition-colors"
+                    >
+                      Métricas →
+                    </button>
+                  </div>
+                </div>
               );
             })}
           </div>
         </motion.div>
       )}
 
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 xs:grid-cols-2 lg:grid-cols-4 gap-4">
         {summaryCards.map((card, i) => (
           <motion.button
             key={card.label}
@@ -111,7 +160,11 @@ export default function DashboardPage() {
             className="glass gold-border glass-hover rounded-xl p-5 text-left"
           >
             <card.icon className={`h-5 w-5 ${card.color} mb-3`} />
-            <p className="text-2xl font-bold text-foreground">{card.value}</p>
+            {card.value != null ? (
+              <p className="text-2xl font-bold text-foreground">{card.value}</p>
+            ) : (
+              <p className="text-sm text-muted-foreground">{card.emptyText}</p>
+            )}
             <p className="text-xs text-muted-foreground mt-1">{card.label}</p>
           </motion.button>
         ))}
@@ -123,7 +176,7 @@ export default function DashboardPage() {
           {feed.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-12 gap-3">
               <Inbox className="h-10 w-10 text-muted-foreground/40" />
-              <p className="text-sm text-muted-foreground">Sin actividad reciente</p>
+              <p className="text-sm text-muted-foreground text-center px-4">La actividad aparecerá aquí cuando empieces a trabajar con tus clientes</p>
             </div>
           ) : (
             feed.map((item, i) => (

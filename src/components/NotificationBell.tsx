@@ -1,14 +1,31 @@
-import { Bell, Video, FileText, BarChart3, File } from "lucide-react";
+import { Bell, Video, FileText, BarChart3, File, ThumbsUp, AlertCircle, FileCheck, FilePen, Download } from "lucide-react";
 import { useAppState } from "@/contexts/AppStateContext";
-import { Notification } from "@/data/mockData";
+import { Notification, NotificationType } from "@/data/mockData";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { useNavigate } from "react-router-dom";
 
-const typeIcons: Record<Notification["type"], typeof Video> = {
+const typeIcons: Record<NotificationType, typeof Video> = {
   video_ready: Video,
   guion_nuevo: FileText,
   metricas_actualizadas: BarChart3,
   documento_nuevo: File,
+  video_aprobado: ThumbsUp,
+  video_cambios: AlertCircle,
+  script_aprobado: FileCheck,
+  script_cambios: FilePen,
+  import_completado: Download,
+};
+
+const typeColors: Record<NotificationType, string> = {
+  video_ready: "text-primary",
+  guion_nuevo: "text-primary",
+  metricas_actualizadas: "text-primary",
+  documento_nuevo: "text-primary",
+  video_aprobado: "text-status-approved",
+  video_cambios: "text-destructive",
+  script_aprobado: "text-status-approved",
+  script_cambios: "text-destructive",
+  import_completado: "text-status-published",
 };
 
 export function NotificationBell() {
@@ -61,8 +78,12 @@ export function NotificationBell() {
           )}
         </div>
         <div className="max-h-72 overflow-y-auto">
+          {notifications.length === 0 && (
+            <p className="p-4 text-sm text-muted-foreground text-center">Sin notificaciones</p>
+          )}
           {notifications.map((n) => {
             const Icon = typeIcons[n.type] || File;
+            const colorClass = typeColors[n.type] || "text-primary";
             return (
               <button
                 key={n.id}
@@ -71,7 +92,7 @@ export function NotificationBell() {
                   !n.read ? "bg-primary/5" : ""
                 }`}
               >
-                <Icon className={`h-4 w-4 mt-0.5 shrink-0 ${!n.read ? "text-primary" : "text-muted-foreground"}`} />
+                <Icon className={`h-4 w-4 mt-0.5 shrink-0 ${!n.read ? colorClass : "text-muted-foreground"}`} />
                 <div className="min-w-0">
                   <p className={`text-sm ${!n.read ? "text-foreground font-medium" : "text-muted-foreground"}`}>
                     {n.message}

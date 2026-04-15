@@ -77,6 +77,7 @@ export interface CalendarEvent {
   contentType?: string;
   time?: string;
   videoId?: string;
+  igShortCode?: string;
 }
 
 export interface MetricEntry {
@@ -92,9 +93,20 @@ export interface WeeklyReach {
   reach: number;
 }
 
+export type NotificationType =
+  | "video_ready"
+  | "guion_nuevo"
+  | "metricas_actualizadas"
+  | "documento_nuevo"
+  | "video_aprobado"
+  | "video_cambios"
+  | "script_aprobado"
+  | "script_cambios"
+  | "import_completado";
+
 export interface Notification {
   id: string;
-  type: "video_ready" | "guion_nuevo" | "metricas_actualizadas" | "documento_nuevo";
+  type: NotificationType;
   message: string;
   date: string;
   read: boolean;
