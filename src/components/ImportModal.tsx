@@ -41,7 +41,7 @@ export function ImportModal({ onClose }: { onClose: () => void }) {
   const [selectedPosts, setSelectedPosts] = useState<Set<string>>(new Set());
   const [loadingMsgIdx, setLoadingMsgIdx] = useState(0);
   const [error, setError] = useState<string | null>(null);
-  const [result, setResult] = useState<{ videosAdded: number; eventsAdded: number; skipped: number; errors: string[]; metricsUpdated: number } | null>(null);
+  const [result, setResult] = useState<{ videosAdded: number; eventsAdded: number; skipped: number; errors: string[]; metricsUpdated: number; metricsSkipped: number } | null>(null);
   const cancelRef = useRef(false);
 
   const urls = urlText

@@ -7,6 +7,15 @@ import { useAuth } from "@/contexts/AuthContext";
 import { PostMetric, PlatformMetrics, calculateMonthlySummary } from "@/services/metricsParser";
 import { filterDuplicates } from "@/lib/deduplication";
 
+export interface ImportResult {
+  videosAdded: number;
+  videosSkipped: number;
+  eventsAdded: number;
+  eventsSkipped: number;
+  metricsAdded: number;
+  metricsSkipped: number;
+}
+
 interface AppStateContextType {
   videos: Video[];
   allVideos: Video[];
@@ -31,7 +40,7 @@ interface AppStateContextType {
   selectedClienteId: string | null;
   setSelectedClienteId: (id: string | null) => void;
   clients: typeof clients;
-  importFromApify: (videos: Video[], events: CalendarEvent[]) => void;
+  importFromApify: (videos: Video[], events: CalendarEvent[]) => ImportResult;
 }
 
 const AppStateContext = createContext<AppStateContextType | null>(null);
