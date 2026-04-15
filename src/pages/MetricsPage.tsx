@@ -6,6 +6,7 @@ import {
   ResponsiveContainer, Legend,
 } from "recharts";
 import { Upload, X, BarChart3, Instagram, Youtube, Facebook, AlertTriangle } from "lucide-react";
+import PdfReportCapture from "@/components/PdfReportCapture";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
