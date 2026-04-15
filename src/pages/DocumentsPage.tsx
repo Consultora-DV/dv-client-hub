@@ -232,12 +232,11 @@ function AddDocumentModal({ onClose }: { onClose: () => void }) {
 export default function DocumentsPage() {
   const [showAddModal, setShowAddModal] = useState(false);
   const [selectedScript, setSelectedScript] = useState<Script | null>(null);
-  const { documents, scripts, markScriptViewed } = useAppState();
+  const { documents, scripts, markScriptViewed, clients: appClients } = useAppState();
   const { canUpload, isClient } = usePermissions();
-  const [filterClienteId, setFilterClienteId] = useState<string>("all");
 
-  const filteredDocuments = filterClienteId === "all" ? documents : documents.filter((d) => d.clienteId === filterClienteId);
-  const filteredScripts = filterClienteId === "all" ? scripts : scripts.filter((s) => s.clienteId === filterClienteId);
+  const filteredDocuments = documents;
+  const filteredScripts = scripts;
 
   const handleOpenScript = (script: Script) => {
     if (!script.visto && script.driveLink && script.driveLink !== "#") {
