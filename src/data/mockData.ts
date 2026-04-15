@@ -113,44 +113,7 @@ export interface Notification {
   link: string;
 }
 
-export const clients: Client[] = [
-  {
-    id: "fedra-aldama",
-    nombre: "Dra. Fedra Aldama Castro",
-    empresa: "Consulta Médica — Los Mochis, Sinaloa",
-    especialidad: "Nutrición clínica, bariatría y balance metabólico",
-    avatar: "FA",
-    colorAccent: "#C084FC",
-    plataformas: ["TikTok", "Instagram"],
-    estado: "activa",
-    email: "fedra@consultora-dv.mx",
-    rol: "cliente",
-  },
-  {
-    id: "bianca-aldama",
-    nombre: "Bianca Aldama",
-    empresa: "Bianca Aldama Boutique — Zapopan, GDL",
-    especialidad: "Moda y calzado femenino",
-    avatar: "BA",
-    colorAccent: "#F472B6",
-    plataformas: ["Instagram", "Facebook", "TikTok"],
-    estado: "prospecto",
-    email: "bianca@consultora-dv.mx",
-    rol: "cliente",
-  },
-  {
-    id: "hector-benazuza",
-    nombre: "Héctor Benazuza",
-    empresa: "Hacienda Benazuza — Zapopan, GDL",
-    especialidad: "Venue de bodas y eventos de lujo",
-    avatar: "HB",
-    colorAccent: "#34D399",
-    plataformas: ["Instagram", "TikTok", "Google Maps"],
-    estado: "prospecto",
-    email: "hector@consultora-dv.mx",
-    rol: "cliente",
-  },
-];
+export const clients: Client[] = [];
 
 export const currentUser = {
   name: "Consultora DV",

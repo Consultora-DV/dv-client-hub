@@ -8,6 +8,12 @@ export function ClientSelector() {
 
   if (isClient) return null;
 
+  if (clients.length === 0) {
+    return (
+      <span className="text-sm text-muted-foreground italic">Sin clientes aún</span>
+    );
+  }
+
   return (
     <Select value={selectedClienteId || "all"} onValueChange={(v) => setSelectedClienteId(v === "all" ? null : v)}>
       <SelectTrigger className="w-[220px] bg-secondary border-border/50 rounded-xl h-9 text-sm">
