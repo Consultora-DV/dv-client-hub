@@ -41,7 +41,7 @@ export function ImportModal({ onClose }: { onClose: () => void }) {
   const [selectedPosts, setSelectedPosts] = useState<Set<string>>(new Set());
   const [loadingMsgIdx, setLoadingMsgIdx] = useState(0);
   const [error, setError] = useState<string | null>(null);
-  const [result, setResult] = useState<{ videosAdded: number; eventsAdded: number; skipped: number; errors: string[] } | null>(null);
+  const [result, setResult] = useState<{ videosAdded: number; eventsAdded: number; skipped: number; errors: string[]; metricsUpdated: number } | null>(null);
   const cancelRef = useRef(false);
 
   const urls = urlText
@@ -98,11 +98,15 @@ export function ImportModal({ onClose }: { onClose: () => void }) {
 
     importFromApify(newVideos, events);
 
+    // Count metrics posts (those with igShortCode)
+    const metricsCount = newVideos.filter((v) => v.igShortCode).length;
+
     setResult({
       videosAdded: newVideos.length,
       eventsAdded: events.length,
       skipped,
       errors: [],
+      metricsUpdated: metricsCount,
     });
     setStep("success");
   };
@@ -350,6 +354,9 @@ export function ImportModal({ onClose }: { onClose: () => void }) {
                 <div className="space-y-2 text-sm text-center">
                   <p className="text-status-approved">✓ {result.videosAdded} videos añadidos al historial</p>
                   <p className="text-status-approved">✓ {result.eventsAdded} eventos creados en el calendario</p>
+                  {result.metricsUpdated > 0 && (
+                    <p className="text-status-approved">✓ Métricas de Instagram actualizadas con {result.metricsUpdated} posts</p>
+                  )}
                   {result.skipped > 0 && (
                     <p className="text-status-pending">⚠ {result.skipped} posts ya existían (omitidos)</p>
                   )}
