@@ -226,6 +226,93 @@ export async function parseMetricsCSV(file: File): Promise<{ platform: "instagra
   return { platform, posts };
 }
 
+export async function parseMetricsPDF(file: File, forcePlatform?: "instagram" | "tiktok" | "youtube" | "facebook"): Promise<{ platform: string; posts: PostMetric[] }> {
+  const pdfjsLib = await import("pdfjs-dist");
+  pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.9.155/pdf.worker.min.mjs`;
+
+  const arrayBuffer = await file.arrayBuffer();
+  const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+
+  let fullText = "";
+  for (let i = 1; i <= pdf.numPages; i++) {
+    const page = await pdf.getPage(i);
+    const content = await page.getTextContent();
+    const pageText = content.items
+      .filter((item: any) => "str" in item)
+      .map((item: any) => item.str)
+      .join(" ");
+    fullText += pageText + "\n";
+  }
+
+  if (fullText.trim().length < 20) {
+    throw new Error("No se pudo extraer texto del PDF. Es posible que sea un PDF basado en imagen. Usa el visor de PDF en la pestaña General para capturar datos manualmente.");
+  }
+
+  // Try to detect platform from text
+  const textLower = fullText.toLowerCase();
+  let platform: string = forcePlatform || "instagram";
+  if (!forcePlatform) {
+    if (textLower.includes("tiktok")) platform = "tiktok";
+    else if (textLower.includes("youtube")) platform = "youtube";
+    else if (textLower.includes("facebook")) platform = "facebook";
+    else if (textLower.includes("instagram") || textLower.includes("reels")) platform = "instagram";
+  }
+
+  // Try to extract tabular data from text lines
+  const lines = fullText.split("\n").map(l => l.trim()).filter(l => l.length > 0);
+  const posts: PostMetric[] = [];
+
+  // Strategy: look for lines with numbers that could be metrics rows
+  // Common PDF report formats have rows like: "Title  Date  Views  Likes  Comments"
+  const numberPattern = /[\d,.]+/g;
+
+  for (const line of lines) {
+    const numbers = line.match(numberPattern);
+    if (!numbers || numbers.length < 3) continue;
+
+    // Try to extract a URL
+    const urlMatch = line.match(/(https?:\/\/[^\s]+)/);
+    // Try to extract a date
+    const dateMatch = line.match(/(\d{4}[-/]\d{2}[-/]\d{2}|\d{1,2}[-/]\d{1,2}[-/]\d{2,4})/);
+
+    // Heuristic: if line has at least 3 numbers and optionally a URL/date, treat as a post row
+    const numericValues = numbers.map(n => parseFloat(n.replace(/,/g, ""))).filter(n => !isNaN(n));
+    if (numericValues.length < 3) continue;
+
+    // Extract title: text before the first number
+    const firstNumIndex = line.search(/\d/);
+    const titleCandidate = firstNumIndex > 0 ? line.slice(0, firstNumIndex).trim() : "";
+    if (titleCandidate.length < 2 && !urlMatch) continue;
+
+    const postId = `pdf_${posts.length}_${Date.now()}`;
+    const dateStr = dateMatch ? dateMatch[1].replace(/\//g, "-") : new Date().toISOString().slice(0, 10);
+
+    posts.push({
+      id: postId,
+      url: urlMatch ? urlMatch[1] : "",
+      thumbnail: "",
+      title: titleCandidate || `Post ${posts.length + 1}`,
+      date: dateStr,
+      type: platform === "instagram" ? "REEL" : "VIDEO",
+      views: numericValues[0] || 0,
+      likes: numericValues[1] || 0,
+      comments: numericValues[2] || 0,
+      shares: numericValues[3] || 0,
+      reach: numericValues[4] || 0,
+      engagement: numericValues.length > 5 ? numericValues[5] : 0,
+    });
+  }
+
+  if (posts.length === 0) {
+    throw new Error(
+      `No se pudieron extraer posts del PDF automáticamente. El texto fue extraído (${fullText.length} caracteres) pero no se encontró un formato tabular reconocible. Usa el visor de PDF en la pestaña General para capturar datos manualmente.`
+    );
+  }
+
+  return { platform, posts };
+}
+}
+
 // Format helpers
 export function formatNumber(n: number): string {
   if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
