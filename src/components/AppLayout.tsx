@@ -4,6 +4,7 @@ import { AppSidebar } from "@/components/AppSidebar";
 import { NotificationBell } from "@/components/NotificationBell";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { ClientSelector } from "@/components/ClientSelector";
+import { ClientSocialLinks } from "@/components/ClientSocialLinks";
 import { ImportModal } from "@/components/ImportModal";
 import { MessageCircle, Download } from "lucide-react";
 import { Outlet } from "react-router-dom";
