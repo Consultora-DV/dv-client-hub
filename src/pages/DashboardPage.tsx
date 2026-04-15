@@ -2,7 +2,7 @@ import { motion } from "framer-motion";
 import { useAuth } from "@/contexts/AuthContext";
 import { useAppState } from "@/contexts/AppStateContext";
 import { usePermissions } from "@/hooks/usePermissions";
-import { Video as VideoIcon, FileText, File, CalendarDays, Clock, Inbox, CheckCircle, FileCheck, FolderOpen, CalendarX, BarChart3 } from "lucide-react";
+import { Video as VideoIcon, FileText, File, CalendarDays, Clock, Inbox, CheckCircle, FileCheck, FolderOpen, CalendarX, BarChart3, Users, ArrowRight } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { formatDistanceToNow } from "date-fns";
 import { es } from "date-fns/locale";
@@ -85,7 +85,27 @@ export default function DashboardPage() {
         <p className="text-muted-foreground text-sm mt-1 capitalize">{today}</p>
       </motion.div>
 
-      {isAdmin && (
+      {isAdmin && clients.length === 0 && (
+        <motion.div {...fadeUp} transition={{ delay: 0.15 }}>
+          <div className="glass gold-border rounded-xl p-8 flex flex-col items-center justify-center gap-4 text-center">
+            <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center">
+              <Users className="h-8 w-8 text-primary" />
+            </div>
+            <div>
+              <h2 className="text-lg font-display font-semibold text-foreground mb-1">Sin clientes registrados</h2>
+              <p className="text-sm text-muted-foreground">Agrega tu primer cliente desde la sección de Usuarios</p>
+            </div>
+            <button
+              onClick={() => navigate("/usuarios")}
+              className="flex items-center gap-2 px-5 py-2.5 rounded-xl gold-gradient text-primary-foreground font-medium text-sm hover:opacity-90 transition-opacity"
+            >
+              Ir a Usuarios <ArrowRight className="h-4 w-4" />
+            </button>
+          </div>
+        </motion.div>
+      )}
+
+      {isAdmin && clients.length > 0 && (
         <motion.div {...fadeUp} transition={{ delay: 0.15 }}>
           <h2 className="text-lg font-display font-semibold text-foreground mb-4">Resumen por cliente</h2>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -96,10 +116,7 @@ export default function DashboardPage() {
               const newDocs = cd.filter((d) => d.isNew).length;
               const next = cv.filter((v) => v.status !== "published").sort((a, b) => a.deliveryDate.localeCompare(b.deliveryDate))[0];
               return (
-                <div
-                  key={client.id}
-                  className="glass gold-border rounded-xl p-5"
-                >
+                <div key={client.id} className="glass gold-border rounded-xl p-5">
                   <div className="flex items-center gap-3 mb-3">
                     <div className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold text-foreground" style={{ backgroundColor: client.colorAccent + "33" }}>
                       {client.avatar}
@@ -124,24 +141,9 @@ export default function DashboardPage() {
                     </div>
                   </div>
                   <div className="flex gap-2">
-                    <button
-                      onClick={() => handleClientNav(client.id, "/videos")}
-                      className="flex-1 text-xs px-2 py-1.5 rounded-lg bg-secondary hover:bg-secondary/80 text-foreground transition-colors"
-                    >
-                      Videos →
-                    </button>
-                    <button
-                      onClick={() => handleClientNav(client.id, "/documentos")}
-                      className="flex-1 text-xs px-2 py-1.5 rounded-lg bg-secondary hover:bg-secondary/80 text-foreground transition-colors"
-                    >
-                      Documentos →
-                    </button>
-                    <button
-                      onClick={() => handleClientNav(client.id, "/metricas")}
-                      className="flex-1 text-xs px-2 py-1.5 rounded-lg bg-secondary hover:bg-secondary/80 text-foreground transition-colors"
-                    >
-                      Métricas →
-                    </button>
+                    <button onClick={() => handleClientNav(client.id, "/videos")} className="flex-1 text-xs px-2 py-1.5 rounded-lg bg-secondary hover:bg-secondary/80 text-foreground transition-colors">Videos →</button>
+                    <button onClick={() => handleClientNav(client.id, "/documentos")} className="flex-1 text-xs px-2 py-1.5 rounded-lg bg-secondary hover:bg-secondary/80 text-foreground transition-colors">Documentos →</button>
+                    <button onClick={() => handleClientNav(client.id, "/metricas")} className="flex-1 text-xs px-2 py-1.5 rounded-lg bg-secondary hover:bg-secondary/80 text-foreground transition-colors">Métricas →</button>
                   </div>
                 </div>
               );
