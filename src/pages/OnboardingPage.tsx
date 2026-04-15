@@ -560,17 +560,82 @@ export default function OnboardingPage({ editMode = false, onComplete }: { editM
                 </div>
 
                 {data.blueprintFile ? (
-                  <div className="glass gold-border rounded-xl p-5 flex items-center gap-4">
-                    <div className="w-12 h-12 rounded-lg bg-primary/10 flex items-center justify-center">
-                      <FileText className="h-6 w-6 text-primary" />
+                  <div className="space-y-4">
+                    <div className="glass gold-border rounded-xl p-5 flex items-center gap-4">
+                      <div className="w-12 h-12 rounded-lg bg-primary/10 flex items-center justify-center">
+                        <FileText className="h-6 w-6 text-primary" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-foreground truncate">{data.blueprintName || "Archivo subido"}</p>
+                        <p className="text-xs text-muted-foreground">Listo para guardar</p>
+                      </div>
+                      <button onClick={() => { update({ blueprintFile: null, blueprintName: "" }); setBlueprintText(null); setAiParseResult(null); setAiParseError(null); }} className="p-2 rounded-lg hover:bg-secondary text-muted-foreground">
+                        <X className="h-4 w-4" />
+                      </button>
                     </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-foreground truncate">{data.blueprintName || "Archivo subido"}</p>
-                      <p className="text-xs text-muted-foreground">Listo para guardar</p>
-                    </div>
-                    <button onClick={() => update({ blueprintFile: null, blueprintName: "" })} className="p-2 rounded-lg hover:bg-secondary text-muted-foreground">
-                      <X className="h-4 w-4" />
-                    </button>
+
+                    {/* AI Parsing Section */}
+                    {hasToken && blueprintText && !aiParseResult && (
+                      <div className="space-y-3">
+                        <Button
+                          onClick={handleAiParse}
+                          disabled={isParsingAi}
+                          className="w-full rounded-xl relative overflow-hidden group gold-gradient text-primary-foreground hover:opacity-90"
+                        >
+                          <span className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-700" />
+                          {isParsingAi ? (
+                            <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Analizando documento...</>
+                          ) : (
+                            <><Sparkles className="h-4 w-4 mr-2" /> Analizar con IA</>
+                          )}
+                        </Button>
+                      </div>
+                    )}
+
+                    {hasToken && data.blueprintName && !blueprintText && data.blueprintName.match(/\.(jpg|jpeg|png|webp)$/i) && (
+                      <div className="glass rounded-xl p-3">
+                        <p className="text-xs text-muted-foreground text-center">Las imágenes se procesarán manualmente por ahora.</p>
+                      </div>
+                    )}
+
+                    {!hasToken && blueprintText && (
+                      <div className="glass rounded-xl p-4 space-y-3">
+                        <p className="text-xs text-muted-foreground text-center">
+                          Configura una API key de IA en Ajustes para analizar este documento automáticamente.
+                        </p>
+                        <Button variant="outline" size="sm" onClick={() => setShowSettingsModal(true)} className="mx-auto flex rounded-xl">
+                          <Settings className="h-4 w-4 mr-2" /> Ir a Ajustes
+                        </Button>
+                      </div>
+                    )}
+
+                    {aiParseError && (
+                      <Alert variant="destructive" className="rounded-xl">
+                        <AlertCircle className="h-4 w-4" />
+                        <AlertDescription className="flex items-center justify-between">
+                          <span className="text-sm">{aiParseError}</span>
+                          <Button variant="ghost" size="sm" onClick={() => setAiParseError(null)} className="text-xs shrink-0">
+                            Continuar manualmente
+                          </Button>
+                        </AlertDescription>
+                      </Alert>
+                    )}
+
+                    {aiParseResult && (
+                      <Alert className="rounded-xl border-status-approved/30 bg-status-approved/10">
+                        <CheckCircle2 className="h-4 w-4 text-status-approved" />
+                        <AlertDescription className="flex items-center justify-between">
+                          <span className="text-sm text-foreground">¡Análisis completado! Los datos se pre-llenarán en los pasos anteriores.</span>
+                          <Button
+                            size="sm"
+                            onClick={() => { applyAiResult(aiParseResult); setStep(0); }}
+                            className="gold-gradient text-primary-foreground rounded-xl text-xs shrink-0 ml-2"
+                          >
+                            Ver resultado →
+                          </Button>
+                        </AlertDescription>
+                      </Alert>
+                    )}
                   </div>
                 ) : (
                   <button
@@ -582,13 +647,11 @@ export default function OnboardingPage({ editMode = false, onComplete }: { editM
                     <p className="text-xs text-primary font-medium">Click para seleccionar archivo</p>
                   </button>
                 )}
-                <input ref={blueprintRef} type="file" accept=".pdf,.docx,.doc" onChange={handleBlueprintChange} className="hidden" />
-
-                <div className="glass rounded-xl p-4 text-center">
-                  <p className="text-xs text-muted-foreground">En futuras versiones, nuestro asistente de IA leerá este documento automáticamente para pre-configurar tu perfil. 🤖</p>
-                </div>
+                <input ref={blueprintRef} type="file" accept=".pdf,.docx,.doc,.jpg,.jpeg,.png,.webp" onChange={handleBlueprintChange} className="hidden" />
               </div>
             )}
+
+            {showSettingsModal && <SettingsModal onClose={() => setShowSettingsModal(false)} />}
           </motion.div>
         </AnimatePresence>
 
