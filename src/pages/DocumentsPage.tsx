@@ -502,6 +502,9 @@ export default function DocumentsPage() {
             {paginatedDocs.map((d, i) => {
               const Icon = typeIcons[d.type] || File;
               const client = appClients.find((c) => c.id === d.clienteId);
+              const hasFile = !!d.fileUrl;
+              const hasDrive = d.driveLink && d.driveLink !== "#";
+              const hasAnyLink = hasFile || hasDrive;
               return (
                 <motion.div key={d.id} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.05 }}
                   className="flex items-center gap-4 px-5 py-4 border-b border-border/30 last:border-0 hover:bg-secondary/30 transition-colors group">
@@ -511,24 +514,49 @@ export default function DocumentsPage() {
                       <p className="text-sm font-medium text-foreground truncate">{d.name}</p>
                       {(d.isNew || isRecent(d.date)) && <Badge className="gold-gradient text-primary-foreground text-[10px] font-semibold border-0">Nuevo</Badge>}
                     </div>
-                    <p className="text-xs text-muted-foreground mt-0.5">{new Date(d.date).toLocaleDateString("es-MX", { day: "numeric", month: "long", year: "numeric" })}</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      {new Date(d.date).toLocaleDateString("es-MX", { day: "numeric", month: "long", year: "numeric" })}
+                      {!hasAnyLink && <span className="ml-2 text-status-changes">· Sin archivo adjunto</span>}
+                    </p>
                   </div>
                   {client && <span className="text-[10px] px-1.5 py-0.5 rounded-full shrink-0" style={{ backgroundColor: client.colorAccent + "22", color: client.colorAccent }}>{client.avatar}</span>}
                   <Badge variant="outline" className="border border-border text-xs text-muted-foreground shrink-0">{typeLabels[d.type]}</Badge>
-                  {d.fileUrl && (
-                    <a href={d.fileUrl} target="_blank" rel="noopener noreferrer" className="p-2 rounded-lg hover:bg-secondary text-muted-foreground hover:text-primary transition-colors shrink-0" title="Ver archivo">
-                      <Download className="h-4 w-4" />
+
+                  {/* File uploaded to storage - prominent button */}
+                  {hasFile && (
+                    <a href={d.fileUrl} target="_blank" rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary/10 text-primary text-xs font-medium hover:bg-primary/20 transition-colors shrink-0">
+                      <Download className="h-3.5 w-3.5" /> Ver archivo
                     </a>
                   )}
-                  {d.driveLink && d.driveLink !== "#" ? (
+
+                  {/* Drive link */}
+                  {hasDrive && (
                     <a href={d.driveLink} target="_blank" rel="noopener noreferrer" className="p-2 rounded-lg hover:bg-secondary text-muted-foreground hover:text-primary transition-colors shrink-0" title="Ver en Drive">
                       <ExternalLink className="h-4 w-4" />
                     </a>
-                  ) : !d.fileUrl ? (
-                    <span className="p-2 rounded-lg text-muted-foreground/30 shrink-0" title="Sin enlace vinculado">
-                      <ExternalLink className="h-4 w-4" />
-                    </span>
-                  ) : null}
+                  )}
+
+                  {/* No file - show re-upload button */}
+                  {!hasAnyLink && (
+                    <label className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-secondary text-muted-foreground text-xs font-medium hover:bg-secondary/80 transition-colors cursor-pointer shrink-0">
+                      <Upload className="h-3.5 w-3.5" /> Subir archivo
+                      <input type="file" className="hidden" accept=".pdf,.docx,.xlsx,.png,.jpg,.jpeg" onChange={async (e) => {
+                        const file = e.target.files?.[0];
+                        if (!file) return;
+                        if (file.size > 10 * 1024 * 1024) { toast.error("Máximo 10MB"); return; }
+                        try {
+                          const path = `${d.clienteId}/${Date.now()}_${file.name}`;
+                          const { data, error } = await supabase.storage.from("documents").upload(path, file);
+                          if (error) { toast.error("Error: " + error.message); return; }
+                          const { data: urlData } = supabase.storage.from("documents").getPublicUrl(data.path);
+                          setDocuments((prev) => prev.map((doc) => doc.id === d.id ? { ...doc, fileUrl: urlData.publicUrl } : doc));
+                          toast.success("Archivo subido correctamente");
+                        } catch (err: any) { toast.error("Error al subir: " + (err.message || "desconocido")); }
+                      }} />
+                    </label>
+                  )}
+
                   <button
                     onClick={() => setDeleteTarget({ type: "document", id: d.id, name: d.name })}
                     className="p-2 rounded-lg text-muted-foreground hover:text-destructive opacity-0 group-hover:opacity-100 transition-opacity shrink-0"
