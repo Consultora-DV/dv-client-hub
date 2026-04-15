@@ -6,7 +6,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
-import { clients } from "@/data/mockData";
+
 import { useAppState } from "@/contexts/AppStateContext";
 import { useNavigate } from "react-router-dom";
 import { scrapeInstagramPosts, ApifyInstagramPost } from "@/services/apifyService";
@@ -39,6 +39,7 @@ export function ImportModal({ onClose }: { onClose: () => void }) {
   const { importFromApify, allVideos } = useAppState();
   // Apify token is now managed server-side via edge function
 
+  const { importFromApify, clients } = useAppState();
   const [step, setStep] = useState<Step>("input");
   const [urlText, setUrlText] = useState("");
   const [clienteId, setClienteId] = useState(clients[0]?.id || "");

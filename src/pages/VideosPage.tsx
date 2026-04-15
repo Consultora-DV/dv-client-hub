@@ -1,7 +1,7 @@
 import { useState, useMemo } from "react";
 import { toast } from "sonner";
 import { motion, AnimatePresence } from "framer-motion";
-import { Video, clients } from "@/data/mockData";
+import { Video } from "@/data/mockData";
 import { X, ExternalLink, Check, AlertTriangle, Plus, Instagram } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -66,6 +66,7 @@ function PlatformPills({ platforms }: { platforms: string[] | string }) {
 
 function VideoCard({ video, commentCount, onClick }: { video: Video; commentCount: number; onClick: () => void }) {
   const status = statusConfig[video.status];
+  const { clients } = useAppState();
   const client = clients.find((c) => c.id === video.clienteId);
   const isImported = !!video.igShortCode;
   return (
@@ -157,7 +158,7 @@ function VideoDetail({ video, onClose }: { video: Video; onClose: () => void }) 
   const { canApprove } = usePermissions();
   const status = statusConfig[video.status];
   const videoComments = comments[video.id] || [];
-  const client = clients.find((c) => c.id === video.clienteId);
+  const client = clients.find((c: any) => c.id === video.clienteId);
 
   const handleApprove = () => { approveVideo(video.id); onClose(); };
   const handleRequestChanges = () => {
@@ -258,13 +259,26 @@ function VideoDetail({ video, onClose }: { video: Video; onClose: () => void }) 
 }
 
 function AddVideoModal({ onClose }: { onClose: () => void }) {
-  const { setVideos, allVideos } = useAppState();
+  const { setVideos, allVideos, clients } = useAppState();
   const [title, setTitle] = useState("");
   const [platforms, setPlatforms] = useState<string[]>(["instagram"]);
   const [embedUrl, setEmbedUrl] = useState("");
   const [driveLink, setDriveLink] = useState("");
   const [deliveryDate, setDeliveryDate] = useState<Date>();
-  const [clienteId, setClienteId] = useState(clients[0].id);
+  const [clienteId, setClienteId] = useState(clients[0]?.id || "");
+
+  if (clients.length === 0) {
+    return (
+      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+        className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm p-4" onClick={onClose}>
+        <motion.div initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.95, opacity: 0 }}
+          onClick={(e) => e.stopPropagation()} className="glass gold-border gold-glow rounded-2xl w-full max-w-lg p-8 text-center">
+          <p className="text-muted-foreground mb-4">No hay clientes disponibles. Registra un cliente primero.</p>
+          <Button onClick={onClose} variant="outline" className="rounded-xl">Cerrar</Button>
+        </motion.div>
+      </motion.div>
+    );
+  }
 
   const togglePlatform = (p: string) => {
     setPlatforms((prev) => prev.includes(p) ? prev.filter((x) => x !== p) : [...prev, p]);
