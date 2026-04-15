@@ -11,11 +11,9 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import {
   Camera, Check, ChevronRight, ChevronLeft, User, Share2, Target, FileUp,
   Instagram, Globe, MapPin, Upload, X, FileText, Rocket, DollarSign, Crosshair, Trophy, BookOpen,
-  Sparkles, Loader2, AlertCircle, Settings, CheckCircle2
+  Sparkles, Loader2, AlertCircle, CheckCircle2
 } from "lucide-react";
-import { useAiToken } from "@/hooks/useAiToken";
 import { parseBlueprint, type BlueprintResult } from "@/services/aiParserService";
-import { SettingsModal } from "@/components/SettingsModal";
 import * as pdfjsLib from "pdfjs-dist";
 
 const INDUSTRIES = [
@@ -87,12 +85,11 @@ export default function OnboardingPage({ editMode = false, onComplete }: { editM
   const blueprintRef = useRef<HTMLInputElement>(null);
 
   // AI parsing state
-  const { hasToken, token: aiToken, provider: aiProvider } = useAiToken();
   const [blueprintText, setBlueprintText] = useState<string | null>(null);
   const [isParsingAi, setIsParsingAi] = useState(false);
   const [aiParseError, setAiParseError] = useState<string | null>(null);
   const [aiParseResult, setAiParseResult] = useState<BlueprintResult | null>(null);
-  const [showSettingsModal, setShowSettingsModal] = useState(false);
+  
   const [aiFilledFields, setAiFilledFields] = useState<Set<string>>(new Set());
   const existingProfile = user?.id ? localStorage.getItem(`dv_client_profile_${user.id}`) : null;
   const parsed = existingProfile ? JSON.parse(existingProfile) : null;
@@ -190,11 +187,11 @@ export default function OnboardingPage({ editMode = false, onComplete }: { editM
   };
 
   const handleAiParse = async () => {
-    if (!blueprintText || !aiToken) return;
+    if (!blueprintText) return;
     setIsParsingAi(true);
     setAiParseError(null);
     try {
-      const result = await parseBlueprint(blueprintText, aiProvider, aiToken);
+      const result = await parseBlueprint(blueprintText);
       setAiParseResult(result);
     } catch (err: any) {
       setAiParseError(err.message || "Error al analizar el documento.");
@@ -575,7 +572,7 @@ export default function OnboardingPage({ editMode = false, onComplete }: { editM
                     </div>
 
                     {/* AI Parsing Section */}
-                    {hasToken && blueprintText && !aiParseResult && (
+                    {blueprintText && !aiParseResult && (
                       <div className="space-y-3">
                         <Button
                           onClick={handleAiParse}
@@ -592,20 +589,9 @@ export default function OnboardingPage({ editMode = false, onComplete }: { editM
                       </div>
                     )}
 
-                    {hasToken && data.blueprintName && !blueprintText && data.blueprintName.match(/\.(jpg|jpeg|png|webp)$/i) && (
+                    {data.blueprintName && !blueprintText && data.blueprintName.match(/\.(jpg|jpeg|png|webp)$/i) && (
                       <div className="glass rounded-xl p-3">
                         <p className="text-xs text-muted-foreground text-center">Las imágenes se procesarán manualmente por ahora.</p>
-                      </div>
-                    )}
-
-                    {!hasToken && blueprintText && (
-                      <div className="glass rounded-xl p-4 space-y-3">
-                        <p className="text-xs text-muted-foreground text-center">
-                          Configura una API key de IA en Ajustes para analizar este documento automáticamente.
-                        </p>
-                        <Button variant="outline" size="sm" onClick={() => setShowSettingsModal(true)} className="mx-auto flex rounded-xl">
-                          <Settings className="h-4 w-4 mr-2" /> Ir a Ajustes
-                        </Button>
                       </div>
                     )}
 
@@ -651,7 +637,7 @@ export default function OnboardingPage({ editMode = false, onComplete }: { editM
               </div>
             )}
 
-            {showSettingsModal && <SettingsModal onClose={() => setShowSettingsModal(false)} />}
+            
           </motion.div>
         </AnimatePresence>
 

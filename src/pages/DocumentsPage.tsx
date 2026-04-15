@@ -182,7 +182,7 @@ function AddDocumentModal({ onClose }: { onClose: () => void }) {
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
       className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm p-4" onClick={onClose}>
       <motion.div initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.95, opacity: 0 }}
-        onClick={(e) => e.stopPropagation()} className="glass gold-border gold-glow rounded-2xl w-full max-w-lg max-w-[95vw]">
+        onClick={(e) => e.stopPropagation()} className="glass gold-border gold-glow rounded-2xl w-full max-w-lg w-[95vw]">
         <div className="flex items-center justify-between p-5 border-b border-border/50">
           <h2 className="font-display text-lg font-semibold text-foreground">Agregar Documento</h2>
           <button onClick={onClose} className="p-2 rounded-lg hover:bg-secondary text-muted-foreground"><X className="h-5 w-5" /></button>
@@ -232,7 +232,7 @@ function AddDocumentModal({ onClose }: { onClose: () => void }) {
 export default function DocumentsPage() {
   const [showAddModal, setShowAddModal] = useState(false);
   const [selectedScript, setSelectedScript] = useState<Script | null>(null);
-  const { documents, scripts, markScriptViewed, clients: appClients } = useAppState();
+  const { documents, scripts, markScriptViewed, clients: appClients, scriptComments } = useAppState();
   const { canUpload, isClient } = usePermissions();
 
   const filteredDocuments = documents;
@@ -285,7 +285,7 @@ export default function DocumentsPage() {
             {filteredScripts.map((s, i) => {
               const status = scriptStatusConfig[s.status];
               const client = appClients.find((c) => c.id === s.clienteId);
-              const commentCount = (s.comments || []).length;
+              const commentCount = (scriptComments[s.id] || []).length;
               return (
                 <motion.button key={s.id} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.05 }}
                   onClick={() => handleOpenScript(s)}
