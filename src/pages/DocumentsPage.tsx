@@ -310,35 +310,59 @@ export default function DocumentsPage() {
           <TabsTrigger value="docs" className="data-[state=active]:bg-primary/20 data-[state=active]:text-primary">Documentos</TabsTrigger>
         </TabsList>
 
-        <TabsContent value="scripts" className="mt-4">
+        <TabsContent value="scripts" className="mt-4 space-y-3">
+          {/* Script status filter chips */}
+          <div className="flex gap-2 flex-wrap">
+            {[
+              { key: "all", label: "Todos" },
+              { key: "nuevo", label: "Nuevos" },
+              { key: "en_revision", label: "En revisión" },
+              { key: "aprobado", label: "Aprobados" },
+              { key: "cambios_solicitados", label: "Cambios" },
+            ].map((f) => (
+              <button
+                key={f.key}
+                onClick={() => { setScriptStatusFilter(f.key); setScriptPage(1); }}
+                className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors border ${
+                  scriptStatusFilter === f.key
+                    ? "bg-primary/20 text-primary border-primary/30"
+                    : "bg-secondary/50 text-muted-foreground border-border/50 hover:bg-secondary"
+                }`}
+              >
+                {f.label}
+              </button>
+            ))}
+          </div>
+
           <div className="glass gold-border rounded-xl overflow-hidden">
-            {filteredScripts.length === 0 && (
+            {paginatedScripts.length === 0 && (
               <EmptyState icon={FileText} title="Sin guiones aún" description="Los guiones aparecerán aquí cuando se agreguen al sistema." />
             )}
-            {filteredScripts.map((s, i) => {
+            {paginatedScripts.map((s, i) => {
               const status = scriptStatusConfig[s.status];
               const client = appClients.find((c) => c.id === s.clienteId);
               const commentCount = (scriptComments[s.id] || []).length;
               return (
-                <motion.button key={s.id} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.05 }}
-                  onClick={() => handleOpenScript(s)}
-                  className="flex items-center gap-4 px-5 py-4 border-b border-border/30 last:border-0 hover:bg-secondary/30 transition-colors w-full text-left">
-                  <FileText className="h-5 w-5 text-primary shrink-0" />
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
-                      <p className="text-sm font-medium text-foreground truncate">{s.title}</p>
-                      {(s.isNew || isRecent(s.date)) && <Badge className="gold-gradient text-primary-foreground text-[10px] font-semibold border-0">Nuevo</Badge>}
+                <motion.div key={s.id} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.05 }}
+                  className="flex items-center gap-4 px-5 py-4 border-b border-border/30 last:border-0 hover:bg-secondary/30 transition-colors group">
+                  <button onClick={() => handleOpenScript(s)} className="flex items-center gap-4 flex-1 min-w-0 text-left">
+                    <FileText className="h-5 w-5 text-primary shrink-0" />
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <p className="text-sm font-medium text-foreground truncate">{s.title}</p>
+                        {(s.isNew || isRecent(s.date)) && <Badge className="gold-gradient text-primary-foreground text-[10px] font-semibold border-0">Nuevo</Badge>}
+                      </div>
+                      <p className="text-xs text-muted-foreground mt-0.5">{new Date(s.date).toLocaleDateString("es-MX", { day: "numeric", month: "long", year: "numeric" })}</p>
                     </div>
-                    <p className="text-xs text-muted-foreground mt-0.5">{new Date(s.date).toLocaleDateString("es-MX", { day: "numeric", month: "long", year: "numeric" })}</p>
-                  </div>
-                  {s.visto ? (
-                    <span className="text-status-approved shrink-0" title="Visto"><Eye className="h-4 w-4" /></span>
-                  ) : (
-                    <span className="text-muted-foreground/50 shrink-0" title="No visto"><EyeOff className="h-4 w-4" /></span>
-                  )}
-                  {commentCount > 0 && <span className="text-xs text-muted-foreground shrink-0">💬 {commentCount}</span>}
-                  {client && <span className="text-[10px] px-1.5 py-0.5 rounded-full shrink-0" style={{ backgroundColor: client.colorAccent + "22", color: client.colorAccent }}>{client.avatar}</span>}
-                  <Badge variant="outline" className={`border text-xs shrink-0 ${status.class}`}>{status.label}</Badge>
+                    {s.visto ? (
+                      <span className="text-status-approved shrink-0" title="Visto"><Eye className="h-4 w-4" /></span>
+                    ) : (
+                      <span className="text-muted-foreground/50 shrink-0" title="No visto"><EyeOff className="h-4 w-4" /></span>
+                    )}
+                    {commentCount > 0 && <span className="text-xs text-muted-foreground shrink-0">💬 {commentCount}</span>}
+                    {client && <span className="text-[10px] px-1.5 py-0.5 rounded-full shrink-0" style={{ backgroundColor: client.colorAccent + "22", color: client.colorAccent }}>{client.avatar}</span>}
+                    <Badge variant="outline" className={`border text-xs shrink-0 ${status.class}`}>{status.label}</Badge>
+                  </button>
                   <button
                     onClick={(e) => handleViewDrive(e, s)}
                     disabled={!s.driveLink || s.driveLink === "#"}
@@ -346,23 +370,54 @@ export default function DocumentsPage() {
                     className="p-2 rounded-lg hover:bg-secondary text-muted-foreground hover:text-primary transition-colors shrink-0 disabled:opacity-40 disabled:cursor-not-allowed">
                     <ExternalLink className="h-4 w-4" />
                   </button>
-                </motion.button>
+                  <button
+                    onClick={() => setDeleteTarget({ type: "script", id: s.id, name: s.title })}
+                    className="p-2 rounded-lg text-muted-foreground hover:text-destructive opacity-0 group-hover:opacity-100 transition-opacity shrink-0"
+                    title="Eliminar guión"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </button>
+                </motion.div>
               );
             })}
           </div>
+          <ListPagination currentPage={scriptPage} totalPages={scriptTotalPages} onPageChange={setScriptPage} />
         </TabsContent>
 
-        <TabsContent value="docs" className="mt-4">
+        <TabsContent value="docs" className="mt-4 space-y-3">
+          {/* Document type filter chips */}
+          <div className="flex gap-2 flex-wrap">
+            {[
+              { key: "all", label: "Todos" },
+              { key: "pdf", label: "PDF" },
+              { key: "doc", label: "Documento" },
+              { key: "sheet", label: "Hoja de cálculo" },
+              { key: "slide", label: "Presentación" },
+            ].map((f) => (
+              <button
+                key={f.key}
+                onClick={() => { setDocTypeFilter(f.key); setDocPage(1); }}
+                className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors border ${
+                  docTypeFilter === f.key
+                    ? "bg-primary/20 text-primary border-primary/30"
+                    : "bg-secondary/50 text-muted-foreground border-border/50 hover:bg-secondary"
+                }`}
+              >
+                {f.label}
+              </button>
+            ))}
+          </div>
+
           <div className="glass gold-border rounded-xl overflow-hidden">
-            {filteredDocuments.length === 0 && (
+            {paginatedDocs.length === 0 && (
               <EmptyState icon={File} title="Sin documentos aún" description="Los documentos aparecerán aquí cuando se agreguen al sistema." />
             )}
-            {filteredDocuments.map((d, i) => {
+            {paginatedDocs.map((d, i) => {
               const Icon = typeIcons[d.type] || File;
               const client = appClients.find((c) => c.id === d.clienteId);
               return (
                 <motion.div key={d.id} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.05 }}
-                  className="flex items-center gap-4 px-5 py-4 border-b border-border/30 last:border-0 hover:bg-secondary/30 transition-colors">
+                  className="flex items-center gap-4 px-5 py-4 border-b border-border/30 last:border-0 hover:bg-secondary/30 transition-colors group">
                   <Icon className="h-5 w-5 text-primary shrink-0" />
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
@@ -376,12 +431,29 @@ export default function DocumentsPage() {
                   <a href={d.driveLink} target="_blank" rel="noopener noreferrer" className="p-2 rounded-lg hover:bg-secondary text-muted-foreground hover:text-primary transition-colors shrink-0">
                     <ExternalLink className="h-4 w-4" />
                   </a>
+                  <button
+                    onClick={() => setDeleteTarget({ type: "document", id: d.id, name: d.name })}
+                    className="p-2 rounded-lg text-muted-foreground hover:text-destructive opacity-0 group-hover:opacity-100 transition-opacity shrink-0"
+                    title="Eliminar documento"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </button>
                 </motion.div>
               );
             })}
           </div>
+          <ListPagination currentPage={docPage} totalPages={docTotalPages} onPageChange={setDocPage} />
         </TabsContent>
       </Tabs>
+
+      <ConfirmDialog
+        open={!!deleteTarget}
+        onOpenChange={(o) => !o && setDeleteTarget(null)}
+        title={deleteTarget?.type === "script" ? "Eliminar guión" : "Eliminar documento"}
+        description={`¿Estás seguro de eliminar "${deleteTarget?.name}"? Esta acción no se puede deshacer.`}
+        onConfirm={handleDelete}
+      />
+
       <AnimatePresence>
         {showAddModal && <AddDocumentModal onClose={() => setShowAddModal(false)} />}
         {selectedScript && (
