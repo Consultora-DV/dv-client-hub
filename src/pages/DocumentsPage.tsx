@@ -1,8 +1,10 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useMemo } from "react";
 import { EmptyState } from "@/components/EmptyState";
+import { ListPagination } from "@/components/ListPagination";
+import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { toast } from "sonner";
 import { motion, AnimatePresence } from "framer-motion";
-import { ExternalLink, FileText, File, Table, Presentation, Plus, X, Upload, Eye, EyeOff, Check, AlertTriangle } from "lucide-react";
+import { ExternalLink, FileText, File, Table, Presentation, Plus, X, Upload, Eye, EyeOff, Check, AlertTriangle, Trash2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
@@ -233,11 +235,41 @@ function AddDocumentModal({ onClose }: { onClose: () => void }) {
 export default function DocumentsPage() {
   const [showAddModal, setShowAddModal] = useState(false);
   const [selectedScript, setSelectedScript] = useState<Script | null>(null);
-  const { documents, scripts, markScriptViewed, clients: appClients, scriptComments } = useAppState();
+  const [deleteTarget, setDeleteTarget] = useState<{ type: "script" | "document"; id: string; name: string } | null>(null);
+  const { documents, scripts, markScriptViewed, clients: appClients, scriptComments, setScripts, setDocuments } = useAppState();
   const { canUpload, isClient } = usePermissions();
 
-  const filteredDocuments = documents;
-  const filteredScripts = scripts;
+  // Script filters
+  const [scriptStatusFilter, setScriptStatusFilter] = useState<string>("all");
+  const [docTypeFilter, setDocTypeFilter] = useState<string>("all");
+  const [scriptPage, setScriptPage] = useState(1);
+  const [docPage, setDocPage] = useState(1);
+  const PER_PAGE = 15;
+
+  const filteredScripts = useMemo(() => {
+    if (scriptStatusFilter === "all") return scripts;
+    return scripts.filter((s) => s.status === scriptStatusFilter);
+  }, [scripts, scriptStatusFilter]);
+
+  const filteredDocuments = useMemo(() => {
+    if (docTypeFilter === "all") return documents;
+    return documents.filter((d) => d.type === docTypeFilter);
+  }, [documents, docTypeFilter]);
+
+  const scriptTotalPages = Math.max(1, Math.ceil(filteredScripts.length / PER_PAGE));
+  const paginatedScripts = filteredScripts.slice((scriptPage - 1) * PER_PAGE, scriptPage * PER_PAGE);
+  const docTotalPages = Math.max(1, Math.ceil(filteredDocuments.length / PER_PAGE));
+  const paginatedDocs = filteredDocuments.slice((docPage - 1) * PER_PAGE, docPage * PER_PAGE);
+
+  const handleDelete = () => {
+    if (!deleteTarget) return;
+    if (deleteTarget.type === "script") {
+      setScripts((prev) => prev.filter((s) => s.id !== deleteTarget.id));
+    } else {
+      setDocuments((prev) => prev.filter((d) => d.id !== deleteTarget.id));
+    }
+    setDeleteTarget(null);
+  };
 
   const handleOpenScript = (script: Script) => {
     if (!script.visto && script.driveLink && script.driveLink !== "#") {
