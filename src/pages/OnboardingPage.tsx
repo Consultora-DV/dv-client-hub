@@ -87,7 +87,6 @@ export default function OnboardingPage({ editMode = false, onComplete }: { editM
   const blueprintRef = useRef<HTMLInputElement>(null);
 
   // AI parsing state
-  const { hasToken, token: aiToken, provider: aiProvider } = useAiToken();
   const [blueprintText, setBlueprintText] = useState<string | null>(null);
   const [isParsingAi, setIsParsingAi] = useState(false);
   const [aiParseError, setAiParseError] = useState<string | null>(null);
