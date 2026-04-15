@@ -9,12 +9,12 @@ import { Button } from "@/components/ui/button";
 
 function PasswordStrength({ password }: { password: string }) {
   const checks = useMemo(() => ({
-    minLength: password.length >= 8,
     hasNumber: /\d/.test(password),
     hasUpper: /[A-Z]/.test(password),
+    hasSpecial: /[^A-Za-z0-9]/.test(password),
   }), [password]);
 
-  const score = [checks.minLength, checks.hasNumber, checks.hasUpper].filter(Boolean).length;
+  const score = [checks.hasNumber, checks.hasUpper, checks.hasSpecial].filter(Boolean).length;
   const labels = ["Débil", "Débil", "Media", "Fuerte"];
   const colors = ["bg-destructive", "bg-destructive", "bg-status-pending", "bg-status-approved"];
 
@@ -32,7 +32,7 @@ function PasswordStrength({ password }: { password: string }) {
       </p>
       {score < 3 && (
         <p className="text-xs text-muted-foreground">
-          La contraseña debe tener al menos 8 caracteres, 1 número y 1 mayúscula
+          Incluye al menos 1 mayúscula, 1 número y 1 signo especial (!@#$...)
         </p>
       )}
     </div>
@@ -51,7 +51,7 @@ export default function AuthPage() {
   const [forgotEmail, setForgotEmail] = useState("");
   const [forgotLoading, setForgotLoading] = useState(false);
 
-  const passwordValid = password.length >= 8 && /\d/.test(password) && /[A-Z]/.test(password);
+  const passwordValid = /\d/.test(password) && /[A-Z]/.test(password) && /[^A-Za-z0-9]/.test(password);
 
   const handleForgotPassword = async (e: React.FormEvent) => {
     e.preventDefault();
