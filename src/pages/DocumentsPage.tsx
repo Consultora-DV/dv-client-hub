@@ -12,7 +12,7 @@ import { differenceInDays, formatDistanceToNow } from "date-fns";
 import { es } from "date-fns/locale";
 import { useAppState } from "@/contexts/AppStateContext";
 import { usePermissions } from "@/hooks/usePermissions";
-import { Document, Script, Comment, clients } from "@/data/mockData";
+import { Document, Script, Comment } from "@/data/mockData";
 import { useAuth } from "@/contexts/AuthContext";
 
 const isRecent = (dateStr: string) => differenceInDays(new Date(), new Date(dateStr)) < 3;
@@ -29,7 +29,7 @@ const typeLabels: Record<string, string> = { pdf: "PDF", doc: "Documento", sheet
 
 function ScriptDetailModal({ script, onClose }: { script: Script; onClose: () => void }) {
   const { user } = useAuth();
-  const { approveScript, requestChangesScript, addScriptComment, scriptComments } = useAppState();
+  const { approveScript, requestChangesScript, addScriptComment, scriptComments, clients: appClients } = useAppState();
   const { canApprove } = usePermissions();
   const [newComment, setNewComment] = useState("");
   const [showChangesInput, setShowChangesInput] = useState(false);
@@ -37,7 +37,7 @@ function ScriptDetailModal({ script, onClose }: { script: Script; onClose: () =>
 
   const comments: Comment[] = scriptComments[script.id] || [];
   const status = scriptStatusConfig[script.status];
-  const client = clients.find((c) => c.id === script.clienteId);
+  const client = appClients.find((c) => c.id === script.clienteId);
 
   const handleApprove = useCallback(() => {
     approveScript(script.id);
@@ -141,12 +141,12 @@ function ScriptDetailModal({ script, onClose }: { script: Script; onClose: () =>
 }
 
 function AddDocumentModal({ onClose }: { onClose: () => void }) {
-  const { setDocuments, allDocuments } = useAppState();
+  const { setDocuments, allDocuments, clients: appClients } = useAppState();
   const [name, setName] = useState("");
   const [type, setType] = useState<Document["type"]>("pdf");
   const [driveLink, setDriveLink] = useState("");
   const [fileName, setFileName] = useState("");
-  const [clienteId, setClienteId] = useState(clients[0].id);
+  const [clienteId, setClienteId] = useState(appClients[0]?.id || "");
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -219,7 +219,7 @@ function AddDocumentModal({ onClose }: { onClose: () => void }) {
             <Select value={clienteId} onValueChange={setClienteId}>
               <SelectTrigger className="bg-secondary border-border/50 rounded-xl"><SelectValue /></SelectTrigger>
               <SelectContent className="glass gold-border">
-                {clients.map((c) => <SelectItem key={c.id} value={c.id}>{c.nombre}</SelectItem>)}
+                {appClients.map((c) => <SelectItem key={c.id} value={c.id}>{c.nombre}</SelectItem>)}
               </SelectContent>
             </Select></div>
           <Button onClick={handleSave} disabled={!name.trim()} className="w-full gold-gradient text-primary-foreground rounded-xl h-11">Guardar documento</Button>
