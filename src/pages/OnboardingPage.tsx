@@ -387,8 +387,8 @@ export default function OnboardingPage({ editMode = false, onComplete }: { editM
                   <input ref={fileRef} type="file" accept="image/jpeg,image/png" onChange={handlePhotoChange} className="hidden" />
                 </div>
 
-                <Field label="Nombre completo *" value={data.fullName} onChange={v => update({ fullName: v })} />
-                <Field label="Nombre de marca o negocio *" value={data.businessName} onChange={v => update({ businessName: v })} />
+                <Field label="Nombre completo *" value={data.fullName} onChange={v => update({ fullName: v })} aiFilled={aiFilledFields.has("fullName")} />
+                <Field label="Nombre de marca o negocio *" value={data.businessName} onChange={v => update({ businessName: v })} aiFilled={aiFilledFields.has("businessName")} />
 
                 <div>
                   <label className="text-xs text-muted-foreground mb-1.5 block">Industria / nicho *</label>
