@@ -91,22 +91,16 @@ export function ImportModal({ onClose }: { onClose: () => void }) {
     const client = clients.find((c) => c.id === clienteId);
     const { videos, events } = mapPostsToAppData(selected, clienteId, client?.nombre || "");
 
-    // Filter duplicates
-    const existingIds = new Set(allVideos.map((v) => v.id));
-    const newVideos = videos.filter((v) => !existingIds.has(v.id));
-    const skipped = videos.length - newVideos.length;
-
-    importFromApify(newVideos, events);
-
-    // Count metrics posts (those with igShortCode)
-    const metricsCount = newVideos.filter((v) => v.igShortCode).length;
+    // importFromApify now handles all deduplication internally
+    const result = importFromApify(videos, events);
 
     setResult({
-      videosAdded: newVideos.length,
-      eventsAdded: events.length,
-      skipped,
+      videosAdded: result.videosAdded,
+      eventsAdded: result.eventsAdded,
+      skipped: result.videosSkipped + result.eventsSkipped,
       errors: [],
-      metricsUpdated: metricsCount,
+      metricsUpdated: result.metricsAdded,
+      metricsSkipped: result.metricsSkipped,
     });
     setStep("success");
   };
