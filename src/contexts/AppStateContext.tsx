@@ -412,7 +412,7 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
         notifications, setNotifications,
         comments, setComments,
         approveVideo, requestChanges, addComment, addNotification,
-        selectedClienteId, setSelectedClienteId,
+        isLoadingClients, selectedClienteId, setSelectedClienteId,
         clients,
         importFromApify,
         scriptComments, approveScript, requestChangesScript, addScriptComment, markScriptViewed,
