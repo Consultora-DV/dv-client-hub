@@ -74,6 +74,9 @@ interface OnboardingData {
   blueprintName: string;
 }
 
+// Configure pdf.js worker
+pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.4.168/pdf.worker.min.mjs`;
+
 export default function OnboardingPage({ editMode = false, onComplete }: { editMode?: boolean; onComplete?: () => void }) {
   const { user } = useAuth();
   const navigate = useNavigate();
@@ -82,6 +85,14 @@ export default function OnboardingPage({ editMode = false, onComplete }: { editM
   const fileRef = useRef<HTMLInputElement>(null);
   const blueprintRef = useRef<HTMLInputElement>(null);
 
+  // AI parsing state
+  const { hasToken, token: aiToken, provider: aiProvider } = useAiToken();
+  const [blueprintText, setBlueprintText] = useState<string | null>(null);
+  const [isParsingAi, setIsParsingAi] = useState(false);
+  const [aiParseError, setAiParseError] = useState<string | null>(null);
+  const [aiParseResult, setAiParseResult] = useState<BlueprintResult | null>(null);
+  const [showSettingsModal, setShowSettingsModal] = useState(false);
+  const [aiFilledFields, setAiFilledFields] = useState<Set<string>>(new Set());
   const existingProfile = user?.id ? localStorage.getItem(`dv_client_profile_${user.id}`) : null;
   const parsed = existingProfile ? JSON.parse(existingProfile) : null;
 
