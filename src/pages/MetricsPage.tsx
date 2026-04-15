@@ -121,7 +121,7 @@ function TopPostsChart({ posts, accent, label }: { posts: PostMetric[]; accent: 
   );
 }
 
-function MonthlyLineChart({ data, accent }: { data: { label: string; totalViews: number }[] }) {
+function MonthlyLineChart({ data, accent }: { data: { label: string; totalViews: number }[]; accent: string }) {
   if (data.length === 0) return null;
   return (
     <div className="glass gold-border rounded-xl p-5">
