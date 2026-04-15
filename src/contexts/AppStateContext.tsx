@@ -1,11 +1,10 @@
 import { createContext, useContext, ReactNode, useCallback, useMemo } from "react";
 import {
-  videos as mockVideos, documents as mockDocuments, calendarEvents as mockCalendarEvents,
-  notifications as mockNotifications, scripts as mockScripts,
   Video, Document, CalendarEvent, Notification, Comment, Script, clients,
 } from "@/data/mockData";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 import { useAuth } from "@/contexts/AuthContext";
+import { PostMetric, PlatformMetrics, calculateMonthlySummary } from "@/services/metricsParser";
 
 interface AppStateContextType {
   videos: Video[];
@@ -36,19 +35,14 @@ interface AppStateContextType {
 
 const AppStateContext = createContext<AppStateContextType | null>(null);
 
-const initialComments: Record<string, Comment[]> = {};
-mockVideos.forEach((v) => {
-  if (v.comments.length > 0) initialComments[v.id] = [...v.comments];
-});
-
 export function AppStateProvider({ children }: { children: ReactNode }) {
   const { user } = useAuth();
-  const [allVideos, setVideos] = useLocalStorage<Video[]>("dv_videos_state", mockVideos);
-  const [allDocuments, setDocuments] = useLocalStorage<Document[]>("dv_documents_state", mockDocuments);
-  const [allScripts, setScripts] = useLocalStorage<Script[]>("dv_scripts_state", mockScripts);
-  const [allCalendarEvents, setCalendarEvents] = useLocalStorage<CalendarEvent[]>("dv_calendar_state", mockCalendarEvents);
-  const [notifications, setNotifications] = useLocalStorage<Notification[]>("dv_notifications_state", mockNotifications);
-  const [comments, setComments] = useLocalStorage<Record<string, Comment[]>>("dv_comments_state", initialComments);
+  const [allVideos, setVideos] = useLocalStorage<Video[]>("dv_videos_state", []);
+  const [allDocuments, setDocuments] = useLocalStorage<Document[]>("dv_documents_state", []);
+  const [allScripts, setScripts] = useLocalStorage<Script[]>("dv_scripts_state", []);
+  const [allCalendarEvents, setCalendarEvents] = useLocalStorage<CalendarEvent[]>("dv_calendar_state", []);
+  const [notifications, setNotifications] = useLocalStorage<Notification[]>("dv_notifications_state", []);
+  const [comments, setComments] = useLocalStorage<Record<string, Comment[]>>("dv_comments_state", {});
   const [selectedClienteId, setSelectedClienteId] = useLocalStorage<string | null>("dv_selected_cliente", null);
 
   const isClient = user?.role === "cliente";
@@ -151,7 +145,56 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
     }));
   }, [setComments, user]);
 
+  const feedApifyToMetrics = useCallback((importedVideos: Video[], targetClienteId: string) => {
+    // Convert imported IG videos to PostMetric and persist to metrics state
+    const igPosts: PostMetric[] = importedVideos
+      .filter((v) => v.igShortCode)
+      .map((v) => ({
+        id: v.igShortCode || v.id,
+        url: v.embedUrl || "",
+        thumbnail: v.thumbnail,
+        title: v.igCaption || v.title,
+        date: v.deliveryDate,
+        type: v.igViews ? "REEL" : "POST",
+        views: v.igViews || 0,
+        likes: v.igLikes || 0,
+        comments: v.igComments || 0,
+        shares: 0,
+        reach: 0,
+        engagement: v.igViews && v.igViews > 0
+          ? ((v.igLikes || 0) + (v.igComments || 0)) / v.igViews * 100
+          : 0,
+      }));
+
+    if (igPosts.length === 0) return 0;
+
+    const metricsKey = `dv_metrics_${targetClienteId}_instagram`;
+    try {
+      const existing: PlatformMetrics | null = JSON.parse(localStorage.getItem(metricsKey) || "null");
+      const existingPosts = existing?.posts || [];
+      const existingIds = new Set(existingPosts.map((p) => p.id));
+      const newPosts = igPosts.filter((p) => !existingIds.has(p.id));
+      const allPosts = [...existingPosts, ...newPosts];
+      const summary = calculateMonthlySummary(allPosts);
+
+      const updated: PlatformMetrics = {
+        clienteId: targetClienteId,
+        platform: "instagram",
+        uploadedAt: new Date().toISOString(),
+        fileName: existing?.fileName || "Importado desde Apify",
+        posts: allPosts,
+        monthlySummary: summary,
+      };
+      localStorage.setItem(metricsKey, JSON.stringify(updated));
+      return newPosts.length;
+    } catch {
+      return 0;
+    }
+  }, []);
+
   const importFromApify = useCallback((newVideos: Video[], newEvents: CalendarEvent[]) => {
+    const targetClient = newVideos[0]?.clienteId || newEvents[0]?.clienteId || "";
+
     setVideos((prev) => {
       const ids = new Set(prev.map((v) => v.id));
       return [...prev, ...newVideos.filter((v) => !ids.has(v.id))];
@@ -160,14 +203,17 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
       const ids = new Set(prev.map((e) => e.id));
       return [...prev, ...newEvents.filter((e) => !ids.has(e.id))];
     });
+
+    const metricsCount = feedApifyToMetrics(newVideos, targetClient);
+
     addNotification({
       type: "video_ready",
-      message: `Importación completada: ${newVideos.length} videos y ${newEvents.length} eventos de Instagram`,
+      message: `Importación completada: ${newVideos.length} videos y ${newEvents.length} eventos de Instagram${metricsCount > 0 ? ` · Métricas actualizadas con ${metricsCount} posts` : ""}`,
       date: new Date().toISOString(),
       read: false,
       link: "/videos",
     });
-  }, [setVideos, setCalendarEvents, addNotification]);
+  }, [setVideos, setCalendarEvents, addNotification, feedApifyToMetrics]);
 
   return (
     <AppStateContext.Provider
