@@ -228,7 +228,7 @@ export async function parseMetricsCSV(file: File): Promise<{ platform: "instagra
 
 export async function parseMetricsPDF(file: File, forcePlatform?: "instagram" | "tiktok" | "youtube" | "facebook"): Promise<{ platform: string; posts: PostMetric[] }> {
   const pdfjsLib = await import("pdfjs-dist");
-  pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.9.155/pdf.worker.min.mjs`;
+  pdfjsLib.GlobalWorkerOptions.workerSrc = (await import("@/lib/pdfConfig")).PDF_WORKER_URL;
 
   const arrayBuffer = await file.arrayBuffer();
   const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;

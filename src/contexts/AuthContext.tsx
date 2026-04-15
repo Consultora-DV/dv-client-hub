@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, useEffect, useCallback, ReactNode } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 import type { User, Session } from "@supabase/supabase-js";
 
 export type UserRole = "admin" | "editor" | "diseñador" | "cliente";
@@ -23,7 +24,7 @@ interface AuthContextType {
   login: (email: string, password: string) => Promise<void>;
   register: (name: string, email: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
-  updateProfile: (updates: Partial<AppUser>) => void;
+  updateProfile: (updates: Partial<AppUser>) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | null>(null);
@@ -97,38 +98,57 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   }, [loadUserData]);
 
   const login = useCallback(async (email: string, password: string) => {
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
-    if (error) throw new Error(error.message);
+    try {
+      const { error } = await supabase.auth.signInWithPassword({ email, password });
+      if (error) throw new Error(error.message);
+    } catch (err: any) {
+      toast.error(err.message || "Error al iniciar sesión");
+      throw err;
+    }
   }, []);
 
   const register = useCallback(async (name: string, email: string, password: string) => {
-    const { error } = await supabase.auth.signUp({
-      email,
-      password,
-      options: {
-        data: { display_name: name },
-        emailRedirectTo: window.location.origin,
-      },
-    });
-    if (error) throw new Error(error.message);
+    try {
+      const { error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          data: { display_name: name },
+          emailRedirectTo: window.location.origin,
+        },
+      });
+      if (error) throw new Error(error.message);
+    } catch (err: any) {
+      toast.error(err.message || "Error al registrarse");
+      throw err;
+    }
   }, []);
 
   const logout = useCallback(async () => {
-    await supabase.auth.signOut();
+    try {
+      await supabase.auth.signOut();
+    } catch (err: any) {
+      toast.error("Error al cerrar sesión");
+    }
     setUser(null);
     setSession(null);
   }, []);
 
-  const updateProfile = useCallback((updates: Partial<AppUser>) => {
+  const updateProfile = useCallback(async (updates: Partial<AppUser>) => {
     setUser((prev) => prev ? { ...prev, ...updates } : prev);
-    // Also persist to DB
     if (session?.user) {
       const dbUpdates: { display_name?: string; email?: string; business?: string } = {};
       if (updates.name) dbUpdates.display_name = updates.name;
       if (updates.email) dbUpdates.email = updates.email;
       if (updates.business) dbUpdates.business = updates.business;
       if (Object.keys(dbUpdates).length > 0) {
-        supabase.from("profiles").update(dbUpdates).eq("user_id", session.user.id).then();
+        try {
+          const { error } = await supabase.from("profiles").update(dbUpdates).eq("user_id", session.user.id);
+          if (error) throw error;
+          toast.success("Perfil actualizado");
+        } catch (err: any) {
+          toast.error("Error al guardar perfil: " + (err.message || ""));
+        }
       }
     }
   }, [session]);
