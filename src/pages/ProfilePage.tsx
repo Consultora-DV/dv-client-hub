@@ -40,7 +40,7 @@ function formatFollowers(n: number): string {
 
 export default function ProfilePage() {
   const { user } = useAuth();
-  const { selectedClienteId } = useAppState();
+  const { selectedClienteId, clients } = useAppState();
   const { isAdmin, isClient } = usePermissions();
   const navigate = useNavigate();
   const reduced = useReducedMotion();
@@ -50,6 +50,9 @@ export default function ProfilePage() {
   const profileData = targetUserId ? JSON.parse(localStorage.getItem(`dv_client_profile_${targetUserId}`) || "null") : null;
   const photo = targetUserId ? localStorage.getItem(`dv_user_profile_photo_${targetUserId}`) : null;
 
+  // Fallback: get basic info from clients list if no onboarding data
+  const clientInfo = clients.find((c) => c.id === targetUserId);
+
   const fadeUp = reduced
     ? { initial: {}, animate: {} }
     : { initial: { opacity: 0, y: 20 }, animate: { opacity: 1, y: 0 } };
@@ -58,29 +61,28 @@ export default function ProfilePage() {
     return <OnboardingPage editMode onComplete={() => setEditingOnboarding(false)} />;
   }
 
-  if (!profileData) {
+  // Build a merged profile: onboarding data takes priority, fallback to DB data
+  const displayName = profileData?.fullName || clientInfo?.nombre || user?.name || "Cliente";
+  const displayBusiness = profileData?.businessName || clientInfo?.empresa || "";
+  const displayIndustry = profileData?.industry || clientInfo?.especialidad || "";
+  const displayEmail = clientInfo?.email || user?.email || "";
+
+  if (!profileData && !clientInfo) {
     return (
       <div className="max-w-4xl mx-auto">
         <motion.div {...fadeUp} className="glass gold-border rounded-xl p-10 text-center space-y-4">
           <div className="w-16 h-16 mx-auto rounded-full bg-primary/10 flex items-center justify-center">
             <Edit className="h-8 w-8 text-primary" />
           </div>
-          <h2 className="text-xl font-display font-bold text-foreground">Perfil no completado</h2>
-          <p className="text-sm text-muted-foreground">
-            {isClient ? "Completa tu perfil para que tu consultor pueda trabajar mejor contigo." : "Este cliente aún no ha completado su perfil."}
-          </p>
-          {isClient && (
-            <Button onClick={() => setEditingOnboarding(true)} className="gold-gradient text-primary-foreground rounded-xl">
-              Completar perfil
-            </Button>
-          )}
+          <h2 className="text-xl font-display font-bold text-foreground">Sin perfil seleccionado</h2>
+          <p className="text-sm text-muted-foreground">Selecciona un cliente desde el menú superior para ver su perfil.</p>
         </motion.div>
       </div>
     );
   }
 
-  const socialEntries = Object.entries(profileData.socialNetworks || {});
-  const strategy = profileData.strategy;
+  const socialEntries = Object.entries(profileData?.socialNetworks || {});
+  const strategy = profileData?.strategy;
   const goal = strategy?.mainGoal ? GOALS_MAP[strategy.mainGoal] : null;
 
   return (
@@ -93,20 +95,21 @@ export default function ProfilePage() {
               <img src={photo} alt="Avatar" className="w-full h-full object-cover" />
             ) : (
               <div className="w-full h-full gold-gradient flex items-center justify-center text-3xl font-bold text-primary-foreground">
-                {(profileData.fullName || "?").substring(0, 2).toUpperCase()}
+                {displayName.substring(0, 2).toUpperCase()}
               </div>
             )}
           </div>
           <div className="text-center sm:text-left flex-1">
-            <h1 className="text-2xl font-display font-bold text-foreground">{profileData.fullName}</h1>
-            {profileData.businessName && <p className="text-sm text-primary font-medium">{profileData.businessName}</p>}
+            <h1 className="text-2xl font-display font-bold text-foreground">{displayName}</h1>
+            {displayBusiness && <p className="text-sm text-primary font-medium">{displayBusiness}</p>}
+            {displayEmail && <p className="text-xs text-muted-foreground">{displayEmail}</p>}
             <p className="text-xs text-muted-foreground mt-1">
-              {[profileData.industry, [profileData.city, profileData.country].filter(Boolean).join(", ")].filter(Boolean).join(" · ")}
+              {[displayIndustry, [profileData?.city, profileData?.country].filter(Boolean).join(", ")].filter(Boolean).join(" · ")}
             </p>
             <Badge className="mt-2 bg-status-approved/20 text-status-approved border-status-approved/30">Cliente activo</Badge>
           </div>
           <Button onClick={() => setEditingOnboarding(true)} variant="outline" className="rounded-xl shrink-0">
-            <Edit className="h-4 w-4 mr-2" /> Editar perfil
+            <Edit className="h-4 w-4 mr-2" /> {profileData ? "Editar perfil" : "Completar perfil"}
           </Button>
         </div>
       </motion.div>
@@ -197,13 +200,13 @@ export default function ProfilePage() {
       {/* Blueprint */}
       <motion.div {...fadeUp} transition={{ delay: 0.4 }}>
         <h2 className="text-lg font-display font-semibold text-foreground mb-4">Expediente / Blueprint</h2>
-        {profileData.blueprintFile ? (
+        {profileData?.blueprintFile ? (
           <div className="glass gold-border rounded-xl p-5 flex items-center gap-4">
             <div className="w-12 h-12 rounded-lg bg-primary/10 flex items-center justify-center">
               <FileText className="h-6 w-6 text-primary" />
             </div>
             <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium text-foreground truncate">{profileData.blueprintName || "Expediente"}</p>
+              <p className="text-sm font-medium text-foreground truncate">{profileData?.blueprintName || "Expediente"}</p>
               <p className="text-xs text-muted-foreground">Archivo guardado</p>
             </div>
             <Button variant="outline" size="sm" className="rounded-xl" onClick={() => setEditingOnboarding(true)}>
