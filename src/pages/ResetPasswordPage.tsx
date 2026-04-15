@@ -16,18 +16,77 @@ export default function ResetPasswordPage() {
   const [done, setDone] = useState(false);
 
   useEffect(() => {
-    const hash = window.location.hash;
-    if (hash.includes("type=recovery")) {
-      setIsRecovery(true);
-    }
+    let mounted = true;
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
-      if (event === "PASSWORD_RECOVERY") {
+    const getUrlParams = () => {
+      const url = new URL(window.location.href);
+      const hashParams = new URLSearchParams(url.hash.startsWith("#") ? url.hash.slice(1) : url.hash);
+      const searchParams = url.searchParams;
+
+      const getParam = (key: string) => searchParams.get(key) ?? hashParams.get(key);
+
+      return {
+        type: getParam("type"),
+        tokenHash: getParam("token_hash") ?? getParam("hashed_token"),
+        code: getParam("code"),
+        accessToken: getParam("access_token"),
+        refreshToken: getParam("refresh_token"),
+      };
+    };
+
+    const bootstrapRecovery = async () => {
+      const { type, tokenHash, code, accessToken, refreshToken } = getUrlParams();
+
+      try {
+        if (code) {
+          const { error } = await supabase.auth.exchangeCodeForSession(code);
+          if (error) throw error;
+        } else if (tokenHash && type === "recovery") {
+          const { error } = await supabase.auth.verifyOtp({
+            type: "recovery",
+            token_hash: tokenHash,
+          });
+          if (error) throw error;
+        } else if (accessToken && refreshToken) {
+          const { error } = await supabase.auth.setSession({
+            access_token: accessToken,
+            refresh_token: refreshToken,
+          });
+          if (error) throw error;
+        }
+
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!mounted) return;
+
+        if (type === "recovery" || !!session) {
+          setIsRecovery(true);
+          return;
+        }
+
+        toast.error("El enlace de recuperación es inválido o expiró");
+      } catch (err: any) {
+        if (!mounted) return;
+        toast.error(err.message || "No se pudo validar el enlace de recuperación");
+      }
+    };
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (!mounted) return;
+
+      const { type, tokenHash } = getUrlParams();
+      const looksLikeRecovery = type === "recovery" || !!tokenHash;
+
+      if (event === "PASSWORD_RECOVERY" || (looksLikeRecovery && event === "SIGNED_IN") || (looksLikeRecovery && !!session)) {
         setIsRecovery(true);
       }
     });
 
-    return () => subscription.unsubscribe();
+    bootstrapRecovery();
+
+    return () => {
+      mounted = false;
+      subscription.unsubscribe();
+    };
   }, []);
 
   const handleReset = async (e: React.FormEvent) => {
