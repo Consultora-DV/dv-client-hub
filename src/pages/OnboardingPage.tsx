@@ -76,13 +76,16 @@ interface OnboardingData {
 import { PDF_WORKER_URL } from "@/lib/pdfConfig";
 pdfjsLib.GlobalWorkerOptions.workerSrc = PDF_WORKER_URL;
 
-export default function OnboardingPage({ editMode = false, onComplete }: { editMode?: boolean; onComplete?: () => void }) {
+export default function OnboardingPage({ editMode = false, onComplete, targetUserId }: { editMode?: boolean; onComplete?: () => void; targetUserId?: string }) {
   const { user } = useAuth();
   const navigate = useNavigate();
   const [step, setStep] = useState(0);
   const [showWelcome, setShowWelcome] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
   const blueprintRef = useRef<HTMLInputElement>(null);
+
+  // Use targetUserId if provided (admin editing client), otherwise fall back to logged-in user
+  const profileUserId = targetUserId || user?.id;
 
   // AI parsing state
   const [blueprintText, setBlueprintText] = useState<string | null>(null);
@@ -91,7 +94,7 @@ export default function OnboardingPage({ editMode = false, onComplete }: { editM
   const [aiParseResult, setAiParseResult] = useState<BlueprintResult | null>(null);
   
   const [aiFilledFields, setAiFilledFields] = useState<Set<string>>(new Set());
-  const existingProfile = user?.id ? localStorage.getItem(`dv_client_profile_${user.id}`) : null;
+  const existingProfile = profileUserId ? localStorage.getItem(`dv_client_profile_${profileUserId}`) : null;
   const parsed = existingProfile ? JSON.parse(existingProfile) : null;
 
   const [data, setData] = useState<OnboardingData>(() => ({
@@ -101,7 +104,7 @@ export default function OnboardingPage({ editMode = false, onComplete }: { editM
     city: parsed?.city || "",
     country: parsed?.country || "",
     whatsapp: parsed?.whatsapp || "",
-    photo: user?.id ? localStorage.getItem(`dv_user_profile_photo_${user.id}`) : null,
+    photo: profileUserId ? localStorage.getItem(`dv_user_profile_photo_${profileUserId}`) : null,
     socials: parsed?.socialNetworks
       ? Object.fromEntries(
           SOCIAL_NETWORKS.map(sn => [
@@ -116,7 +119,7 @@ export default function OnboardingPage({ editMode = false, onComplete }: { editM
     targetAudience: parsed?.strategy?.targetAudience || "",
     tone: parsed?.strategy?.tone || [],
     contentPillars: parsed?.strategy?.contentPillars || [],
-    blueprintFile: parsed?.blueprintFile || (user?.id ? localStorage.getItem(`dv_client_blueprint_${user.id}`) : null),
+    blueprintFile: parsed?.blueprintFile || (profileUserId ? localStorage.getItem(`dv_client_blueprint_${profileUserId}`) : null),
     blueprintName: parsed?.blueprintName || "",
   }));
 
@@ -247,7 +250,7 @@ export default function OnboardingPage({ editMode = false, onComplete }: { editM
   };
 
   const handleComplete = () => {
-    if (!user?.id) return;
+    if (!profileUserId) return;
 
     const socialNetworks: Record<string, any> = {};
     Object.entries(data.socials).forEach(([key, sn]) => {
@@ -275,10 +278,10 @@ export default function OnboardingPage({ editMode = false, onComplete }: { editM
       blueprintName: data.blueprintName || undefined,
     };
 
-    localStorage.setItem(`dv_client_profile_${user.id}`, JSON.stringify(profile));
-    if (data.photo) localStorage.setItem(`dv_user_profile_photo_${user.id}`, data.photo);
-    if (data.blueprintFile) localStorage.setItem(`dv_client_blueprint_${user.id}`, data.blueprintFile);
-    localStorage.setItem(`dv_onboarding_complete_${user.id}`, "true");
+    localStorage.setItem(`dv_client_profile_${profileUserId}`, JSON.stringify(profile));
+    if (data.photo) localStorage.setItem(`dv_user_profile_photo_${profileUserId}`, data.photo);
+    if (data.blueprintFile) localStorage.setItem(`dv_client_blueprint_${profileUserId}`, data.blueprintFile);
+    localStorage.setItem(`dv_onboarding_complete_${profileUserId}`, "true");
 
     if (editMode && onComplete) {
       onComplete();

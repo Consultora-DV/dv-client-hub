@@ -58,7 +58,7 @@ export default function ProfilePage() {
     : { initial: { opacity: 0, y: 20 }, animate: { opacity: 1, y: 0 } };
 
   if (editingOnboarding) {
-    return <OnboardingPage editMode onComplete={() => setEditingOnboarding(false)} />;
+    return <OnboardingPage editMode targetUserId={targetUserId} onComplete={() => setEditingOnboarding(false)} />;
   }
 
   // Build a merged profile: onboarding data takes priority, fallback to DB data
