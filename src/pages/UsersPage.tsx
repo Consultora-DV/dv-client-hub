@@ -4,9 +4,9 @@ import { useAuth, UserRole } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Check, X, UserCog } from "lucide-react";
+import { UserCog, UserPlus, X, Mail, Copy, Check } from "lucide-react";
 import { toast } from "sonner";
 
 interface ManagedUser {
@@ -71,10 +71,154 @@ function EditUserModal({ user, onClose, onSave }: {
   );
 }
 
+function InviteUserModal({ onClose, onInvited }: {
+  onClose: () => void;
+  onInvited: () => void;
+}) {
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
+  const [role, setRole] = useState<UserRole>("cliente");
+  const [loading, setLoading] = useState(false);
+  const [inviteLink, setInviteLink] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
+
+  const handleInvite = async () => {
+    if (!email.trim()) {
+      toast.error("Ingresa un email válido");
+      return;
+    }
+
+    setLoading(true);
+    try {
+      // Sign up the user with a temporary password they'll need to reset
+      const tempPassword = crypto.randomUUID().slice(0, 16) + "Aa1!";
+      const { data, error } = await supabase.auth.signUp({
+        email: email.trim(),
+        password: tempPassword,
+        options: {
+          data: { display_name: name.trim() || email.split("@")[0] },
+          emailRedirectTo: window.location.origin,
+        },
+      });
+
+      if (error) throw error;
+
+      if (data.user) {
+        // Assign the selected role
+        if (role !== "cliente") {
+          await supabase.from("user_roles").insert({ user_id: data.user.id, role });
+        }
+
+        // Generate a shareable registration link instead
+        const link = `${window.location.origin}/auth`;
+        setInviteLink(link);
+        toast.success(`Usuario ${email} registrado exitosamente`);
+        onInvited();
+      }
+    } catch (err: any) {
+      toast.error("Error: " + (err.message || "No se pudo crear el usuario"));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const copyLink = () => {
+    if (inviteLink) {
+      navigator.clipboard.writeText(inviteLink);
+      setCopied(true);
+      toast.success("Link copiado al portapapeles");
+      setTimeout(() => setCopied(false), 2000);
+    }
+  };
+
+  return (
+    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+      className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm p-4" onClick={onClose}>
+      <motion.div initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.95, opacity: 0 }}
+        onClick={(e) => e.stopPropagation()} className="glass gold-border gold-glow rounded-2xl w-full max-w-md">
+        <div className="flex items-center justify-between p-5 border-b border-border/50">
+          <h2 className="font-display text-lg font-semibold text-foreground">Agregar usuario</h2>
+          <button onClick={onClose} className="p-2 rounded-lg hover:bg-secondary text-muted-foreground"><X className="h-5 w-5" /></button>
+        </div>
+        <div className="p-5 space-y-4">
+          {!inviteLink ? (
+            <>
+              <div>
+                <label className="text-xs text-muted-foreground mb-1.5 block">Nombre completo</label>
+                <Input
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  placeholder="Ej: María García"
+                  className="bg-secondary border-border/50 rounded-xl"
+                />
+              </div>
+              <div>
+                <label className="text-xs text-muted-foreground mb-1.5 block">Email *</label>
+                <Input
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="usuario@ejemplo.com"
+                  className="bg-secondary border-border/50 rounded-xl"
+                />
+              </div>
+              <div>
+                <label className="text-xs text-muted-foreground mb-1.5 block">Rol</label>
+                <Select value={role} onValueChange={(v) => setRole(v as UserRole)}>
+                  <SelectTrigger className="bg-secondary border-border/50 rounded-xl"><SelectValue /></SelectTrigger>
+                  <SelectContent className="glass gold-border">
+                    <SelectItem value="cliente">Cliente</SelectItem>
+                    <SelectItem value="editor">Editor</SelectItem>
+                    <SelectItem value="diseñador">Diseñador</SelectItem>
+                    <SelectItem value="admin">Admin</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Se creará la cuenta y se enviará un email de confirmación al usuario.
+              </p>
+              <div className="flex gap-2 pt-2">
+                <Button onClick={handleInvite} disabled={loading} className="flex-1 gold-gradient text-primary-foreground">
+                  {loading ? "Creando..." : "Crear usuario"}
+                </Button>
+                <Button variant="outline" onClick={onClose} className="flex-1">Cancelar</Button>
+              </div>
+            </>
+          ) : (
+            <div className="space-y-4">
+              <div className="flex items-center gap-3 p-4 rounded-xl bg-status-published/10 border border-status-published/20">
+                <Check className="h-5 w-5 text-status-published shrink-0" />
+                <div>
+                  <p className="text-sm font-medium text-foreground">¡Usuario creado exitosamente!</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">Se envió un email de confirmación a <strong>{email}</strong></p>
+                </div>
+              </div>
+              <div>
+                <label className="text-xs text-muted-foreground mb-1.5 block">Link de acceso al panel</label>
+                <div className="flex gap-2">
+                  <Input value={inviteLink} readOnly className="bg-secondary border-border/50 rounded-xl text-xs" />
+                  <Button variant="outline" size="icon" onClick={copyLink} className="shrink-0">
+                    {copied ? <Check className="h-4 w-4 text-status-published" /> : <Copy className="h-4 w-4" />}
+                  </Button>
+                </div>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                El usuario deberá confirmar su email y luego podrá iniciar sesión. Su contraseña temporal fue generada automáticamente — puede usar "Olvidé mi contraseña" para crear la suya.
+              </p>
+              <Button onClick={onClose} className="w-full" variant="outline">Cerrar</Button>
+            </div>
+          )}
+        </div>
+      </motion.div>
+    </motion.div>
+  );
+}
+
 export default function UsersPage() {
   const { user: currentUser } = useAuth();
   const [users, setUsers] = useState<ManagedUser[]>([]);
   const [editingUser, setEditingUser] = useState<ManagedUser | null>(null);
+  const [showInvite, setShowInvite] = useState(false);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -106,7 +250,6 @@ export default function UsersPage() {
   };
 
   const handleSaveRole = async (userId: string, role: UserRole) => {
-    // Upsert the role
     const { error } = await supabase
       .from("user_roles")
       .upsert({ user_id: userId, role }, { onConflict: "user_id,role" });
@@ -129,9 +272,17 @@ export default function UsersPage() {
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">
-      <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
-        <h1 className="text-2xl font-display font-bold text-foreground">Gestión de Usuarios</h1>
-        <p className="text-sm text-muted-foreground mt-1">Administra roles de usuarios registrados</p>
+      <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-display font-bold text-foreground">Gestión de Usuarios</h1>
+          <p className="text-sm text-muted-foreground mt-1">Administra roles de usuarios registrados</p>
+        </div>
+        {currentUser?.role === "admin" && (
+          <Button onClick={() => setShowInvite(true)} className="gold-gradient text-primary-foreground gap-2">
+            <UserPlus className="h-4 w-4" />
+            Agregar usuario
+          </Button>
+        )}
       </motion.div>
 
       <div className="glass gold-border rounded-xl overflow-hidden">
@@ -170,6 +321,12 @@ export default function UsersPage() {
             user={editingUser}
             onClose={() => setEditingUser(null)}
             onSave={handleSaveRole}
+          />
+        )}
+        {showInvite && (
+          <InviteUserModal
+            onClose={() => setShowInvite(false)}
+            onInvited={loadUsers}
           />
         )}
       </AnimatePresence>
