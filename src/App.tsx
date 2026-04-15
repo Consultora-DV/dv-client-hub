@@ -57,6 +57,7 @@ function AppRoutes() {
       <Routes>
         <Route path="/" element={<Navigate to="/dashboard" replace />} />
         <Route path="/auth" element={<Navigate to="/dashboard" replace />} />
+        <Route path="/reset-password" element={<ResetPasswordPage />} />
         <Route path="/onboarding" element={<OnboardingPage />} />
         <Route element={<OnboardingGuard><AppLayout /></OnboardingGuard>}>
           <Route path="/dashboard" element={<DashboardPage />} />
