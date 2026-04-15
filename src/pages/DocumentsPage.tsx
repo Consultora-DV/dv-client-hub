@@ -17,6 +17,7 @@ import { useAppState } from "@/contexts/AppStateContext";
 import { usePermissions } from "@/hooks/usePermissions";
 import { Document, Script, Comment } from "@/data/mockData";
 import { useAuth } from "@/contexts/AuthContext";
+import { supabase } from "@/integrations/supabase/client";
 
 const isRecent = (dateStr: string) => differenceInDays(new Date(), new Date(dateStr)) < 3;
 
