@@ -65,6 +65,7 @@ export interface Document {
   type: "pdf" | "doc" | "sheet" | "slide";
   date: string;
   driveLink: string;
+  fileUrl?: string;
   isNew: boolean;
 }
 

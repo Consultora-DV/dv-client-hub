@@ -4,7 +4,7 @@ import { ListPagination } from "@/components/ListPagination";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { toast } from "sonner";
 import { motion, AnimatePresence } from "framer-motion";
-import { ExternalLink, FileText, File, Table, Presentation, Plus, X, Upload, Eye, EyeOff, Check, AlertTriangle, Trash2 } from "lucide-react";
+import { ExternalLink, FileText, File, Table, Presentation, Plus, X, Upload, Eye, EyeOff, Check, AlertTriangle, Trash2, Download } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
@@ -17,6 +17,7 @@ import { useAppState } from "@/contexts/AppStateContext";
 import { usePermissions } from "@/hooks/usePermissions";
 import { Document, Script, Comment } from "@/data/mockData";
 import { useAuth } from "@/contexts/AuthContext";
+import { supabase } from "@/integrations/supabase/client";
 
 const isRecent = (dateStr: string) => differenceInDays(new Date(), new Date(dateStr)) < 3;
 
@@ -149,23 +150,48 @@ function AddDocumentModal({ onClose }: { onClose: () => void }) {
   const [name, setName] = useState("");
   const [type, setType] = useState<Document["type"]>("pdf");
   const [driveLink, setDriveLink] = useState("");
-  const [fileName, setFileName] = useState("");
+  const [file, setFile] = useState<File | null>(null);
   const [clienteId, setClienteId] = useState(appClients[0]?.id || "");
+  const [uploading, setUploading] = useState(false);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    if (file.size > 10 * 1024 * 1024) { alert("El archivo no puede superar 10MB"); return; }
-    setFileName(file.name);
+    const f = e.target.files?.[0];
+    if (!f) return;
+    if (f.size > 10 * 1024 * 1024) { toast.error("El archivo no puede superar 10MB"); return; }
+    setFile(f);
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!name.trim()) return;
+    setUploading(true);
+
+    let fileUrl: string | undefined;
+
+    // Upload file to storage if provided
+    if (file) {
+      try {
+        const ext = file.name.split(".").pop() || "file";
+        const path = `${clienteId}/${Date.now()}_${file.name}`;
+        const { data, error } = await supabase.storage.from("documents").upload(path, file);
+        if (error) {
+          toast.error("Error al subir archivo: " + error.message);
+          setUploading(false);
+          return;
+        }
+        const { data: urlData } = supabase.storage.from("documents").getPublicUrl(data.path);
+        fileUrl = urlData.publicUrl;
+      } catch (err: any) {
+        toast.error("Error al subir archivo: " + (err.message || "desconocido"));
+        setUploading(false);
+        return;
+      }
+    }
 
     if (category === "guion") {
       const isDuplicate = allScripts.some((s) => s.title === name.trim() && s.clienteId === clienteId);
       if (isDuplicate) {
         toast.error("Ya existe un guión con este nombre para este cliente.");
+        setUploading(false);
         return;
       }
       const newScript: Script = {
@@ -174,7 +200,7 @@ function AddDocumentModal({ onClose }: { onClose: () => void }) {
         title: name.trim(),
         date: new Date().toISOString().split("T")[0],
         status: "nuevo",
-        driveLink: driveLink || "#",
+        driveLink: fileUrl || driveLink || "#",
         isNew: true,
         visto: false,
         comments: [],
@@ -189,6 +215,7 @@ function AddDocumentModal({ onClose }: { onClose: () => void }) {
       });
       if (isDuplicate) {
         toast.error("Ya existe un documento con este nombre para este cliente.");
+        setUploading(false);
         return;
       }
       const newDoc: Document = {
@@ -198,11 +225,13 @@ function AddDocumentModal({ onClose }: { onClose: () => void }) {
         type,
         date: new Date().toISOString().split("T")[0],
         driveLink: driveLink || "#",
+        fileUrl,
         isNew: true,
       };
       setDocuments((prev) => [newDoc, ...prev]);
       toast.success("Documento agregado correctamente");
     }
+    setUploading(false);
     onClose();
   };
 
@@ -266,10 +295,10 @@ function AddDocumentModal({ onClose }: { onClose: () => void }) {
               <input type="file" accept=".pdf,.docx,.xlsx,.png,.jpg,.jpeg" onChange={handleFileChange} className="absolute inset-0 opacity-0 cursor-pointer" />
               <div className="flex items-center gap-2 p-3 bg-secondary border border-border/50 rounded-xl text-sm text-muted-foreground">
                 <Upload className="h-4 w-4" />
-                {fileName ? (
+                {file ? (
                   <div className="flex items-center gap-2 flex-1">
-                    <span className="text-foreground truncate">{fileName}</span>
-                    <button onClick={(e) => { e.stopPropagation(); setFileName(""); }} className="text-muted-foreground hover:text-foreground"><X className="h-3 w-3" /></button>
+                    <span className="text-foreground truncate">{file.name}</span>
+                    <button onClick={(e) => { e.stopPropagation(); setFile(null); }} className="text-muted-foreground hover:text-foreground"><X className="h-3 w-3" /></button>
                   </div>
                 ) : <span>Seleccionar archivo</span>}
               </div>
@@ -281,8 +310,8 @@ function AddDocumentModal({ onClose }: { onClose: () => void }) {
                 {appClients.map((c) => <SelectItem key={c.id} value={c.id}>{c.nombre}</SelectItem>)}
               </SelectContent>
             </Select></div>
-          <Button onClick={handleSave} disabled={!name.trim()} className="w-full gold-gradient text-primary-foreground rounded-xl h-11">
-            {category === "guion" ? "Guardar guión" : "Guardar documento"}
+          <Button onClick={handleSave} disabled={!name.trim() || uploading} className="w-full gold-gradient text-primary-foreground rounded-xl h-11">
+            {uploading ? "Subiendo..." : category === "guion" ? "Guardar guión" : "Guardar documento"}
           </Button>
         </div>
       </motion.div>
@@ -486,19 +515,20 @@ export default function DocumentsPage() {
                   </div>
                   {client && <span className="text-[10px] px-1.5 py-0.5 rounded-full shrink-0" style={{ backgroundColor: client.colorAccent + "22", color: client.colorAccent }}>{client.avatar}</span>}
                   <Badge variant="outline" className="border border-border text-xs text-muted-foreground shrink-0">{typeLabels[d.type]}</Badge>
+                  {d.fileUrl && (
+                    <a href={d.fileUrl} target="_blank" rel="noopener noreferrer" className="p-2 rounded-lg hover:bg-secondary text-muted-foreground hover:text-primary transition-colors shrink-0" title="Ver archivo">
+                      <Download className="h-4 w-4" />
+                    </a>
+                  )}
                   {d.driveLink && d.driveLink !== "#" ? (
-                    <a href={d.driveLink} target="_blank" rel="noopener noreferrer" className="p-2 rounded-lg hover:bg-secondary text-muted-foreground hover:text-primary transition-colors shrink-0">
+                    <a href={d.driveLink} target="_blank" rel="noopener noreferrer" className="p-2 rounded-lg hover:bg-secondary text-muted-foreground hover:text-primary transition-colors shrink-0" title="Ver en Drive">
                       <ExternalLink className="h-4 w-4" />
                     </a>
-                  ) : (
-                    <button
-                      onClick={() => toast.info("Este documento no tiene un enlace externo vinculado.")}
-                      className="p-2 rounded-lg text-muted-foreground/40 cursor-not-allowed shrink-0"
-                      title="Sin enlace vinculado"
-                    >
+                  ) : !d.fileUrl ? (
+                    <span className="p-2 rounded-lg text-muted-foreground/30 shrink-0" title="Sin enlace vinculado">
                       <ExternalLink className="h-4 w-4" />
-                    </button>
-                  )}
+                    </span>
+                  ) : null}
                   <button
                     onClick={() => setDeleteTarget({ type: "document", id: d.id, name: d.name })}
                     className="p-2 rounded-lg text-muted-foreground hover:text-destructive opacity-0 group-hover:opacity-100 transition-opacity shrink-0"
