@@ -1,7 +1,7 @@
 import { useState, useMemo } from "react";
 import { toast } from "sonner";
 import { motion, AnimatePresence } from "framer-motion";
-import { ChevronLeft, ChevronRight, X, Plus, Trash2 } from "lucide-react";
+import { ChevronLeft, ChevronRight, X, Plus, Trash2, ExternalLink, Play } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -120,9 +120,13 @@ function AddEventModal({ date, onClose }: { date: string; onClose: () => void })
   );
 }
 
-function EventPill({ event }: { event: CalendarEvent }) {
+function EventPill({ event, onNavigate }: { event: CalendarEvent; onNavigate: (path: string) => void }) {
+  const { allVideos } = useAppState();
   const firstPlatform = event.platform[0];
   const dotColor = platformDotColors[firstPlatform] || "#888";
+
+  const linkedVideo = event.videoId ? allVideos.find((v) => v.id === event.videoId) : null;
+  const igUrl = event.igShortCode ? `https://www.instagram.com/reel/${event.igShortCode}/` : (linkedVideo?.embedUrl || null);
 
   return (
     <TooltipProvider delayDuration={200}>
@@ -133,7 +137,7 @@ function EventPill({ event }: { event: CalendarEvent }) {
             <span className="text-[10px] text-foreground truncate">{event.title.slice(0, 15)}</span>
           </div>
         </TooltipTrigger>
-        <TooltipContent className="glass gold-border p-3 max-w-[200px]">
+        <TooltipContent className="glass gold-border p-3 max-w-[220px]" onClick={(e) => e.stopPropagation()}>
           <p className="text-sm font-medium text-foreground">{event.title}</p>
           {event.time && <p className="text-xs text-muted-foreground mt-1">{event.time}</p>}
           <div className="flex gap-1 mt-1.5 flex-wrap">
@@ -143,12 +147,32 @@ function EventPill({ event }: { event: CalendarEvent }) {
               </span>
             ))}
           </div>
+          <div className="flex flex-col gap-1 mt-2">
+            {event.videoId && (
+              <button
+                onClick={(e) => { e.stopPropagation(); onNavigate("/videos"); }}
+                className="flex items-center gap-1 text-[11px] text-primary hover:underline"
+              >
+                <Play className="h-3 w-3" /> Ver en Videos
+              </button>
+            )}
+            {igUrl && (
+              <a
+                href={igUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={(e) => e.stopPropagation()}
+                className="flex items-center gap-1 text-[11px] text-primary hover:underline"
+              >
+                <ExternalLink className="h-3 w-3" /> Ver en Instagram
+              </a>
+            )}
+          </div>
         </TooltipContent>
       </Tooltip>
     </TooltipProvider>
   );
 }
-
 export default function CalendarPage() {
   const navigate = useNavigate();
   const { calendarEvents, setCalendarEvents } = useAppState();
@@ -257,7 +281,7 @@ export default function CalendarPage() {
                     </div>
                     <div className="mt-1 space-y-0.5">
                       {visible.map((ev) => (
-                        <EventPill key={ev.id} event={ev} />
+                        <EventPill key={ev.id} event={ev} onNavigate={navigate} />
                       ))}
                       {extra > 0 && (
                         <Popover>
@@ -272,7 +296,7 @@ export default function CalendarPage() {
                           <PopoverContent className="glass gold-border p-2 w-48" onClick={(e) => e.stopPropagation()}>
                             <div className="space-y-1">
                               {events.slice(3).map((ev) => (
-                                <EventPill key={ev.id} event={ev} />
+                                <EventPill key={ev.id} event={ev} onNavigate={navigate} />
                               ))}
                             </div>
                           </PopoverContent>
@@ -299,19 +323,32 @@ export default function CalendarPage() {
         {mobileEvents.map((ev) => {
           const firstPlatform = ev.platform[0];
           const borderColor = platformDotColors[firstPlatform] || "#888";
+          const igUrl = ev.igShortCode ? `https://www.instagram.com/reel/${ev.igShortCode}/` : null;
           return (
             <div key={ev.id}
-              className="w-full flex items-center gap-3 px-5 py-4 border-b border-border/30 last:border-0 hover:bg-secondary/30 transition-colors text-left group"
+              className="w-full flex items-start gap-3 px-5 py-4 border-b border-border/30 last:border-0 hover:bg-secondary/30 transition-colors text-left group"
               style={{ borderLeftWidth: "3px", borderLeftColor: borderColor }}
             >
-              <button onClick={() => ev.videoId && navigate("/videos")} className="flex-1 min-w-0 text-left">
+              <div className="flex-1 min-w-0">
                 <p className="text-sm font-medium text-foreground truncate">{ev.title}</p>
                 <p className="text-xs text-muted-foreground">
                   {new Date(ev.date).toLocaleDateString("es-MX", { weekday: "short", day: "numeric", month: "short" })}
                   {ev.time && ` · ${ev.time}`}
                 </p>
-              </button>
-              <div className="flex gap-1 shrink-0">
+                <div className="flex gap-2 mt-1.5">
+                  {ev.videoId && (
+                    <button onClick={() => navigate("/videos")} className="flex items-center gap-1 text-[11px] text-primary hover:underline">
+                      <Play className="h-3 w-3" /> Videos
+                    </button>
+                  )}
+                  {igUrl && (
+                    <a href={igUrl} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 text-[11px] text-primary hover:underline">
+                      <ExternalLink className="h-3 w-3" /> Instagram
+                    </a>
+                  )}
+                </div>
+              </div>
+              <div className="flex gap-1 shrink-0 mt-1">
                 {ev.platform.map((p) => (
                   <span key={p} className={`text-[10px] px-1.5 py-0.5 rounded-full ${platformColors[p] || "bg-secondary"} text-foreground`}>
                     {platformLabels[p]?.slice(0, 2)}
