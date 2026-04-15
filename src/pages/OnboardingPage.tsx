@@ -7,10 +7,16 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import {
   Camera, Check, ChevronRight, ChevronLeft, User, Share2, Target, FileUp,
-  Instagram, Globe, MapPin, Upload, X, FileText, Rocket, DollarSign, Crosshair, Trophy, BookOpen
+  Instagram, Globe, MapPin, Upload, X, FileText, Rocket, DollarSign, Crosshair, Trophy, BookOpen,
+  Sparkles, Loader2, AlertCircle, Settings, CheckCircle2
 } from "lucide-react";
+import { useAiToken } from "@/hooks/useAiToken";
+import { parseBlueprint, type BlueprintResult } from "@/services/aiParserService";
+import { SettingsModal } from "@/components/SettingsModal";
+import * as pdfjsLib from "pdfjs-dist";
 
 const INDUSTRIES = [
   "Salud y bienestar", "Moda y estilo", "Gastronomía", "Tecnología",
