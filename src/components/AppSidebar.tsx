@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { LayoutDashboard, Video, FileText, Calendar, BarChart3, MessageCircle, Users, Settings, Cog, User } from "lucide-react";
+import { LayoutDashboard, Video, FileText, Calendar, BarChart3, MessageCircle, Users, Settings, Cog, User, LogOut } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useAuth } from "@/contexts/AuthContext";
 import { useAppState } from "@/contexts/AppStateContext";
@@ -128,7 +128,9 @@ export function AppSidebar() {
           <button
             onClick={logout}
             className="flex items-center gap-3 px-3 py-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors w-full text-left text-sm group-data-[collapsible=icon]:justify-center"
+            title="Cerrar sesión"
           >
+            <LogOut className="h-5 w-5 shrink-0" />
             <span className="group-data-[collapsible=icon]:hidden">Cerrar sesión</span>
           </button>
         </SidebarFooter>
