@@ -11,7 +11,7 @@ import { useAppState } from "@/contexts/AppStateContext";
 import { useNavigate } from "react-router-dom";
 import { scrapeInstagramPosts, ApifyInstagramPost } from "@/services/apifyService";
 import { mapPostsToAppData } from "@/services/importMapper";
-import { useApifyToken } from "@/hooks/useApifyToken";
+
 
 type Step = "input" | "loading" | "preview" | "success";
 
