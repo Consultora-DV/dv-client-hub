@@ -146,13 +146,107 @@ export default function OnboardingPage({ editMode = false, onComplete }: { editM
     reader.readAsDataURL(file);
   };
 
-  const handleBlueprintChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleBlueprintChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
     if (file.size > 10 * 1024 * 1024) { alert("Máximo 10MB"); return; }
+
+    // Reset AI state
+    setAiParseError(null);
+    setAiParseResult(null);
+    setBlueprintText(null);
+
     const reader = new FileReader();
     reader.onload = () => update({ blueprintFile: reader.result as string, blueprintName: file.name });
     reader.readAsDataURL(file);
+
+    // Extract text for AI parsing
+    if (file.type === "application/pdf" || file.name.endsWith(".pdf")) {
+      try {
+        const arrayBuffer = await file.arrayBuffer();
+        const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+        const pages: string[] = [];
+        for (let i = 1; i <= pdf.numPages; i++) {
+          const page = await pdf.getPage(i);
+          const content = await page.getTextContent();
+          pages.push(content.items.map((item: any) => item.str).join(" "));
+        }
+        setBlueprintText(pages.join("\n\n"));
+      } catch {
+        setBlueprintText(null);
+      }
+    } else if (file.type.startsWith("image/")) {
+      // Images can't be parsed as text
+      setBlueprintText(null);
+    } else {
+      // Try reading as text for DOCX etc.
+      try {
+        const text = await file.text();
+        if (text.trim().length > 10) setBlueprintText(text);
+      } catch {
+        setBlueprintText(null);
+      }
+    }
+  };
+
+  const handleAiParse = async () => {
+    if (!blueprintText || !aiToken) return;
+    setIsParsingAi(true);
+    setAiParseError(null);
+    try {
+      const result = await parseBlueprint(blueprintText, aiProvider, aiToken);
+      setAiParseResult(result);
+    } catch (err: any) {
+      setAiParseError(err.message || "Error al analizar el documento.");
+    } finally {
+      setIsParsingAi(false);
+    }
+  };
+
+  const applyAiResult = (result: BlueprintResult) => {
+    const filled = new Set<string>();
+    const updates: Partial<OnboardingData> = {};
+
+    if (result.nombre && !data.fullName) {
+      updates.fullName = [result.nombre, result.apellido].filter(Boolean).join(" ");
+      filled.add("fullName");
+    }
+    if (result.negocio && !data.businessName) {
+      updates.businessName = result.negocio;
+      filled.add("businessName");
+    }
+    if (result.giro && !data.industry) {
+      const match = INDUSTRIES.find(i => i.toLowerCase().includes(result.giro!.toLowerCase()));
+      if (match) { updates.industry = match; filled.add("industry"); }
+    }
+    if (result.ciudad && !data.city) { updates.city = result.ciudad; filled.add("city"); }
+    if (result.pais && !data.country) { updates.country = result.pais; filled.add("country"); }
+
+    // Pre-fill social networks
+    if (result.redes?.length) {
+      const PLATFORM_MAP: Record<string, string> = {
+        instagram: "instagram", tiktok: "tiktok", facebook: "facebook",
+        youtube: "youtube", linkedin: "website", twitter: "website",
+        pinterest: "website", "google maps": "googleMaps", googlemaps: "googleMaps",
+      };
+      const newSocials = { ...data.socials };
+      result.redes.forEach(r => {
+        const key = PLATFORM_MAP[r.plataforma.toLowerCase()] || null;
+        if (key && newSocials[key] && !newSocials[key].active) {
+          newSocials[key] = {
+            active: true,
+            handle: r.usuario || "",
+            url: r.url || "",
+            followers: r.seguidores || 0,
+          };
+          filled.add(`social_${key}`);
+        }
+      });
+      updates.socials = newSocials;
+    }
+
+    if (Object.keys(updates).length) update(updates);
+    setAiFilledFields(filled);
   };
 
   const handleComplete = () => {
