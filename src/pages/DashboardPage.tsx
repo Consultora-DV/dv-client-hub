@@ -10,7 +10,7 @@ import { useReducedMotion } from "@/hooks/useReducedMotion";
 
 export default function DashboardPage() {
   const { user } = useAuth();
-  const { videos, documents, notifications, scripts, clients, allVideos, allDocuments, setSelectedClienteId, calendarEvents } = useAppState();
+  const { videos, documents, notifications, scripts, clients, allVideos, allDocuments, setSelectedClienteId, calendarEvents, isLoadingClients } = useAppState();
   const { isAdmin } = usePermissions();
   const navigate = useNavigate();
   const reduced = useReducedMotion();
