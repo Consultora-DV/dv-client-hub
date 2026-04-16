@@ -275,7 +275,7 @@ export default function OnboardingPage({ editMode = false, onComplete, targetUse
     setAiFilledFields(filled);
   };
 
-  const handleComplete = () => {
+  const handleComplete = async () => {
     if (!profileUserId) return;
 
     const socialNetworks: Record<string, any> = {};
@@ -289,24 +289,38 @@ export default function OnboardingPage({ editMode = false, onComplete, targetUse
       }
     });
 
-    const profile = {
+    const profile: ClientProfile = {
       fullName: data.fullName,
       businessName: data.businessName,
       industry: data.industry,
       city: data.city,
       country: data.country,
       whatsapp: data.whatsapp,
+      photoUrl: data.photo,
       socialNetworks,
       strategy: (data.mainGoal || data.targetAudience || data.tone.length || data.contentPillars.length)
         ? { mainGoal: data.mainGoal, targetAudience: data.targetAudience, tone: data.tone, contentPillars: data.contentPillars }
-        : undefined,
-      blueprintFile: data.blueprintFile || undefined,
-      blueprintName: data.blueprintName || undefined,
+        : null,
+      blueprintFile: data.blueprintFile || null,
+      blueprintName: data.blueprintName || null,
     };
 
-    localStorage.setItem(`dv_client_profile_${profileUserId}`, JSON.stringify(profile));
+    try {
+      await upsertClientProfile(profileUserId, profile);
+    } catch (err) {
+      console.error("Error saving profile to DB:", err);
+      // Still save to localStorage as fallback
+    }
+
+    // Keep localStorage as fallback/cache
+    const lsProfile = {
+      fullName: data.fullName, businessName: data.businessName, industry: data.industry,
+      city: data.city, country: data.country, whatsapp: data.whatsapp,
+      socialNetworks, strategy: profile.strategy,
+      blueprintFile: data.blueprintFile, blueprintName: data.blueprintName,
+    };
+    localStorage.setItem(`dv_client_profile_${profileUserId}`, JSON.stringify(lsProfile));
     if (data.photo) localStorage.setItem(`dv_user_profile_photo_${profileUserId}`, data.photo);
-    if (data.blueprintFile) localStorage.setItem(`dv_client_blueprint_${profileUserId}`, data.blueprintFile);
     localStorage.setItem(`dv_onboarding_complete_${profileUserId}`, "true");
 
     if (editMode && onComplete) {
