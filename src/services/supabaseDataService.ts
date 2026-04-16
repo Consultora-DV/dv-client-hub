@@ -286,6 +286,17 @@ export async function fetchPlatformMetricsFromDb(
   };
 }
 
+// ── Delete videos by IDs ──
+
+export async function deleteVideosByIds(ids: string[]): Promise<void> {
+  if (ids.length === 0) return;
+  const { error } = await supabase
+    .from("videos")
+    .delete()
+    .in("id", ids);
+  if (error) { console.error("deleteVideosByIds:", error); throw error; }
+}
+
 // ── Deduplication check for videos by ig_short_code ──
 
 export async function getExistingShortCodes(clienteId: string): Promise<Set<string>> {
