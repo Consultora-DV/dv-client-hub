@@ -498,6 +498,13 @@ export default function VideosPage() {
         )}
       </motion.div>
 
+      {repairingThumbs && (
+        <div className="glass gold-border rounded-xl p-3 flex items-center gap-3 text-sm text-muted-foreground animate-pulse">
+          <div className="h-4 w-4 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+          Restaurando miniaturas de Instagram...
+        </div>
+      )}
+
       {/* Status filter bar */}
       <div className="flex gap-2 flex-wrap">
         {filterConfig.map((f) => {
