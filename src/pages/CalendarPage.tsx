@@ -177,7 +177,7 @@ function EventPill({ event, onNavigate }: { event: CalendarEvent; onNavigate: (p
 export default function CalendarPage() {
   const navigate = useNavigate();
   const { calendarEvents, setCalendarEvents } = useAppState();
-  const { canAddCalendarEvents } = usePermissions();
+  const { canAddCalendarEvents, isAdmin } = usePermissions();
   const [currentDate, setCurrentDate] = useState(() => new Date());
   const [addEventDate, setAddEventDate] = useState<string | null>(null);
   const [contentTypeFilter, setContentTypeFilter] = useState("all");
