@@ -139,7 +139,7 @@ export async function insertVideos(videos: Video[]): Promise<Video[]> {
   const rows = videos.map(videoToRow);
   const { data, error } = await supabase
     .from("videos")
-    .insert(rows)
+    .insert(rows as any)
     .select();
   if (error) { console.error("insertVideos:", error); throw error; }
   return (data || []).map(videoFromRow);
