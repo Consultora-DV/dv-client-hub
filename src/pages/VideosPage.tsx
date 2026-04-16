@@ -2,7 +2,7 @@ import { useState, useMemo, useEffect, useRef } from "react";
 import { toast } from "sonner";
 import { motion, AnimatePresence } from "framer-motion";
 import { Video } from "@/data/mockData";
-import { X, ExternalLink, Check, AlertTriangle, Plus, Instagram, Trash2 } from "lucide-react";
+import { X, ExternalLink, Check, AlertTriangle, Plus, Instagram, Trash2, ArrowUpDown, ArrowDown, ArrowUp } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Link } from "react-router-dom";
 import { Breadcrumb, BreadcrumbList, BreadcrumbItem, BreadcrumbLink, BreadcrumbPage, BreadcrumbSeparator } from "@/components/ui/breadcrumb";
@@ -48,6 +48,15 @@ const statusConfig: Record<string, { label: string; class: string }> = {
 };
 
 type StatusFilter = "all" | "pending" | "approved" | "changes" | "published";
+type SortOption = "date_desc" | "date_asc" | "likes" | "views" | "comments";
+
+const sortOptions: { key: SortOption; label: string }[] = [
+  { key: "date_desc", label: "Más recientes" },
+  { key: "date_asc", label: "Más antiguos" },
+  { key: "views", label: "Más vistas" },
+  { key: "likes", label: "Más likes" },
+  { key: "comments", label: "Más comentarios" },
+];
 
 const filterConfig: { key: StatusFilter; label: string; color: string }[] = [
   { key: "all", label: "Todos", color: "bg-secondary text-foreground" },
@@ -56,6 +65,12 @@ const filterConfig: { key: StatusFilter; label: string; color: string }[] = [
   { key: "changes", label: "Cambios solicitados", color: "bg-status-changes/20 text-status-changes" },
   { key: "published", label: "Publicados", color: "bg-status-published/20 text-status-published" },
 ];
+
+function formatMetric(n: number): string {
+  if (n >= 1_000_000) return (n / 1_000_000).toFixed(1) + "M";
+  if (n >= 1_000) return (n / 1_000).toFixed(n >= 10_000 ? 0 : 1) + "K";
+  return String(n);
+}
 
 function PlatformPills({ platforms }: { platforms: string[] | string }) {
   const list = Array.isArray(platforms) ? platforms : [platforms];
@@ -113,6 +128,14 @@ function VideoCard({ video, commentCount, onClick }: { video: Video; commentCoun
       </div>
       <div className="p-4 space-y-3">
         <h3 className="font-semibold text-sm text-foreground line-clamp-2">{video.title}</h3>
+        {/* IG metrics row */}
+        {isImported && (video.igViews || video.igLikes || video.igComments) ? (
+          <div className="flex items-center gap-3 text-[11px] text-muted-foreground">
+            {!!video.igViews && <span>👁 {formatMetric(video.igViews)}</span>}
+            {!!video.igLikes && <span>❤️ {formatMetric(video.igLikes)}</span>}
+            {!!video.igComments && <span>💬 {formatMetric(video.igComments)}</span>}
+          </div>
+        ) : null}
         <div className="flex items-center justify-between">
           <Badge variant="outline" className={`text-xs border ${status.class}`}>{status.label}</Badge>
           <div className="flex items-center gap-2">
@@ -121,7 +144,7 @@ function VideoCard({ video, commentCount, onClick }: { video: Video; commentCoun
                 {client.avatar}
               </span>
             )}
-            {commentCount > 0 && <span className="text-xs text-muted-foreground">💬 {commentCount}</span>}
+            {commentCount > 0 && !isImported && <span className="text-xs text-muted-foreground">💬 {commentCount}</span>}
             <span className="text-xs text-muted-foreground">
               {new Date(video.deliveryDate).toLocaleDateString("es-MX", { day: "numeric", month: "short" })}
             </span>
@@ -454,6 +477,7 @@ export default function VideosPage() {
   const [statusFilter, setStatusFilter] = useState<StatusFilter>(() => {
     return (sessionStorage.getItem("dv_video_filter") as StatusFilter) || "all";
   });
+  const [sortBy, setSortBy] = useState<SortOption>("date_desc");
 
   const handleFilterChange = (f: StatusFilter) => {
     setStatusFilter(f);
@@ -461,13 +485,31 @@ export default function VideosPage() {
     sessionStorage.setItem("dv_video_filter", f);
   };
 
-  const filteredVideos = useMemo(() => {
-    if (statusFilter === "all") return videos;
-    return videos.filter((v) => v.status === statusFilter);
-  }, [videos, statusFilter]);
+  const sortedAndFilteredVideos = useMemo(() => {
+    let list = statusFilter === "all" ? [...videos] : videos.filter((v) => v.status === statusFilter);
 
-  const totalPages = Math.max(1, Math.ceil(filteredVideos.length / PER_PAGE));
-  const paginatedVideos = filteredVideos.slice((page - 1) * PER_PAGE, page * PER_PAGE);
+    list.sort((a, b) => {
+      switch (sortBy) {
+        case "date_asc":
+          return new Date(a.deliveryDate).getTime() - new Date(b.deliveryDate).getTime();
+        case "date_desc":
+          return new Date(b.deliveryDate).getTime() - new Date(a.deliveryDate).getTime();
+        case "likes":
+          return (b.igLikes || 0) - (a.igLikes || 0);
+        case "views":
+          return (b.igViews || 0) - (a.igViews || 0);
+        case "comments":
+          return (b.igComments || 0) - (a.igComments || 0);
+        default:
+          return 0;
+      }
+    });
+
+    return list;
+  }, [videos, statusFilter, sortBy]);
+
+  const totalPages = Math.max(1, Math.ceil(sortedAndFilteredVideos.length / PER_PAGE));
+  const paginatedVideos = sortedAndFilteredVideos.slice((page - 1) * PER_PAGE, page * PER_PAGE);
 
   const statusCounts = useMemo(() => {
     const counts: Record<string, number> = { all: videos.length };
@@ -505,25 +547,38 @@ export default function VideosPage() {
         </div>
       )}
 
-      {/* Status filter bar */}
-      <div className="flex gap-2 flex-wrap">
-        {filterConfig.map((f) => {
-          const count = statusCounts[f.key] || 0;
-          const isActive = statusFilter === f.key;
-          return (
-            <button
-              key={f.key}
-              onClick={() => handleFilterChange(f.key)}
-              className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors border ${
-                isActive
-                  ? `${f.color} border-current`
-                  : "bg-secondary/50 text-muted-foreground border-border/50 hover:bg-secondary"
-              }`}
-            >
-              {f.label} ({count})
-            </button>
-          );
-        })}
+      {/* Status filter + sort bar */}
+      <div className="flex flex-col sm:flex-row gap-3 sm:items-center sm:justify-between">
+        <div className="flex gap-2 flex-wrap">
+          {filterConfig.map((f) => {
+            const count = statusCounts[f.key] || 0;
+            const isActive = statusFilter === f.key;
+            return (
+              <button
+                key={f.key}
+                onClick={() => handleFilterChange(f.key)}
+                className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors border ${
+                  isActive
+                    ? `${f.color} border-current`
+                    : "bg-secondary/50 text-muted-foreground border-border/50 hover:bg-secondary"
+                }`}
+              >
+                {f.label} ({count})
+              </button>
+            );
+          })}
+        </div>
+        <Select value={sortBy} onValueChange={(v) => { setSortBy(v as SortOption); setPage(1); }}>
+          <SelectTrigger className="w-auto min-w-[180px] bg-secondary border-border/50 rounded-xl text-xs h-8">
+            <ArrowUpDown className="h-3.5 w-3.5 mr-1.5 text-muted-foreground" />
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent className="glass gold-border">
+            {sortOptions.map((o) => (
+              <SelectItem key={o.key} value={o.key} className="text-xs">{o.label}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">

@@ -6,23 +6,6 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type",
 };
 
-async function fetchThumbnailUrl(shortCode: string): Promise<string | null> {
-  // Try Instagram oEmbed API (public, no token needed)
-  try {
-    const oembedUrl = `https://api.instagram.com/oembed/?url=https://www.instagram.com/reel/${shortCode}/&maxwidth=1080`;
-    const res = await fetch(oembedUrl, {
-      headers: { "User-Agent": "Mozilla/5.0 (compatible)" },
-    });
-    if (res.ok) {
-      const data = await res.json();
-      if (data.thumbnail_url) return data.thumbnail_url;
-    }
-  } catch (e) {
-    console.warn("oEmbed failed for", shortCode, e);
-  }
-  return null;
-}
-
 async function downloadImage(url: string): Promise<{ buffer: Uint8Array; contentType: string } | null> {
   try {
     const res = await fetch(url, {
@@ -41,6 +24,28 @@ async function downloadImage(url: string): Promise<{ buffer: Uint8Array; content
   }
 }
 
+async function fetchThumbnailViaApify(shortCode: string, apifyKey: string): Promise<string | null> {
+  // Use Apify Instagram Post Scraper to get a single post's display URL
+  const runUrl = "https://api.apify.com/v2/acts/apify~instagram-post-scraper/run-sync-get-dataset-items?token=" + apifyKey;
+  try {
+    const res = await fetch(runUrl, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        directUrls: [`https://www.instagram.com/reel/${shortCode}/`],
+        resultsLimit: 1,
+      }),
+    });
+    if (!res.ok) return null;
+    const items = await res.json();
+    if (items?.[0]?.displayUrl) return items[0].displayUrl;
+    if (items?.[0]?.thumbnailUrl) return items[0].thumbnailUrl;
+  } catch (e) {
+    console.warn("Apify fetch failed for", shortCode, e);
+  }
+  return null;
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
@@ -57,6 +62,7 @@ Deno.serve(async (req) => {
   const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
   const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
   const anonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
+  const apifyKey = Deno.env.get("APIFY_API_KEY") || "";
 
   // Verify user
   const anonClient = createClient(supabaseUrl, anonKey, {
@@ -75,7 +81,7 @@ Deno.serve(async (req) => {
   try {
     const body = await req.json();
 
-    // Batch mode: repair all thumbnails for a client
+    // Batch repair mode
     if (body.mode === "repair") {
       const { clienteId } = body;
       if (!clienteId) {
@@ -85,7 +91,6 @@ Deno.serve(async (req) => {
         );
       }
 
-      // Get all videos with non-storage thumbnails
       const { data: videos } = await supabase
         .from("videos")
         .select("id, ig_short_code, thumbnail")
@@ -96,43 +101,58 @@ Deno.serve(async (req) => {
         (v: any) => v.ig_short_code && (!v.thumbnail || !v.thumbnail.includes("supabase.co"))
       );
 
+      if (toRepair.length === 0) {
+        return new Response(
+          JSON.stringify({ repaired: 0, failed: 0, total: 0 }),
+          { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
       let repaired = 0;
       let failed = 0;
 
-      for (const v of toRepair) {
-        try {
-          // Get fresh thumbnail URL via oEmbed
-          const freshUrl = await fetchThumbnailUrl(v.ig_short_code);
-          if (!freshUrl) { failed++; continue; }
+      // Process in batches of 5 to avoid timeouts
+      const batchSize = 5;
+      for (let i = 0; i < Math.min(toRepair.length, 20); i += batchSize) {
+        const batch = toRepair.slice(i, i + batchSize);
+        const results = await Promise.allSettled(
+          batch.map(async (v: any) => {
+            // First try downloading the existing URL (might still work)
+            let img = v.thumbnail ? await downloadImage(v.thumbnail) : null;
 
-          // Download
-          const img = await downloadImage(freshUrl);
-          if (!img) { failed++; continue; }
+            // If original URL failed and we have Apify, try getting a fresh URL
+            if (!img && apifyKey) {
+              const freshUrl = await fetchThumbnailViaApify(v.ig_short_code, apifyKey);
+              if (freshUrl) {
+                img = await downloadImage(freshUrl);
+              }
+            }
 
-          const ext = img.contentType.includes("png") ? "png" : "jpg";
-          const filePath = `thumbnails/${clienteId}/${v.ig_short_code}.${ext}`;
+            if (!img) throw new Error("Could not fetch image");
 
-          // Upload to storage
-          const { error: uploadError } = await supabase.storage
-            .from("documents")
-            .upload(filePath, img.buffer, { contentType: img.contentType, upsert: true });
+            const ext = img.contentType.includes("png") ? "png" : "jpg";
+            const filePath = `thumbnails/${clienteId}/${v.ig_short_code}.${ext}`;
 
-          if (uploadError) { failed++; continue; }
+            const { error: uploadError } = await supabase.storage
+              .from("documents")
+              .upload(filePath, img.buffer, { contentType: img.contentType, upsert: true });
 
-          // Get public URL
-          const { data: urlData } = supabase.storage
-            .from("documents")
-            .getPublicUrl(filePath);
+            if (uploadError) throw uploadError;
 
-          // Update video row
-          await supabase
-            .from("videos")
-            .update({ thumbnail: urlData.publicUrl })
-            .eq("id", v.id);
+            const { data: urlData } = supabase.storage
+              .from("documents")
+              .getPublicUrl(filePath);
 
-          repaired++;
-        } catch {
-          failed++;
+            await supabase
+              .from("videos")
+              .update({ thumbnail: urlData.publicUrl })
+              .eq("id", v.id);
+          })
+        );
+
+        for (const r of results) {
+          if (r.status === "fulfilled") repaired++;
+          else failed++;
         }
       }
 
@@ -142,7 +162,7 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Single mode (original behavior)
+    // Single mode
     const { imageUrl, clienteId, shortCode } = body;
 
     if (!clienteId || !shortCode) {
@@ -152,15 +172,10 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Try provided URL first, fall back to oEmbed
-    let imgData: { buffer: Uint8Array; contentType: string } | null = null;
+    let imgData = imageUrl ? await downloadImage(imageUrl) : null;
 
-    if (imageUrl) {
-      imgData = await downloadImage(imageUrl);
-    }
-
-    if (!imgData) {
-      const freshUrl = await fetchThumbnailUrl(shortCode);
+    if (!imgData && apifyKey) {
+      const freshUrl = await fetchThumbnailViaApify(shortCode, apifyKey);
       if (freshUrl) {
         imgData = await downloadImage(freshUrl);
       }
