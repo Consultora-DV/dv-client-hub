@@ -64,6 +64,60 @@ export type Database = {
           },
         ]
       }
+      client_profiles: {
+        Row: {
+          blueprint_file: string | null
+          blueprint_name: string | null
+          business_name: string | null
+          city: string | null
+          country: string | null
+          created_at: string
+          full_name: string | null
+          id: string
+          industry: string | null
+          photo_url: string | null
+          social_networks: Json | null
+          strategy: Json | null
+          updated_at: string
+          user_id: string
+          whatsapp: string | null
+        }
+        Insert: {
+          blueprint_file?: string | null
+          blueprint_name?: string | null
+          business_name?: string | null
+          city?: string | null
+          country?: string | null
+          created_at?: string
+          full_name?: string | null
+          id?: string
+          industry?: string | null
+          photo_url?: string | null
+          social_networks?: Json | null
+          strategy?: Json | null
+          updated_at?: string
+          user_id: string
+          whatsapp?: string | null
+        }
+        Update: {
+          blueprint_file?: string | null
+          blueprint_name?: string | null
+          business_name?: string | null
+          city?: string | null
+          country?: string | null
+          created_at?: string
+          full_name?: string | null
+          id?: string
+          industry?: string | null
+          photo_url?: string | null
+          social_networks?: Json | null
+          strategy?: Json | null
+          updated_at?: string
+          user_id?: string
+          whatsapp?: string | null
+        }
+        Relationships: []
+      }
       post_metrics: {
         Row: {
           cliente_id: string

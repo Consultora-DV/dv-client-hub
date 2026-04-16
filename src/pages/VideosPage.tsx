@@ -82,8 +82,26 @@ function VideoCard({ video, commentCount, onClick }: { video: Video; commentCoun
       onClick={onClick}
       className="glass gold-border glass-hover rounded-xl overflow-hidden text-left w-full"
     >
-      <div className="aspect-video relative overflow-hidden">
-        <img src={video.thumbnail} alt={video.title} className="w-full h-full object-cover" onError={(e) => { (e.target as HTMLImageElement).src = "/placeholder.svg"; }} />
+      <div className="aspect-video relative overflow-hidden bg-secondary">
+        {video.thumbnail && !video.thumbnail.includes("placeholder") ? (
+          <img src={video.thumbnail} alt={video.title} className="w-full h-full object-cover" onError={(e) => {
+            // If thumbnail fails (expired CDN), show Instagram embed fallback for IG videos
+            const target = e.target as HTMLImageElement;
+            target.style.display = "none";
+            const fallback = target.parentElement?.querySelector(".thumb-fallback") as HTMLElement;
+            if (fallback) fallback.style.display = "flex";
+          }} />
+        ) : null}
+        <div className={`thumb-fallback absolute inset-0 items-center justify-center bg-secondary ${video.thumbnail && !video.thumbnail.includes("placeholder") ? "hidden" : "flex"}`}>
+          {isImported ? (
+            <div className="flex flex-col items-center gap-2">
+              <Instagram className="h-8 w-8 text-muted-foreground/50" />
+              <span className="text-[10px] text-muted-foreground/50">Vista previa no disponible</span>
+            </div>
+          ) : (
+            <img src="/placeholder.svg" alt="" className="w-12 h-12 opacity-30" />
+          )}
+        </div>
         <div className="absolute top-3 left-3 flex gap-1 flex-wrap">
           <PlatformPills platforms={video.platform} />
         </div>
