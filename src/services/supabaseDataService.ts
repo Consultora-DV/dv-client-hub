@@ -313,3 +313,37 @@ export async function getExistingEventKeys(clienteId: string): Promise<Set<strin
   }
   return keys;
 }
+
+// ── Persist thumbnails to Supabase Storage ──
+
+export async function persistThumbnails(videos: Video[]): Promise<void> {
+  const toProcess = videos.filter(
+    (v) => (v as any).igShortCode && v.thumbnail && !v.thumbnail.includes("supabase.co")
+  );
+  if (toProcess.length === 0) return;
+
+  const results = await Promise.allSettled(
+    toProcess.map(async (v) => {
+      const { data, error } = await supabase.functions.invoke("store-thumbnail", {
+        body: {
+          imageUrl: v.thumbnail,
+          clienteId: v.clienteId,
+          shortCode: (v as any).igShortCode,
+        },
+      });
+      if (error) throw error;
+      if (data?.publicUrl) {
+        // Update the video row with the permanent URL
+        await supabase
+          .from("videos")
+          .update({ thumbnail: data.publicUrl })
+          .eq("id", v.id);
+      }
+    })
+  );
+
+  const failed = results.filter((r) => r.status === "rejected");
+  if (failed.length > 0) {
+    console.warn(`persistThumbnails: ${failed.length}/${toProcess.length} failed`);
+  }
+}
