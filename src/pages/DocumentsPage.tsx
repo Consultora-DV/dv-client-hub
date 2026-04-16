@@ -343,7 +343,12 @@ export default function DocumentsPage() {
   const [selectedScript, setSelectedScript] = useState<Script | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<{ type: "script" | "document"; id: string; name: string } | null>(null);
   const { documents, scripts, markScriptViewed, clients: appClients, scriptComments, setScripts, setDocuments } = useAppState();
-  const { canUpload, isClient } = usePermissions();
+  const { canUpload, isClient, isAdmin } = usePermissions();
+
+  // Drag state
+  const [dragIdx, setDragIdx] = useState<number | null>(null);
+  const [dragOverIdx, setDragOverIdx] = useState<number | null>(null);
+  const [dragType, setDragType] = useState<"script" | "document" | null>(null);
 
   // Script filters
   const [scriptStatusFilter, setScriptStatusFilter] = useState<string>("all");
