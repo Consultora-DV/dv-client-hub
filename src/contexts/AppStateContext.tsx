@@ -12,6 +12,7 @@ import {
   insertVideos, insertCalendarEvents, insertComment,
   updateVideoStatus, insertPostMetrics,
   getExistingShortCodes, getExistingEventKeys,
+  persistThumbnails,
 } from "@/services/supabaseDataService";
 
 export interface ImportResult {

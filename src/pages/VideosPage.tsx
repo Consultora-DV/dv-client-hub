@@ -204,13 +204,19 @@ function VideoDetail({ video, onClose }: { video: Video; onClose: () => void }) 
           <button onClick={onClose} className="p-2 rounded-lg hover:bg-secondary text-muted-foreground shrink-0"><X className="h-5 w-5" /></button>
         </div>
         <div className="p-5 space-y-6">
-          {video.embedUrl ? (
-            <div className="aspect-video rounded-xl overflow-hidden">
-              <iframe src={video.embedUrl} className="w-full h-full border-0" allowFullScreen />
+          {(video as any).igShortCode ? (
+            <div className="rounded-xl overflow-hidden">
+              <iframe
+                src={`https://www.instagram.com/reel/${(video as any).igShortCode}/embed/`}
+                className="w-full border-0 rounded-xl"
+                style={{ minHeight: 480 }}
+                allowFullScreen
+                loading="lazy"
+              />
             </div>
-          ) : (
-            <img src={video.thumbnail} alt={video.title} className="w-full rounded-xl aspect-video object-cover" />
-          )}
+          ) : video.thumbnail ? (
+            <img src={video.thumbnail} alt={video.title} className="w-full rounded-xl aspect-video object-cover" onError={(e) => { (e.target as HTMLImageElement).src = "/placeholder.svg"; }} />
+          ) : null}
           <div className="flex flex-wrap items-center gap-3">
             <PlatformPills platforms={video.platform} />
             <Badge variant="outline" className={`border ${status.class} text-xs`}>{status.label}</Badge>
