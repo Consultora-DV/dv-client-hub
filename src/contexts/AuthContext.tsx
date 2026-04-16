@@ -56,6 +56,7 @@ function buildAppUser(authUser: User, profile: Awaited<ReturnType<typeof fetchPr
     avatar: name.substring(0, 2).toUpperCase(),
     business: profile.business || "",
     role,
+    clienteId: role === "cliente" ? authUser.id : undefined,
   };
 }
 

@@ -1,4 +1,4 @@
-import { useState, useRef, useMemo } from "react";
+import { useState, useRef, useMemo, useEffect } from "react";
 import { toast as sonnerToast } from "sonner";
 import { motion } from "framer-motion";
 import {
@@ -13,10 +13,12 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { usePermissions } from "@/hooks/usePermissions";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 import { useAppState } from "@/contexts/AppStateContext";
+import { useAuth } from "@/contexts/AuthContext";
 import {
   PlatformMetrics, PostMetric, parseMetricsCSV, parseMetricsPDF, calculateMonthlySummary,
   formatNumber, formatEngagement, formatWatchTime,
 } from "@/services/metricsParser";
+import { fetchPlatformMetricsFromDb } from "@/services/supabaseDataService";
 import { filterDuplicates } from "@/lib/deduplication";
 import PdfReportCapture from "@/components/PdfReportCapture";
 import PostLink from "@/components/metrics/PostLink";

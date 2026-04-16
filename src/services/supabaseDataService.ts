@@ -1,5 +1,6 @@
 import { supabase } from "@/integrations/supabase/client";
 import { Video, CalendarEvent, Comment } from "@/data/mockData";
+import { PostMetric, PlatformMetrics, calculateMonthlySummary } from "@/services/metricsParser";
 
 // ── Helpers to convert between app models and DB rows ──
 
