@@ -4,7 +4,7 @@ import { ListPagination } from "@/components/ListPagination";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { toast } from "sonner";
 import { motion, AnimatePresence } from "framer-motion";
-import { ExternalLink, FileText, File, Table, Presentation, Plus, X, Upload, Eye, EyeOff, Check, AlertTriangle, Trash2, Download } from "lucide-react";
+import { ExternalLink, FileText, File, Table, Presentation, Plus, X, Upload, Eye, EyeOff, Check, AlertTriangle, Trash2, Download, GripVertical } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Link } from "react-router-dom";
 import { Breadcrumb, BreadcrumbList, BreadcrumbItem, BreadcrumbLink, BreadcrumbPage, BreadcrumbSeparator } from "@/components/ui/breadcrumb";
