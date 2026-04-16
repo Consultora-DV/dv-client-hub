@@ -507,6 +507,11 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
     try {
       const inserted = await insertVideos(uniqueVideos);
       videosAdded = inserted.length;
+
+      // Persist thumbnails to storage (fire-and-forget, non-blocking)
+      persistThumbnails(inserted).catch((err) =>
+        console.error("Error persisting thumbnails:", err)
+      );
     } catch (err) {
       console.error("Error inserting videos:", err);
     }
