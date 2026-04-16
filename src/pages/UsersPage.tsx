@@ -35,7 +35,7 @@ function EditUserModal({ user, onClose, onSave }: {
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
       className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm p-4" onClick={onClose}>
       <motion.div initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.95, opacity: 0 }}
-        onClick={(e) => e.stopPropagation()} className="glass gold-border gold-glow rounded-2xl w-full max-w-md">
+        onClick={(e) => e.stopPropagation()} className="glass gold-border gold-glow rounded-2xl w-full max-w-md max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between p-5 border-b border-border/50">
           <h2 className="font-display text-lg font-semibold text-foreground">Editar usuario</h2>
           <button onClick={onClose} className="p-2 rounded-lg hover:bg-secondary text-muted-foreground"><X className="h-5 w-5" /></button>
@@ -121,7 +121,7 @@ function InviteUserModal({ onClose, onInvited }: {
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
       className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm p-4" onClick={onClose}>
       <motion.div initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.95, opacity: 0 }}
-        onClick={(e) => e.stopPropagation()} className="glass gold-border gold-glow rounded-2xl w-full max-w-md">
+        onClick={(e) => e.stopPropagation()} className="glass gold-border gold-glow rounded-2xl w-full max-w-md max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between p-5 border-b border-border/50">
           <h2 className="font-display text-lg font-semibold text-foreground">Agregar usuario</h2>
           <button onClick={onClose} className="p-2 rounded-lg hover:bg-secondary text-muted-foreground"><X className="h-5 w-5" /></button>
@@ -273,7 +273,8 @@ export default function UsersPage() {
         )}
       </motion.div>
 
-      <div className="glass gold-border rounded-xl overflow-hidden">
+      {/* Desktop table */}
+      <div className="hidden md:block glass gold-border rounded-xl overflow-hidden">
         {users.length === 0 && (
           <p className="p-6 text-sm text-muted-foreground text-center">No hay usuarios registrados aún.</p>
         )}
@@ -298,6 +299,41 @@ export default function UsersPage() {
                   <UserCog className="h-4 w-4" />
                 </button>
               )}
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Mobile cards */}
+      <div className="md:hidden space-y-3">
+        {users.length === 0 && (
+          <p className="p-6 text-sm text-muted-foreground text-center">No hay usuarios registrados aún.</p>
+        )}
+        {users.map((u) => {
+          const badge = roleBadges[u.role];
+          return (
+            <div key={u.id} className="glass gold-border rounded-xl p-4 space-y-3">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-full bg-secondary flex items-center justify-center text-sm font-semibold text-foreground shrink-0">
+                  {u.name.split(" ").map((n) => n[0]).join("").slice(0, 2)}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium text-foreground truncate">{u.name}</p>
+                  <p className="text-xs text-muted-foreground truncate">{u.email}</p>
+                </div>
+              </div>
+              <div className="flex items-center justify-between">
+                {badge && <Badge className={`text-[9px] ${badge.class}`}>{badge.label}</Badge>}
+                {currentUser?.role === "admin" && (
+                  <button
+                    onClick={() => setEditingUser(u)}
+                    className="p-2 rounded-lg hover:bg-secondary text-muted-foreground hover:text-foreground transition-colors"
+                    title="Editar usuario"
+                  >
+                    <UserCog className="h-4 w-4" />
+                  </button>
+                )}
+              </div>
             </div>
           );
         })}
