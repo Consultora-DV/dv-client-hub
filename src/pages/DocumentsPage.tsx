@@ -4,7 +4,7 @@ import { ListPagination } from "@/components/ListPagination";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { toast } from "sonner";
 import { motion, AnimatePresence } from "framer-motion";
-import { ExternalLink, FileText, File, Table, Presentation, Plus, X, Upload, Eye, EyeOff, Check, AlertTriangle, Trash2, Download } from "lucide-react";
+import { ExternalLink, FileText, File, Table, Presentation, Plus, X, Upload, Eye, EyeOff, Check, AlertTriangle, Trash2, Download, GripVertical } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Link } from "react-router-dom";
 import { Breadcrumb, BreadcrumbList, BreadcrumbItem, BreadcrumbLink, BreadcrumbPage, BreadcrumbSeparator } from "@/components/ui/breadcrumb";
@@ -343,7 +343,12 @@ export default function DocumentsPage() {
   const [selectedScript, setSelectedScript] = useState<Script | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<{ type: "script" | "document"; id: string; name: string } | null>(null);
   const { documents, scripts, markScriptViewed, clients: appClients, scriptComments, setScripts, setDocuments } = useAppState();
-  const { canUpload, isClient } = usePermissions();
+  const { canUpload, isClient, isAdmin } = usePermissions();
+
+  // Drag state
+  const [dragIdx, setDragIdx] = useState<number | null>(null);
+  const [dragOverIdx, setDragOverIdx] = useState<number | null>(null);
+  const [dragType, setDragType] = useState<"script" | "document" | null>(null);
 
   // Script filters
   const [scriptStatusFilter, setScriptStatusFilter] = useState<string>("all");
@@ -393,6 +398,47 @@ export default function DocumentsPage() {
     window.open(script.driveLink, "_blank", "noopener,noreferrer");
   };
 
+  const handleDragStart = (idx: number, type: "script" | "document") => {
+    if (!isAdmin) return;
+    setDragIdx(idx);
+    setDragType(type);
+  };
+
+  const handleDragOver = (e: React.DragEvent, idx: number) => {
+    e.preventDefault();
+    setDragOverIdx(idx);
+  };
+
+  const handleDrop = (targetIdx: number) => {
+    if (dragIdx === null || dragType === null) return;
+    if (dragIdx === targetIdx) { setDragIdx(null); setDragOverIdx(null); setDragType(null); return; }
+
+    if (dragType === "script") {
+      setScripts((prev) => {
+        const arr = [...prev];
+        const [moved] = arr.splice(dragIdx, 1);
+        arr.splice(targetIdx, 0, moved);
+        return arr;
+      });
+    } else {
+      setDocuments((prev) => {
+        const arr = [...prev];
+        const [moved] = arr.splice(dragIdx, 1);
+        arr.splice(targetIdx, 0, moved);
+        return arr;
+      });
+    }
+    setDragIdx(null);
+    setDragOverIdx(null);
+    setDragType(null);
+  };
+
+  const handleDragEnd = () => {
+    setDragIdx(null);
+    setDragOverIdx(null);
+    setDragType(null);
+  };
+
   return (
     <div className="max-w-4xl mx-auto space-y-6">
       <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="flex items-center justify-between">
@@ -406,8 +452,6 @@ export default function DocumentsPage() {
           </Button>
         )}
       </motion.div>
-
-
 
 
       <Tabs defaultValue="scripts">
@@ -450,7 +494,13 @@ export default function DocumentsPage() {
               const commentCount = (scriptComments[s.id] || []).length;
               return (
                 <motion.div key={s.id} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.05 }}
-                  className="flex items-center gap-4 px-5 py-4 border-b border-border/30 last:border-0 hover:bg-secondary/30 transition-colors group">
+                  draggable={isAdmin}
+                  onDragStart={() => handleDragStart((scriptPage - 1) * PER_PAGE + i, "script")}
+                  onDragOver={(e) => handleDragOver(e, (scriptPage - 1) * PER_PAGE + i)}
+                  onDrop={() => handleDrop((scriptPage - 1) * PER_PAGE + i)}
+                  onDragEnd={handleDragEnd}
+                  className={`flex items-center gap-4 px-5 py-4 border-b border-border/30 last:border-0 hover:bg-secondary/30 transition-colors group ${isAdmin ? "cursor-grab active:cursor-grabbing" : ""} ${dragOverIdx === (scriptPage - 1) * PER_PAGE + i && dragType === "script" ? "border-t-2 border-t-primary" : ""}`}>
+                  {isAdmin && <GripVertical className="h-4 w-4 text-muted-foreground/40 shrink-0" />}
                   <button onClick={() => handleOpenScript(s)} className="flex items-center gap-4 flex-1 min-w-0 text-left">
                     <FileText className="h-5 w-5 text-primary shrink-0" />
                     <div className="flex-1 min-w-0">
@@ -526,7 +576,13 @@ export default function DocumentsPage() {
               const hasAnyLink = hasFile || hasDrive;
               return (
                 <motion.div key={d.id} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.05 }}
-                  className="flex items-center gap-4 px-5 py-4 border-b border-border/30 last:border-0 hover:bg-secondary/30 transition-colors group">
+                  draggable={isAdmin}
+                  onDragStart={() => handleDragStart((docPage - 1) * PER_PAGE + i, "document")}
+                  onDragOver={(e) => handleDragOver(e, (docPage - 1) * PER_PAGE + i)}
+                  onDrop={() => handleDrop((docPage - 1) * PER_PAGE + i)}
+                  onDragEnd={handleDragEnd}
+                  className={`flex items-center gap-4 px-5 py-4 border-b border-border/30 last:border-0 hover:bg-secondary/30 transition-colors group ${isAdmin ? "cursor-grab active:cursor-grabbing" : ""} ${dragOverIdx === (docPage - 1) * PER_PAGE + i && dragType === "document" ? "border-t-2 border-t-primary" : ""}`}>
+                  {isAdmin && <GripVertical className="h-4 w-4 text-muted-foreground/40 shrink-0" />}
                   <Icon className="h-5 w-5 text-primary shrink-0" />
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">

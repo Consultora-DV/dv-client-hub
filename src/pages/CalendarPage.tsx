@@ -182,6 +182,8 @@ export default function CalendarPage() {
   const [addEventDate, setAddEventDate] = useState<string | null>(null);
   const [contentTypeFilter, setContentTypeFilter] = useState("all");
   const [deleteTarget, setDeleteTarget] = useState<CalendarEvent | null>(null);
+  const [dragEventId, setDragEventId] = useState<string | null>(null);
+  const [dragOverDay, setDragOverDay] = useState<number | null>(null);
 
   const filteredEvents = useMemo(() => {
     if (contentTypeFilter === "all") return calendarEvents;
@@ -224,6 +226,32 @@ export default function CalendarPage() {
     setCalendarEvents((prev) => prev.filter((e) => e.id !== deleteTarget.id));
     toast.success(`Evento "${deleteTarget.title}" eliminado`);
     setDeleteTarget(null);
+  };
+
+  const handleCalDragStart = (eventId: string) => {
+    if (!isAdmin) return;
+    setDragEventId(eventId);
+  };
+
+  const handleCalDragOver = (e: React.DragEvent, day: number) => {
+    e.preventDefault();
+    setDragOverDay(day);
+  };
+
+  const handleCalDrop = (day: number) => {
+    if (!dragEventId) return;
+    const dateStr = `${year}-${String(month + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+    setCalendarEvents((prev) =>
+      prev.map((ev) => ev.id === dragEventId ? { ...ev, date: dateStr } : ev)
+    );
+    setDragEventId(null);
+    setDragOverDay(null);
+    toast.success("Evento movido");
+  };
+
+  const handleCalDragEnd = () => {
+    setDragEventId(null);
+    setDragOverDay(null);
   };
 
   return (
@@ -273,7 +301,9 @@ export default function CalendarPage() {
             const extra = events.length - 3;
             return (
               <div key={i} onClick={() => day && handleDayClick(day)}
-                className={`min-h-[100px] p-2 border-b border-r border-border/20 ${day ? `hover:bg-secondary/30 transition-colors ${canAddCalendarEvents ? "cursor-pointer" : ""}` : "bg-secondary/10"}`}>
+                onDragOver={(e) => day && handleCalDragOver(e, day)}
+                onDrop={() => day && handleCalDrop(day)}
+                className={`min-h-[100px] p-2 border-b border-r border-border/20 ${day ? `hover:bg-secondary/30 transition-colors ${canAddCalendarEvents ? "cursor-pointer" : ""}` : "bg-secondary/10"} ${dragOverDay === day ? "bg-primary/10 ring-1 ring-primary/30" : ""}`}>
                 {day && (
                   <>
                     <div className="flex items-center justify-between">
@@ -282,7 +312,9 @@ export default function CalendarPage() {
                     </div>
                     <div className="mt-1 space-y-0.5">
                       {visible.map((ev) => (
-                        <EventPill key={ev.id} event={ev} onNavigate={navigate} />
+                        <div key={ev.id} draggable={isAdmin} onDragStart={(e) => { e.stopPropagation(); handleCalDragStart(ev.id); }} onDragEnd={handleCalDragEnd} className={isAdmin ? "cursor-grab active:cursor-grabbing" : ""}>
+                          <EventPill event={ev} onNavigate={navigate} />
+                        </div>
                       ))}
                       {extra > 0 && (
                         <Popover>
