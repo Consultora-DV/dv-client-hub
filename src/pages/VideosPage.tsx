@@ -2,7 +2,7 @@ import { useState, useMemo, useEffect, useRef } from "react";
 import { toast } from "sonner";
 import { motion, AnimatePresence } from "framer-motion";
 import { Video } from "@/data/mockData";
-import { X, ExternalLink, Check, AlertTriangle, Plus, Instagram, Trash2 } from "lucide-react";
+import { X, ExternalLink, Check, AlertTriangle, Plus, Instagram, Trash2, ArrowUpDown, ArrowDown, ArrowUp } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Link } from "react-router-dom";
 import { Breadcrumb, BreadcrumbList, BreadcrumbItem, BreadcrumbLink, BreadcrumbPage, BreadcrumbSeparator } from "@/components/ui/breadcrumb";
