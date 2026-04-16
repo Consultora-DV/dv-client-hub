@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect, useRef } from "react";
 import { toast } from "sonner";
 import { motion, AnimatePresence } from "framer-motion";
 import { Video } from "@/data/mockData";
@@ -418,10 +418,38 @@ export default function VideosPage() {
   const [selected, setSelected] = useState<Video | null>(null);
   const [showAddModal, setShowAddModal] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<Video | null>(null);
-  const { videos, comments, setVideos } = useAppState();
-  const { canAddVideos } = usePermissions();
+  const [repairingThumbs, setRepairingThumbs] = useState(false);
+  const { videos, comments, setVideos, selectedClienteId } = useAppState();
+  const { canAddVideos, isAdmin } = usePermissions();
   const [page, setPage] = useState(1);
   const PER_PAGE = 15;
+  const repairAttempted = useRef(false);
+
+  // Auto-repair thumbnails on first load if there are broken ones
+  useEffect(() => {
+    if (repairAttempted.current || !selectedClienteId || videos.length === 0) return;
+    const hasBroken = videos.some(
+      (v) => (v as any).igShortCode && (!v.thumbnail || !v.thumbnail.includes("supabase.co"))
+    );
+    if (hasBroken) {
+      repairAttempted.current = true;
+      setRepairingThumbs(true);
+      import("@/services/supabaseDataService").then(({ repairThumbnails }) => {
+        repairThumbnails(selectedClienteId)
+          .then((result) => {
+            if (result.repaired > 0) {
+              toast.success(`${result.repaired} miniaturas restauradas`);
+              // Reload videos to get updated thumbnails
+              window.location.reload();
+            } else if (result.failed > 0) {
+              toast.info("No se pudieron restaurar las miniaturas. Algunas publicaciones pueden no ser públicas.");
+            }
+          })
+          .catch((err) => console.error("Thumbnail repair error:", err))
+          .finally(() => setRepairingThumbs(false));
+      });
+    }
+  }, [videos, selectedClienteId]);
 
   const [statusFilter, setStatusFilter] = useState<StatusFilter>(() => {
     return (sessionStorage.getItem("dv_video_filter") as StatusFilter) || "all";
@@ -469,6 +497,13 @@ export default function VideosPage() {
           </Button>
         )}
       </motion.div>
+
+      {repairingThumbs && (
+        <div className="glass gold-border rounded-xl p-3 flex items-center gap-3 text-sm text-muted-foreground animate-pulse">
+          <div className="h-4 w-4 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+          Restaurando miniaturas de Instagram...
+        </div>
+      )}
 
       {/* Status filter bar */}
       <div className="flex gap-2 flex-wrap">

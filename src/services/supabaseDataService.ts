@@ -333,7 +333,6 @@ export async function persistThumbnails(videos: Video[]): Promise<void> {
       });
       if (error) throw error;
       if (data?.publicUrl) {
-        // Update the video row with the permanent URL
         await supabase
           .from("videos")
           .update({ thumbnail: data.publicUrl })
@@ -346,4 +345,14 @@ export async function persistThumbnails(videos: Video[]): Promise<void> {
   if (failed.length > 0) {
     console.warn(`persistThumbnails: ${failed.length}/${toProcess.length} failed`);
   }
+}
+
+// ── Repair all thumbnails for a client (batch oEmbed fetch) ──
+
+export async function repairThumbnails(clienteId: string): Promise<{ repaired: number; failed: number; total: number }> {
+  const { data, error } = await supabase.functions.invoke("store-thumbnail", {
+    body: { mode: "repair", clienteId },
+  });
+  if (error) throw error;
+  return data as { repaired: number; failed: number; total: number };
 }
