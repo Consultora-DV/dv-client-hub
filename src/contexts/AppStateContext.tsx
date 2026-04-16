@@ -317,8 +317,17 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
     loadClients();
   }, [user]);
 
+  // Auto-select first client if admin and none selected
   useEffect(() => {
-    if (!clients.length || !selectedClienteId) return;
+    if (!clients.length) return;
+
+    // If no client selected, auto-select the first one
+    if (!selectedClienteId) {
+      setSelectedClienteId(clients[0].id);
+      return;
+    }
+
+    // If selected client doesn't exist, try to resolve legacy slug
     const exists = clients.some((client) => client.id === selectedClienteId);
     if (exists) return;
 
@@ -335,6 +344,9 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
 
     if (normalized) {
       setSelectedClienteId(normalized.id);
+    } else {
+      // Fallback to first client
+      setSelectedClienteId(clients[0].id);
     }
   }, [clients, selectedClienteId, setSelectedClienteId]);
 

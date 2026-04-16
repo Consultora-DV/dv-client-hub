@@ -28,11 +28,12 @@ export function AppSidebar() {
   const [showProfile, setShowProfile] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
 
+  const videoCount = videos.length;
   const pendingCount = videos.filter((v) => v.status === "pending").length;
 
   const allItems = [
     { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard },
-    { title: isClient ? "Mis Videos" : "Videos", url: "/videos", icon: Video, badge: pendingCount },
+    { title: isClient ? "Mis Videos" : "Videos", url: "/videos", icon: Video, badge: videoCount },
     { title: isClient ? "Mis Documentos" : "Documentos", url: "/documentos", icon: FileText },
     { title: "Calendario", url: "/calendario", icon: Calendar },
     { title: "Métricas", url: "/metricas", icon: BarChart3 },
