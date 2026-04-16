@@ -50,22 +50,6 @@ function videoToRow(v: Video) {
   }
   return row;
 }
-    title: v.title,
-    platform: v.platform,
-    status: v.status,
-    thumbnail: v.thumbnail,
-    delivery_date: v.deliveryDate || null,
-    embed_url: v.embedUrl || "",
-    drive_link: v.driveLink || "#",
-    status_history: JSON.parse(JSON.stringify(v.statusHistory || [])),
-    ig_caption: (v as any).igCaption || "",
-    ig_likes: (v as any).igLikes || 0,
-    ig_comments: (v as any).igComments || 0,
-    ig_views: (v as any).igViews || 0,
-    ig_hashtags: (v as any).igHashtags || [],
-    ig_short_code: (v as any).igShortCode || "",
-  };
-}
 
 function eventFromRow(row: any): CalendarEvent {
   return {
