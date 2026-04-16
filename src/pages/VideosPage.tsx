@@ -463,6 +463,7 @@ export default function VideosPage() {
   const [statusFilter, setStatusFilter] = useState<StatusFilter>(() => {
     return (sessionStorage.getItem("dv_video_filter") as StatusFilter) || "all";
   });
+  const [sortBy, setSortBy] = useState<SortOption>("date_desc");
 
   const handleFilterChange = (f: StatusFilter) => {
     setStatusFilter(f);
@@ -470,13 +471,31 @@ export default function VideosPage() {
     sessionStorage.setItem("dv_video_filter", f);
   };
 
-  const filteredVideos = useMemo(() => {
-    if (statusFilter === "all") return videos;
-    return videos.filter((v) => v.status === statusFilter);
-  }, [videos, statusFilter]);
+  const sortedAndFilteredVideos = useMemo(() => {
+    let list = statusFilter === "all" ? [...videos] : videos.filter((v) => v.status === statusFilter);
 
-  const totalPages = Math.max(1, Math.ceil(filteredVideos.length / PER_PAGE));
-  const paginatedVideos = filteredVideos.slice((page - 1) * PER_PAGE, page * PER_PAGE);
+    list.sort((a, b) => {
+      switch (sortBy) {
+        case "date_asc":
+          return new Date(a.deliveryDate).getTime() - new Date(b.deliveryDate).getTime();
+        case "date_desc":
+          return new Date(b.deliveryDate).getTime() - new Date(a.deliveryDate).getTime();
+        case "likes":
+          return (b.igLikes || 0) - (a.igLikes || 0);
+        case "views":
+          return (b.igViews || 0) - (a.igViews || 0);
+        case "comments":
+          return (b.igComments || 0) - (a.igComments || 0);
+        default:
+          return 0;
+      }
+    });
+
+    return list;
+  }, [videos, statusFilter, sortBy]);
+
+  const totalPages = Math.max(1, Math.ceil(sortedAndFilteredVideos.length / PER_PAGE));
+  const paginatedVideos = sortedAndFilteredVideos.slice((page - 1) * PER_PAGE, page * PER_PAGE);
 
   const statusCounts = useMemo(() => {
     const counts: Record<string, number> = { all: videos.length };
