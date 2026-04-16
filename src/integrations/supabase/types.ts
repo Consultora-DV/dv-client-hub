@@ -14,6 +14,113 @@ export type Database = {
   }
   public: {
     Tables: {
+      calendar_events: {
+        Row: {
+          cliente_id: string
+          content_type: string | null
+          created_at: string
+          date: string
+          id: string
+          ig_short_code: string | null
+          platform: string[]
+          time: string | null
+          title: string
+          updated_at: string
+          video_id: string | null
+        }
+        Insert: {
+          cliente_id: string
+          content_type?: string | null
+          created_at?: string
+          date: string
+          id?: string
+          ig_short_code?: string | null
+          platform?: string[]
+          time?: string | null
+          title: string
+          updated_at?: string
+          video_id?: string | null
+        }
+        Update: {
+          cliente_id?: string
+          content_type?: string | null
+          created_at?: string
+          date?: string
+          id?: string
+          ig_short_code?: string | null
+          platform?: string[]
+          time?: string | null
+          title?: string
+          updated_at?: string
+          video_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "calendar_events_video_id_fkey"
+            columns: ["video_id"]
+            isOneToOne: false
+            referencedRelation: "videos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      post_metrics: {
+        Row: {
+          cliente_id: string
+          comments: number | null
+          created_at: string
+          date: string | null
+          engagement: number | null
+          id: string
+          ig_short_code: string | null
+          likes: number | null
+          platform: string
+          post_url: string | null
+          reach: number | null
+          shares: number | null
+          thumbnail: string | null
+          title: string | null
+          type: string | null
+          views: number | null
+        }
+        Insert: {
+          cliente_id: string
+          comments?: number | null
+          created_at?: string
+          date?: string | null
+          engagement?: number | null
+          id?: string
+          ig_short_code?: string | null
+          likes?: number | null
+          platform?: string
+          post_url?: string | null
+          reach?: number | null
+          shares?: number | null
+          thumbnail?: string | null
+          title?: string | null
+          type?: string | null
+          views?: number | null
+        }
+        Update: {
+          cliente_id?: string
+          comments?: number | null
+          created_at?: string
+          date?: string | null
+          engagement?: number | null
+          id?: string
+          ig_short_code?: string | null
+          likes?: number | null
+          platform?: string
+          post_url?: string | null
+          reach?: number | null
+          shares?: number | null
+          thumbnail?: string | null
+          title?: string | null
+          type?: string | null
+          views?: number | null
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           avatar_url: string | null
@@ -62,6 +169,110 @@ export type Database = {
           id?: string
           role?: Database["public"]["Enums"]["app_role"]
           user_id?: string
+        }
+        Relationships: []
+      }
+      video_comments: {
+        Row: {
+          author: string
+          created_at: string
+          date: string
+          id: string
+          is_client: boolean
+          text: string
+          user_id: string
+          video_id: string
+        }
+        Insert: {
+          author: string
+          created_at?: string
+          date?: string
+          id?: string
+          is_client?: boolean
+          text: string
+          user_id: string
+          video_id: string
+        }
+        Update: {
+          author?: string
+          created_at?: string
+          date?: string
+          id?: string
+          is_client?: boolean
+          text?: string
+          user_id?: string
+          video_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "video_comments_video_id_fkey"
+            columns: ["video_id"]
+            isOneToOne: false
+            referencedRelation: "videos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      videos: {
+        Row: {
+          cliente_id: string
+          created_at: string
+          delivery_date: string | null
+          drive_link: string | null
+          embed_url: string | null
+          id: string
+          ig_caption: string | null
+          ig_comments: number | null
+          ig_hashtags: string[] | null
+          ig_likes: number | null
+          ig_short_code: string | null
+          ig_views: number | null
+          platform: string[]
+          status: string
+          status_history: Json
+          thumbnail: string | null
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          cliente_id: string
+          created_at?: string
+          delivery_date?: string | null
+          drive_link?: string | null
+          embed_url?: string | null
+          id?: string
+          ig_caption?: string | null
+          ig_comments?: number | null
+          ig_hashtags?: string[] | null
+          ig_likes?: number | null
+          ig_short_code?: string | null
+          ig_views?: number | null
+          platform?: string[]
+          status?: string
+          status_history?: Json
+          thumbnail?: string | null
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          cliente_id?: string
+          created_at?: string
+          delivery_date?: string | null
+          drive_link?: string | null
+          embed_url?: string | null
+          id?: string
+          ig_caption?: string | null
+          ig_comments?: number | null
+          ig_hashtags?: string[] | null
+          ig_likes?: number | null
+          ig_short_code?: string | null
+          ig_views?: number | null
+          platform?: string[]
+          status?: string
+          status_history?: Json
+          thumbnail?: string | null
+          title?: string
+          updated_at?: string
         }
         Relationships: []
       }
