@@ -6,6 +6,8 @@ import { X, ExternalLink, Check, AlertTriangle, Plus, Instagram, Trash2 } from "
 import { Badge } from "@/components/ui/badge";
 import { ListPagination } from "@/components/ListPagination";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
+import { EmptyState } from "@/components/EmptyState";
+import { Video as VideoIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
@@ -460,9 +462,8 @@ export default function VideosPage() {
           </div>
         ))}
         {paginatedVideos.length === 0 && (
-          <div className="col-span-full glass gold-border rounded-xl p-12 flex flex-col items-center gap-3 text-center">
-            <Check className="h-10 w-10 text-muted-foreground/40" />
-            <p className="text-sm text-muted-foreground">No hay videos con este filtro</p>
+          <div className="col-span-full">
+            <EmptyState icon={VideoIcon} title="Sin videos aún" description="Los videos aparecerán aquí cuando se agreguen al sistema." />
           </div>
         )}
       </div>
