@@ -237,6 +237,51 @@ export async function insertPostMetrics(
   return unique.length;
 }
 
+export async function fetchPlatformMetricsFromDb(
+  clienteId: string | null,
+  platform: string
+): Promise<PlatformMetrics | null> {
+  if (!clienteId) return null;
+
+  const { data, error } = await supabase
+    .from("post_metrics")
+    .select("*")
+    .eq("cliente_id", clienteId)
+    .eq("platform", platform)
+    .order("date", { ascending: false });
+
+  if (error) {
+    console.error("fetchPlatformMetricsFromDb:", error);
+    return null;
+  }
+
+  const posts: PostMetric[] = (data || []).map((row: any) => ({
+    id: row.ig_short_code || row.post_url || row.id,
+    url: row.post_url || "",
+    thumbnail: row.thumbnail || "",
+    title: row.title || "",
+    date: row.date || "",
+    type: row.type || "POST",
+    views: row.views || 0,
+    likes: row.likes || 0,
+    comments: row.comments || 0,
+    shares: row.shares || 0,
+    reach: row.reach || 0,
+    engagement: Number(row.engagement || 0),
+  }));
+
+  if (posts.length === 0) return null;
+
+  return {
+    clienteId,
+    platform,
+    uploadedAt: new Date().toISOString(),
+    fileName: "Migrado a la nube",
+    posts,
+    monthlySummary: calculateMonthlySummary(posts),
+  };
+}
+
 // ── Deduplication check for videos by ig_short_code ──
 
 export async function getExistingShortCodes(clienteId: string): Promise<Set<string>> {

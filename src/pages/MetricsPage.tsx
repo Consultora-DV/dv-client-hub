@@ -43,7 +43,30 @@ type PlatformKey = typeof PLATFORMS[number]["key"];
 
 function usePlatformMetrics(clienteId: string | null, platform: string): [PlatformMetrics | null, (v: PlatformMetrics | null) => void] {
   const key = clienteId ? `dv_metrics_${clienteId}_${platform}` : `dv_metrics_none_${platform}`;
-  return useLocalStorage<PlatformMetrics | null>(key, null);
+  const [localMetrics, setLocalMetrics] = useLocalStorage<PlatformMetrics | null>(key, null);
+  const [dbMetrics, setDbMetrics] = useState<PlatformMetrics | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function load() {
+      if (!clienteId) {
+        setDbMetrics(null);
+        return;
+      }
+      const cloudMetrics = await fetchPlatformMetricsFromDb(clienteId, platform);
+      if (!cancelled) {
+        setDbMetrics(cloudMetrics);
+      }
+    }
+
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, [clienteId, platform]);
+
+  return [dbMetrics || localMetrics, setLocalMetrics];
 }
 
 function KPICards({ posts }: { posts: PostMetric[] }) {

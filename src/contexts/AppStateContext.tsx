@@ -123,6 +123,15 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
       const localEventsRaw = localStorage.getItem("dv_calendar_state");
       const localEvents: CalendarEvent[] = localEventsRaw ? JSON.parse(localEventsRaw) : [];
 
+      const unresolvedVideos = localVideos.filter((v) => !resolveClienteId(v.clienteId));
+      const unresolvedEvents = localEvents.filter((e) => !resolveClienteId(e.clienteId));
+      if (unresolvedVideos.length > 0 || unresolvedEvents.length > 0) {
+        console.warn("No se pudieron resolver algunos clienteId legacy", {
+          videoClienteIds: Array.from(new Set(unresolvedVideos.map((v) => v.clienteId))),
+          eventClienteIds: Array.from(new Set(unresolvedEvents.map((e) => e.clienteId))),
+        });
+      }
+
       if (localVideos.length > 0) {
         const existingVids = await fetchVideos();
         const existingCodes = new Set(existingVids.map((v: Video) => (v as any).igShortCode || v.embedUrl).filter(Boolean));
@@ -306,6 +315,27 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
     }
     loadClients();
   }, [user]);
+
+  useEffect(() => {
+    if (!clients.length || !selectedClienteId) return;
+    const exists = clients.some((client) => client.id === selectedClienteId);
+    if (exists) return;
+
+    const normalized = clients.find((client) => {
+      const slug = client.nombre.toLowerCase().replace(/\./g, "").replace(/\s+/g, "-");
+      const withoutTitle = client.nombre
+        .split(" ")
+        .filter((part) => !part.match(/^(dr|dra|ing|lic|prof)\.?$/i))
+        .join(" ")
+        .toLowerCase()
+        .replace(/\s+/g, "-");
+      return slug === selectedClienteId || withoutTitle === selectedClienteId;
+    });
+
+    if (normalized) {
+      setSelectedClienteId(normalized.id);
+    }
+  }, [clients, selectedClienteId, setSelectedClienteId]);
 
   const isClient = user?.role === "cliente";
   const clienteId = isClient ? user?.clienteId : selectedClienteId;
