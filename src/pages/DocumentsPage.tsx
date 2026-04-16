@@ -398,20 +398,6 @@ export default function DocumentsPage() {
     window.open(script.driveLink, "_blank", "noopener,noreferrer");
   };
 
-  return (
-    <div className="max-w-4xl mx-auto space-y-6">
-      <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-display font-bold text-foreground">Guiones y Documentos</h1>
-          <p className="text-sm text-muted-foreground mt-1">Tu expediente completo</p>
-        </div>
-        {canUpload && (
-          <Button onClick={() => setShowAddModal(true)} className="gold-gradient text-primary-foreground rounded-xl">
-            <Plus className="h-4 w-4 mr-2" /> Agregar
-          </Button>
-        )}
-      </motion.div>
-
   const handleDragStart = (idx: number, type: "script" | "document") => {
     if (!isAdmin) return;
     setDragIdx(idx);
@@ -453,6 +439,19 @@ export default function DocumentsPage() {
     setDragType(null);
   };
 
+  return (
+    <div className="max-w-4xl mx-auto space-y-6">
+      <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-display font-bold text-foreground">Guiones y Documentos</h1>
+          <p className="text-sm text-muted-foreground mt-1">Tu expediente completo</p>
+        </div>
+        {canUpload && (
+          <Button onClick={() => setShowAddModal(true)} className="gold-gradient text-primary-foreground rounded-xl">
+            <Plus className="h-4 w-4 mr-2" /> Agregar
+          </Button>
+        )}
+      </motion.div>
 
 
       <Tabs defaultValue="scripts">
