@@ -301,7 +301,9 @@ export default function CalendarPage() {
             const extra = events.length - 3;
             return (
               <div key={i} onClick={() => day && handleDayClick(day)}
-                className={`min-h-[100px] p-2 border-b border-r border-border/20 ${day ? `hover:bg-secondary/30 transition-colors ${canAddCalendarEvents ? "cursor-pointer" : ""}` : "bg-secondary/10"}`}>
+                onDragOver={(e) => day && handleCalDragOver(e, day)}
+                onDrop={() => day && handleCalDrop(day)}
+                className={`min-h-[100px] p-2 border-b border-r border-border/20 ${day ? `hover:bg-secondary/30 transition-colors ${canAddCalendarEvents ? "cursor-pointer" : ""}` : "bg-secondary/10"} ${dragOverDay === day ? "bg-primary/10 ring-1 ring-primary/30" : ""}`}>
                 {day && (
                   <>
                     <div className="flex items-center justify-between">
@@ -310,7 +312,9 @@ export default function CalendarPage() {
                     </div>
                     <div className="mt-1 space-y-0.5">
                       {visible.map((ev) => (
-                        <EventPill key={ev.id} event={ev} onNavigate={navigate} />
+                        <div key={ev.id} draggable={isAdmin} onDragStart={(e) => { e.stopPropagation(); handleCalDragStart(ev.id); }} onDragEnd={handleCalDragEnd} className={isAdmin ? "cursor-grab active:cursor-grabbing" : ""}>
+                          <EventPill event={ev} onNavigate={navigate} />
+                        </div>
                       ))}
                       {extra > 0 && (
                         <Popover>
