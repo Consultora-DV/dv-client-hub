@@ -87,22 +87,35 @@ export function ImportModal({ onClose }: { onClose: () => void }) {
     setStep("input");
   };
 
-  const handleImport = () => {
+  const handleImport = async () => {
     const selected = posts.filter((p) => selectedPosts.has(p.shortCode));
     const client = clients.find((c) => c.id === clienteId);
     const { videos, events } = mapPostsToAppData(selected, clienteId, client?.nombre || "");
 
-    const result = importFromApify(videos, events);
+    try {
+      const result = await importFromApify(videos, events);
 
-    setResult({
-      videosAdded: result.videosAdded,
-      eventsAdded: result.eventsAdded,
-      skipped: result.videosSkipped + result.eventsSkipped,
-      errors: [],
-      metricsUpdated: result.metricsAdded,
-      metricsSkipped: result.metricsSkipped,
-    });
-    setStep("success");
+      setResult({
+        videosAdded: result.videosAdded,
+        eventsAdded: result.eventsAdded,
+        skipped: result.videosSkipped + result.eventsSkipped,
+        errors: [],
+        metricsUpdated: result.metricsAdded,
+        metricsSkipped: result.metricsSkipped,
+      });
+      setStep("success");
+    } catch (err) {
+      console.error("Import error:", err);
+      setResult({
+        videosAdded: 0,
+        eventsAdded: 0,
+        skipped: 0,
+        errors: [err instanceof Error ? err.message : "Error al importar"],
+        metricsUpdated: 0,
+        metricsSkipped: 0,
+      });
+      setStep("success");
+    }
   };
 
   const togglePost = (shortCode: string) => {
