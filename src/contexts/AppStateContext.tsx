@@ -77,10 +77,84 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
 
   const initialLoadDone = useRef(false);
 
+  // ── Migrate localStorage data to DB (one-time) ──
+  const migrateLocalStorage = useCallback(async () => {
+    const migrationKey = "dv_migration_to_db_done";
+    if (localStorage.getItem(migrationKey) === "true") return;
+
+    try {
+      // Read localStorage videos
+      const localVideosRaw = localStorage.getItem("dv_videos_state");
+      const localVideos: Video[] = localVideosRaw ? JSON.parse(localVideosRaw) : [];
+
+      // Read localStorage events
+      const localEventsRaw = localStorage.getItem("dv_calendar_state");
+      const localEvents: CalendarEvent[] = localEventsRaw ? JSON.parse(localEventsRaw) : [];
+
+      if (localVideos.length > 0) {
+        // Check existing to avoid duplicates
+        const existingVids = await fetchVideos();
+        const existingCodes = new Set(existingVids.map((v: Video) => (v as any).igShortCode || v.embedUrl).filter(Boolean));
+        const newVids = localVideos.filter((v) => {
+          const key = (v as any).igShortCode || v.embedUrl;
+          return key && !existingCodes.has(key);
+        });
+        if (newVids.length > 0) {
+          await insertVideos(newVids);
+          console.log(`Migrated ${newVids.length} videos from localStorage to DB`);
+        }
+      }
+
+      if (localEvents.length > 0) {
+        const existingEvts = await fetchCalendarEvents();
+        const existingKeys = new Set(existingEvts.map((e: CalendarEvent) => (e as any).igShortCode || `${e.date}|${e.title}`).filter(Boolean));
+        const newEvts = localEvents.filter((e) => {
+          const key = (e as any).igShortCode || `${e.date}|${e.title}`;
+          return !existingKeys.has(key);
+        });
+        if (newEvts.length > 0) {
+          await insertCalendarEvents(newEvts);
+          console.log(`Migrated ${newEvts.length} events from localStorage to DB`);
+        }
+      }
+
+      // Migrate metrics from localStorage
+      const allKeys = Object.keys(localStorage).filter((k) => k.startsWith("dv_metrics_"));
+      for (const key of allKeys) {
+        try {
+          const metrics: PlatformMetrics = JSON.parse(localStorage.getItem(key) || "null");
+          if (!metrics?.posts?.length) continue;
+          const posts = metrics.posts.map((p: PostMetric) => ({
+            url: p.url,
+            thumbnail: p.thumbnail,
+            title: p.title,
+            date: p.date,
+            type: p.type,
+            views: p.views,
+            likes: p.likes,
+            comments: p.comments,
+            shares: p.shares,
+            reach: p.reach,
+            engagement: p.engagement,
+            igShortCode: p.id || "",
+          }));
+          await insertPostMetrics(metrics.clienteId, metrics.platform, posts);
+          console.log(`Migrated ${posts.length} metrics for ${metrics.clienteId}`);
+        } catch { /* skip broken entries */ }
+      }
+
+      localStorage.setItem(migrationKey, "true");
+      console.log("localStorage → DB migration complete");
+    } catch (err) {
+      console.error("Migration error:", err);
+    }
+  }, []);
+
   // ── Load data from DB ──
   useEffect(() => {
     if (!user) return;
     async function load() {
+      await migrateLocalStorage();
       const [vids, evts, cmts] = await Promise.all([
         fetchVideos(),
         fetchCalendarEvents(),
@@ -92,7 +166,7 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
       initialLoadDone.current = true;
     }
     load();
-  }, [user]);
+  }, [user, migrateLocalStorage]);
 
   // ── Realtime subscriptions ──
   useEffect(() => {
