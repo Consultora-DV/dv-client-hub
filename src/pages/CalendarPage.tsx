@@ -177,7 +177,7 @@ function EventPill({ event, onNavigate }: { event: CalendarEvent; onNavigate: (p
 export default function CalendarPage() {
   const navigate = useNavigate();
   const { calendarEvents, setCalendarEvents } = useAppState();
-  const { canAddCalendarEvents } = usePermissions();
+  const { canAddCalendarEvents, isAdmin } = usePermissions();
   const [currentDate, setCurrentDate] = useState(() => new Date());
   const [addEventDate, setAddEventDate] = useState<string | null>(null);
   const [contentTypeFilter, setContentTypeFilter] = useState("all");
@@ -312,63 +312,104 @@ export default function CalendarPage() {
         </div>
       </div>
 
-      {/* Mobile list */}
-      <div className="md:hidden glass gold-border rounded-xl overflow-hidden">
-        {canAddCalendarEvents && (
-          <button onClick={() => setAddEventDate(`${year}-${String(month + 1).padStart(2, "0")}-01`)}
-            className="w-full flex items-center justify-center gap-2 px-5 py-3 border-b border-border/30 text-primary text-sm font-medium hover:bg-secondary/30 transition-colors">
-            <Plus className="h-4 w-4" /> Agregar publicación
-          </button>
-        )}
-        {mobileEvents.length === 0 && (
-          <div className="p-5">
-            <EmptyState icon={Calendar} title="Sin eventos este mes" description="Añade eventos al calendario editorial." />
-          </div>
-        )}
-        {mobileEvents.map((ev) => {
-          const firstPlatform = ev.platform[0];
-          const borderColor = platformDotColors[firstPlatform] || "#888";
-          const igUrl = ev.igShortCode ? `https://www.instagram.com/reel/${ev.igShortCode}/` : null;
-          return (
-            <div key={ev.id}
-              className="w-full flex items-start gap-3 px-5 py-4 border-b border-border/30 last:border-0 hover:bg-secondary/30 transition-colors text-left group"
-              style={{ borderLeftWidth: "3px", borderLeftColor: borderColor }}
-            >
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium text-foreground truncate">{ev.title}</p>
-                <p className="text-xs text-muted-foreground">
-                  {new Date(ev.date).toLocaleDateString("es-MX", { weekday: "short", day: "numeric", month: "short" })}
-                  {ev.time && ` · ${ev.time}`}
-                </p>
-                <div className="flex gap-2 mt-1.5">
-                  {ev.videoId && (
-                    <button onClick={() => navigate("/videos")} className="flex items-center gap-1 text-[11px] text-primary hover:underline">
-                      <Play className="h-3 w-3" /> Videos
-                    </button>
-                  )}
-                  {igUrl && (
-                    <a href={igUrl} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 text-[11px] text-primary hover:underline">
-                      <ExternalLink className="h-3 w-3" /> Instagram
-                    </a>
+      {/* Mobile list + mini calendar */}
+      <div className="md:hidden space-y-4">
+        {/* Mobile event list */}
+        <div className="glass gold-border rounded-xl overflow-hidden">
+          {canAddCalendarEvents && (
+            <button onClick={() => setAddEventDate(`${year}-${String(month + 1).padStart(2, "0")}-01`)}
+              className="w-full flex items-center justify-center gap-2 px-5 py-3 border-b border-border/30 text-primary text-sm font-medium hover:bg-secondary/30 transition-colors">
+              <Plus className="h-4 w-4" /> Agregar publicación
+            </button>
+          )}
+          {mobileEvents.length === 0 && (
+            <div className="p-5">
+              <EmptyState icon={Calendar} title="Sin eventos este mes" description="Añade eventos al calendario editorial." />
+            </div>
+          )}
+          {mobileEvents.map((ev) => {
+            const firstPlatform = ev.platform[0];
+            const borderColor = platformDotColors[firstPlatform] || "#888";
+            const igUrl = ev.igShortCode ? `https://www.instagram.com/reel/${ev.igShortCode}/` : null;
+            return (
+              <div key={ev.id}
+                className="w-full flex items-start gap-3 px-5 py-4 border-b border-border/30 last:border-0 hover:bg-secondary/30 transition-colors text-left group"
+                style={{ borderLeftWidth: "3px", borderLeftColor: borderColor }}
+              >
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium text-foreground truncate">{ev.title}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {new Date(ev.date).toLocaleDateString("es-MX", { weekday: "short", day: "numeric", month: "short" })}
+                    {ev.time && ` · ${ev.time}`}
+                  </p>
+                  <div className="flex gap-2 mt-1.5">
+                    {ev.videoId && (
+                      <button onClick={() => navigate("/videos")} className="flex items-center gap-1 text-[11px] text-primary hover:underline">
+                        <Play className="h-3 w-3" /> Videos
+                      </button>
+                    )}
+                    {igUrl && (
+                      <a href={igUrl} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 text-[11px] text-primary hover:underline">
+                        <ExternalLink className="h-3 w-3" /> Instagram
+                      </a>
+                    )}
+                  </div>
+                </div>
+                <div className="flex gap-1 shrink-0 mt-1">
+                  {ev.platform.map((p) => (
+                    <span key={p} className={`text-[10px] px-1.5 py-0.5 rounded-full ${platformColors[p] || "bg-secondary"} text-foreground`}>
+                      {platformLabels[p]?.slice(0, 2)}
+                    </span>
+                  ))}
+                </div>
+                {isAdmin && (
+                  <button
+                    onClick={() => setDeleteTarget(ev)}
+                    className="p-1.5 rounded-lg text-muted-foreground hover:text-destructive opacity-0 group-hover:opacity-100 transition-opacity shrink-0"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </button>
+                )}
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Mini calendar grid on mobile */}
+        <div className="glass gold-border rounded-xl overflow-hidden p-3">
+          <h3 className="text-xs font-semibold text-muted-foreground mb-2 px-1">Vista de calendario</h3>
+          <div className="grid grid-cols-7 gap-px">
+            {DAYS.map((d) => (
+              <div key={d} className="py-1 text-center text-[10px] font-semibold text-muted-foreground">{d.slice(0, 2)}</div>
+            ))}
+            {cells.map((day, i) => {
+              const events = day ? getEventsForDay(day) : [];
+              const isToday = day === new Date().getDate() && month === new Date().getMonth() && year === new Date().getFullYear();
+              return (
+                <div
+                  key={i}
+                  onClick={() => day && canAddCalendarEvents && handleDayClick(day)}
+                  className={`relative aspect-square flex flex-col items-center justify-center rounded-md text-[11px] ${
+                    day ? `${canAddCalendarEvents ? "cursor-pointer" : ""} hover:bg-secondary/50` : ""
+                  } ${isToday ? "ring-1 ring-primary bg-primary/10" : ""}`}
+                >
+                  {day && (
+                    <>
+                      <span className={`${events.length > 0 ? "font-bold text-foreground" : "text-muted-foreground"}`}>{day}</span>
+                      {events.length > 0 && (
+                        <div className="flex gap-0.5 mt-0.5">
+                          {events.slice(0, 3).map((ev, idx) => (
+                            <span key={idx} className="w-1 h-1 rounded-full" style={{ backgroundColor: platformDotColors[ev.platform[0]] || "#888" }} />
+                          ))}
+                        </div>
+                      )}
+                    </>
                   )}
                 </div>
-              </div>
-              <div className="flex gap-1 shrink-0 mt-1">
-                {ev.platform.map((p) => (
-                  <span key={p} className={`text-[10px] px-1.5 py-0.5 rounded-full ${platformColors[p] || "bg-secondary"} text-foreground`}>
-                    {platformLabels[p]?.slice(0, 2)}
-                  </span>
-                ))}
-              </div>
-              <button
-                onClick={() => setDeleteTarget(ev)}
-                className="p-1.5 rounded-lg text-muted-foreground hover:text-destructive opacity-0 group-hover:opacity-100 transition-opacity shrink-0"
-              >
-                <Trash2 className="h-4 w-4" />
-              </button>
-            </div>
-          );
-        })}
+              );
+            })}
+          </div>
+        </div>
       </div>
 
       <ConfirmDialog
