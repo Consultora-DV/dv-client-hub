@@ -122,6 +122,14 @@ function VideoCard({ video, commentCount, onClick }: { video: Video; commentCoun
       </div>
       <div className="p-4 space-y-3">
         <h3 className="font-semibold text-sm text-foreground line-clamp-2">{video.title}</h3>
+        {/* IG metrics row */}
+        {isImported && (video.igViews || video.igLikes || video.igComments) ? (
+          <div className="flex items-center gap-3 text-[11px] text-muted-foreground">
+            {!!video.igViews && <span>👁 {formatMetric(video.igViews)}</span>}
+            {!!video.igLikes && <span>❤️ {formatMetric(video.igLikes)}</span>}
+            {!!video.igComments && <span>💬 {formatMetric(video.igComments)}</span>}
+          </div>
+        ) : null}
         <div className="flex items-center justify-between">
           <Badge variant="outline" className={`text-xs border ${status.class}`}>{status.label}</Badge>
           <div className="flex items-center gap-2">
@@ -130,7 +138,7 @@ function VideoCard({ video, commentCount, onClick }: { video: Video; commentCoun
                 {client.avatar}
               </span>
             )}
-            {commentCount > 0 && <span className="text-xs text-muted-foreground">💬 {commentCount}</span>}
+            {commentCount > 0 && !isImported && <span className="text-xs text-muted-foreground">💬 {commentCount}</span>}
             <span className="text-xs text-muted-foreground">
               {new Date(video.deliveryDate).toLocaleDateString("es-MX", { day: "numeric", month: "short" })}
             </span>
