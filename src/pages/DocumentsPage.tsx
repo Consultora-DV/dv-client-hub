@@ -412,6 +412,46 @@ export default function DocumentsPage() {
         )}
       </motion.div>
 
+  const handleDragStart = (idx: number, type: "script" | "document") => {
+    if (!isAdmin) return;
+    setDragIdx(idx);
+    setDragType(type);
+  };
+
+  const handleDragOver = (e: React.DragEvent, idx: number) => {
+    e.preventDefault();
+    setDragOverIdx(idx);
+  };
+
+  const handleDrop = (targetIdx: number) => {
+    if (dragIdx === null || dragType === null) return;
+    if (dragIdx === targetIdx) { setDragIdx(null); setDragOverIdx(null); setDragType(null); return; }
+
+    if (dragType === "script") {
+      setScripts((prev) => {
+        const arr = [...prev];
+        const [moved] = arr.splice(dragIdx, 1);
+        arr.splice(targetIdx, 0, moved);
+        return arr;
+      });
+    } else {
+      setDocuments((prev) => {
+        const arr = [...prev];
+        const [moved] = arr.splice(dragIdx, 1);
+        arr.splice(targetIdx, 0, moved);
+        return arr;
+      });
+    }
+    setDragIdx(null);
+    setDragOverIdx(null);
+    setDragType(null);
+  };
+
+  const handleDragEnd = () => {
+    setDragIdx(null);
+    setDragOverIdx(null);
+    setDragType(null);
+  };
 
 
 
