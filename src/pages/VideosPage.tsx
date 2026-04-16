@@ -449,6 +449,74 @@ export default function VideosPage() {
   const PER_PAGE = 15;
   const repairAttempted = useRef(false);
 
+  // Bulk selection state
+  const [selectMode, setSelectMode] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [bulkDeleting, setBulkDeleting] = useState(false);
+  const [showBulkConfirm, setShowBulkConfirm] = useState(false);
+
+  const toggleSelect = useCallback((id: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }, []);
+
+  const selectAll = useCallback(() => {
+    setSelectedIds(new Set(sortedAndFilteredVideos.map((v) => v.id)));
+  }, []);
+
+  const deselectAll = useCallback(() => {
+    setSelectedIds(new Set());
+  }, []);
+
+  // Auto-detect duplicates by ig_short_code or embed_url
+  const duplicateIds = useMemo(() => {
+    const seen = new Map<string, string>(); // key → first video id
+    const dupes = new Set<string>();
+    for (const v of videos) {
+      const key = v.igShortCode || v.embedUrl || "";
+      if (!key) continue;
+      if (seen.has(key)) {
+        dupes.add(v.id); // mark the later one as duplicate
+      } else {
+        seen.set(key, v.id);
+      }
+    }
+    return dupes;
+  }, [videos]);
+
+  const selectDuplicates = useCallback(() => {
+    setSelectMode(true);
+    setSelectedIds(new Set(duplicateIds));
+    if (duplicateIds.size === 0) {
+      toast.info("No se encontraron duplicados");
+    } else {
+      toast.info(`${duplicateIds.size} duplicados detectados`);
+    }
+  }, [duplicateIds]);
+
+  const handleBulkDelete = async () => {
+    if (selectedIds.size === 0) return;
+    setBulkDeleting(true);
+    try {
+      const { deleteVideosByIds } = await import("@/services/supabaseDataService");
+      await deleteVideosByIds(Array.from(selectedIds));
+      setVideos((prev) => prev.filter((v) => !selectedIds.has(v.id)));
+      toast.success(`${selectedIds.size} videos eliminados`);
+      setSelectedIds(new Set());
+      setSelectMode(false);
+      setShowBulkConfirm(false);
+    } catch (err) {
+      console.error("Bulk delete error:", err);
+      toast.error("Error al eliminar videos");
+    } finally {
+      setBulkDeleting(false);
+    }
+  };
+
   // Auto-repair thumbnails on first load if there are broken ones
   useEffect(() => {
     if (repairAttempted.current || !selectedClienteId || videos.length === 0) return;
@@ -463,10 +531,9 @@ export default function VideosPage() {
           .then((result) => {
             if (result.repaired > 0) {
               toast.success(`${result.repaired} miniaturas restauradas`);
-              // Reload videos to get updated thumbnails
               window.location.reload();
             } else if (result.failed > 0) {
-              toast.info("No se pudieron restaurar las miniaturas. Algunas publicaciones pueden no ser públicas.");
+              toast.info("No se pudieron restaurar las miniaturas.");
             }
           })
           .catch((err) => console.error("Thumbnail repair error:", err))
@@ -520,25 +587,60 @@ export default function VideosPage() {
     return counts;
   }, [videos]);
 
-  const handleDelete = () => {
+  const handleDelete = async () => {
     if (!deleteTarget) return;
-    setVideos((prev) => prev.filter((v) => v.id !== deleteTarget.id));
-    toast.success(`Video "${deleteTarget.title}" eliminado`);
+    try {
+      const { deleteVideosByIds } = await import("@/services/supabaseDataService");
+      await deleteVideosByIds([deleteTarget.id]);
+      setVideos((prev) => prev.filter((v) => v.id !== deleteTarget.id));
+      toast.success(`Video "${deleteTarget.title}" eliminado`);
+    } catch {
+      toast.error("Error al eliminar el video");
+    }
     setDeleteTarget(null);
   };
 
   return (
     <div className="max-w-6xl mx-auto space-y-6">
-      <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="flex items-center justify-between">
+      <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="flex items-center justify-between flex-wrap gap-3">
         <div>
           <h1 className="text-2xl font-display font-bold text-foreground">Videos y Aprobaciones</h1>
           <p className="text-sm text-muted-foreground mt-1">Revisa, comenta y aprueba tus videos</p>
         </div>
-        {canAddVideos && (
-          <Button onClick={() => setShowAddModal(true)} className="gold-gradient text-primary-foreground rounded-xl">
-            <Plus className="h-4 w-4 mr-2" /> Agregar video
-          </Button>
-        )}
+        <div className="flex items-center gap-2">
+          {isAdmin && duplicateIds.size > 0 && !selectMode && (
+            <Button onClick={selectDuplicates} variant="outline" className="rounded-xl text-xs border-destructive/50 text-destructive hover:bg-destructive/10">
+              <Copy className="h-4 w-4 mr-1.5" /> {duplicateIds.size} duplicados
+            </Button>
+          )}
+          {isAdmin && !selectMode && (
+            <Button onClick={() => { setSelectMode(true); setSelectedIds(new Set()); }} variant="outline" className="rounded-xl text-xs">
+              <CheckSquare className="h-4 w-4 mr-1.5" /> Seleccionar
+            </Button>
+          )}
+          {selectMode && (
+            <>
+              <span className="text-xs text-muted-foreground">{selectedIds.size} seleccionados</span>
+              <Button onClick={() => selectAll()} variant="ghost" size="sm" className="text-xs">Todos</Button>
+              <Button onClick={deselectAll} variant="ghost" size="sm" className="text-xs">Ninguno</Button>
+              <Button
+                onClick={() => setShowBulkConfirm(true)}
+                disabled={selectedIds.size === 0}
+                variant="destructive"
+                size="sm"
+                className="rounded-xl text-xs"
+              >
+                <Trash2 className="h-4 w-4 mr-1" /> Eliminar ({selectedIds.size})
+              </Button>
+              <Button onClick={() => { setSelectMode(false); setSelectedIds(new Set()); }} variant="ghost" size="sm" className="text-xs">Cancelar</Button>
+            </>
+          )}
+          {canAddVideos && !selectMode && (
+            <Button onClick={() => setShowAddModal(true)} className="gold-gradient text-primary-foreground rounded-xl">
+              <Plus className="h-4 w-4 mr-2" /> Agregar video
+            </Button>
+          )}
+        </div>
       </motion.div>
 
       {repairingThumbs && (
@@ -584,9 +686,30 @@ export default function VideosPage() {
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
         {paginatedVideos.map((video) => (
-          <div key={video.id} className="relative group">
-            <VideoCard video={video} commentCount={(comments[video.id] || []).length} onClick={() => setSelected(video)} />
-            {isAdmin && (
+          <div key={video.id} className={`relative group ${selectMode && selectedIds.has(video.id) ? "ring-2 ring-primary rounded-xl" : ""}`}>
+            {selectMode && (
+              <button
+                onClick={() => toggleSelect(video.id)}
+                className="absolute top-3 left-3 z-10 p-1 rounded-md bg-background/90 border border-border/50"
+              >
+                {selectedIds.has(video.id) ? (
+                  <Check className="h-4 w-4 text-primary" />
+                ) : (
+                  <Square className="h-4 w-4 text-muted-foreground" />
+                )}
+              </button>
+            )}
+            {selectMode && duplicateIds.has(video.id) && (
+              <div className="absolute top-3 right-12 z-10">
+                <Badge className="bg-destructive/20 text-destructive border-destructive/30 text-[10px]">Duplicado</Badge>
+              </div>
+            )}
+            <VideoCard
+              video={video}
+              commentCount={(comments[video.id] || []).length}
+              onClick={() => selectMode ? toggleSelect(video.id) : setSelected(video)}
+            />
+            {isAdmin && !selectMode && (
               <button
                 onClick={(e) => { e.stopPropagation(); setDeleteTarget(video); }}
                 className="absolute top-3 right-3 p-1.5 rounded-lg bg-background/80 text-muted-foreground hover:text-destructive opacity-0 group-hover:opacity-100 transition-opacity z-10"
@@ -606,12 +729,23 @@ export default function VideosPage() {
 
       <ListPagination currentPage={page} totalPages={totalPages} onPageChange={setPage} />
 
+      {/* Single delete confirm */}
       <ConfirmDialog
         open={!!deleteTarget}
         onOpenChange={(o) => !o && setDeleteTarget(null)}
         title="Eliminar video"
         description={`¿Estás seguro de eliminar "${deleteTarget?.title}"? Esta acción no se puede deshacer.`}
         onConfirm={handleDelete}
+      />
+
+      {/* Bulk delete confirm */}
+      <ConfirmDialog
+        open={showBulkConfirm}
+        onOpenChange={setShowBulkConfirm}
+        title={`Eliminar ${selectedIds.size} videos`}
+        description={`¿Estás seguro de eliminar ${selectedIds.size} videos seleccionados? Esta acción no se puede deshacer.`}
+        onConfirm={handleBulkDelete}
+        confirmLabel={bulkDeleting ? "Eliminando..." : "Eliminar todos"}
       />
 
       <AnimatePresence>
