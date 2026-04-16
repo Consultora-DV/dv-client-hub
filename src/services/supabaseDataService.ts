@@ -27,8 +27,7 @@ function videoFromRow(row: any): Video {
 }
 
 function videoToRow(v: Video) {
-  return {
-    id: v.id.startsWith("ig_") ? undefined : undefined, // let DB generate UUID
+  const row: Record<string, any> = {
     cliente_id: v.clienteId,
     title: v.title,
     platform: v.platform,
@@ -45,6 +44,11 @@ function videoToRow(v: Video) {
     ig_hashtags: (v as any).igHashtags || [],
     ig_short_code: (v as any).igShortCode || "",
   };
+  // Only include id if it's a valid UUID (not a generated ig_ prefix)
+  if (v.id && !v.id.startsWith("ig_")) {
+    row.id = v.id;
+  }
+  return row;
 }
 
 function eventFromRow(row: any): CalendarEvent {
@@ -135,7 +139,7 @@ export async function insertVideos(videos: Video[]): Promise<Video[]> {
   const rows = videos.map(videoToRow);
   const { data, error } = await supabase
     .from("videos")
-    .insert(rows)
+    .insert(rows as any)
     .select();
   if (error) { console.error("insertVideos:", error); throw error; }
   return (data || []).map(videoFromRow);
