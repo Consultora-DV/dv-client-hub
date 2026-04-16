@@ -66,6 +66,12 @@ const filterConfig: { key: StatusFilter; label: string; color: string }[] = [
   { key: "published", label: "Publicados", color: "bg-status-published/20 text-status-published" },
 ];
 
+function formatMetric(n: number): string {
+  if (n >= 1_000_000) return (n / 1_000_000).toFixed(1) + "M";
+  if (n >= 1_000) return (n / 1_000).toFixed(n >= 10_000 ? 0 : 1) + "K";
+  return String(n);
+}
+
 function PlatformPills({ platforms }: { platforms: string[] | string }) {
   const list = Array.isArray(platforms) ? platforms : [platforms];
   return (
