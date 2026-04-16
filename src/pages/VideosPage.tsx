@@ -574,6 +574,10 @@ export default function VideosPage() {
     return list;
   }, [videos, statusFilter, sortBy]);
 
+  const selectAll = useCallback(() => {
+    setSelectedIds(new Set(sortedAndFilteredVideos.map((v) => v.id)));
+  }, [sortedAndFilteredVideos]);
+
   const totalPages = Math.max(1, Math.ceil(sortedAndFilteredVideos.length / PER_PAGE));
   const paginatedVideos = sortedAndFilteredVideos.slice((page - 1) * PER_PAGE, page * PER_PAGE);
 
