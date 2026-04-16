@@ -494,7 +494,12 @@ export default function DocumentsPage() {
               const commentCount = (scriptComments[s.id] || []).length;
               return (
                 <motion.div key={s.id} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.05 }}
-                  className="flex items-center gap-4 px-5 py-4 border-b border-border/30 last:border-0 hover:bg-secondary/30 transition-colors group">
+                  draggable={isAdmin}
+                  onDragStart={() => handleDragStart((scriptPage - 1) * PER_PAGE + i, "script")}
+                  onDragOver={(e) => handleDragOver(e, (scriptPage - 1) * PER_PAGE + i)}
+                  onDrop={() => handleDrop((scriptPage - 1) * PER_PAGE + i)}
+                  onDragEnd={handleDragEnd}
+                  className={`flex items-center gap-4 px-5 py-4 border-b border-border/30 last:border-0 hover:bg-secondary/30 transition-colors group ${isAdmin ? "cursor-grab active:cursor-grabbing" : ""} ${dragOverIdx === (scriptPage - 1) * PER_PAGE + i && dragType === "script" ? "border-t-2 border-t-primary" : ""}`}>
                   <button onClick={() => handleOpenScript(s)} className="flex items-center gap-4 flex-1 min-w-0 text-left">
                     <FileText className="h-5 w-5 text-primary shrink-0" />
                     <div className="flex-1 min-w-0">
