@@ -1,7 +1,8 @@
 import { useState, useMemo } from "react";
 import { toast } from "sonner";
 import { motion, AnimatePresence } from "framer-motion";
-import { ChevronLeft, ChevronRight, X, Plus, Trash2, ExternalLink, Play } from "lucide-react";
+import { ChevronLeft, ChevronRight, X, Plus, Trash2, ExternalLink, Play, Calendar } from "lucide-react";
+import { EmptyState } from "@/components/EmptyState";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -319,7 +320,11 @@ export default function CalendarPage() {
             <Plus className="h-4 w-4" /> Agregar publicación
           </button>
         )}
-        {mobileEvents.length === 0 && <p className="p-5 text-sm text-muted-foreground text-center">Sin eventos este mes</p>}
+        {mobileEvents.length === 0 && (
+          <div className="p-5">
+            <EmptyState icon={Calendar} title="Sin eventos este mes" description="Añade eventos al calendario editorial." />
+          </div>
+        )}
         {mobileEvents.map((ev) => {
           const firstPlatform = ev.platform[0];
           const borderColor = platformDotColors[firstPlatform] || "#888";
