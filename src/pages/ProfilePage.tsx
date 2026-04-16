@@ -46,25 +46,26 @@ export default function ProfilePage() {
   const navigate = useNavigate();
   const reduced = useReducedMotion();
   const [editingOnboarding, setEditingOnboarding] = useState(false);
+  const [profileData, setProfileData] = useState<ClientProfile | null>(null);
+  const [profileLoading, setProfileLoading] = useState(true);
 
   const targetUserId = isClient ? user?.id : selectedClienteId || user?.id;
 
-  // Migration: data was previously saved under admin's ID — copy to client's ID if missing
-  if (isAdmin && selectedClienteId && user?.id && selectedClienteId !== user.id) {
-    const clientKey = `dv_client_profile_${selectedClienteId}`;
-    const adminKey = `dv_client_profile_${user.id}`;
-    if (!localStorage.getItem(clientKey) && localStorage.getItem(adminKey)) {
-      localStorage.setItem(clientKey, localStorage.getItem(adminKey)!);
-      const photoKey = `dv_user_profile_photo_${user.id}`;
-      if (localStorage.getItem(photoKey)) localStorage.setItem(`dv_user_profile_photo_${selectedClienteId}`, localStorage.getItem(photoKey)!);
-      const bpKey = `dv_client_blueprint_${user.id}`;
-      if (localStorage.getItem(bpKey)) localStorage.setItem(`dv_client_blueprint_${selectedClienteId}`, localStorage.getItem(bpKey)!);
-      localStorage.setItem(`dv_onboarding_complete_${selectedClienteId}`, "true");
+  // Load profile from database
+  useEffect(() => {
+    if (!targetUserId) {
+      setProfileData(null);
+      setProfileLoading(false);
+      return;
     }
-  }
+    setProfileLoading(true);
+    fetchClientProfile(targetUserId).then((p) => {
+      setProfileData(p);
+      setProfileLoading(false);
+    });
+  }, [targetUserId, editingOnboarding]);
 
-  const profileData = targetUserId ? JSON.parse(localStorage.getItem(`dv_client_profile_${targetUserId}`) || "null") : null;
-  const photo = targetUserId ? localStorage.getItem(`dv_user_profile_photo_${targetUserId}`) : null;
+  const photo = profileData?.photoUrl || null;
 
   // Fallback: get basic info from clients list if no onboarding data
   const clientInfo = clients.find((c) => c.id === targetUserId);
