@@ -228,6 +228,32 @@ export default function CalendarPage() {
     setDeleteTarget(null);
   };
 
+  const handleCalDragStart = (eventId: string) => {
+    if (!isAdmin) return;
+    setDragEventId(eventId);
+  };
+
+  const handleCalDragOver = (e: React.DragEvent, day: number) => {
+    e.preventDefault();
+    setDragOverDay(day);
+  };
+
+  const handleCalDrop = (day: number) => {
+    if (!dragEventId) return;
+    const dateStr = `${year}-${String(month + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+    setCalendarEvents((prev) =>
+      prev.map((ev) => ev.id === dragEventId ? { ...ev, date: dateStr } : ev)
+    );
+    setDragEventId(null);
+    setDragOverDay(null);
+    toast.success("Evento movido");
+  };
+
+  const handleCalDragEnd = () => {
+    setDragEventId(null);
+    setDragOverDay(null);
+  };
+
   return (
     <div className="max-w-5xl mx-auto space-y-6">
       <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
