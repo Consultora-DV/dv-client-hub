@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useAuth } from "@/contexts/AuthContext";
 import { useAppState } from "@/contexts/AppStateContext";
@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import OnboardingPage from "./OnboardingPage";
+import { fetchClientProfile, type ClientProfile } from "@/services/clientProfileService";
 
 const GOALS_MAP: Record<string, { label: string; icon: string }> = {
   grow: { label: "Crecer mi audiencia", icon: "🚀" },
