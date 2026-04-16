@@ -36,7 +36,7 @@ function videoToRow(v: Video) {
     delivery_date: v.deliveryDate || null,
     embed_url: v.embedUrl || "",
     drive_link: v.driveLink || "#",
-    status_history: v.statusHistory || [],
+    status_history: JSON.parse(JSON.stringify(v.statusHistory || [])),
     ig_caption: (v as any).igCaption || "",
     ig_likes: (v as any).igLikes || 0,
     ig_comments: (v as any).igComments || 0,
