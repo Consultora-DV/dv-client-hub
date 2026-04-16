@@ -14,6 +14,7 @@ import {
   Sparkles, Loader2, AlertCircle, CheckCircle2
 } from "lucide-react";
 import { parseBlueprint, type BlueprintResult } from "@/services/aiParserService";
+import { upsertClientProfile, fetchClientProfile, type ClientProfile } from "@/services/clientProfileService";
 import * as pdfjsLib from "pdfjs-dist";
 
 const INDUSTRIES = [
@@ -94,34 +95,59 @@ export default function OnboardingPage({ editMode = false, onComplete, targetUse
   const [aiParseResult, setAiParseResult] = useState<BlueprintResult | null>(null);
   
   const [aiFilledFields, setAiFilledFields] = useState<Set<string>>(new Set());
-  const existingProfile = profileUserId ? localStorage.getItem(`dv_client_profile_${profileUserId}`) : null;
-  const parsed = existingProfile ? JSON.parse(existingProfile) : null;
+  const [dbProfileLoaded, setDbProfileLoaded] = useState(false);
 
   const [data, setData] = useState<OnboardingData>(() => ({
-    fullName: parsed?.fullName || user?.name || "",
-    businessName: parsed?.businessName || "",
-    industry: parsed?.industry || "",
-    city: parsed?.city || "",
-    country: parsed?.country || "",
-    whatsapp: parsed?.whatsapp || "",
-    photo: profileUserId ? localStorage.getItem(`dv_user_profile_photo_${profileUserId}`) : null,
-    socials: parsed?.socialNetworks
-      ? Object.fromEntries(
-          SOCIAL_NETWORKS.map(sn => [
-            sn.key,
-            parsed.socialNetworks[sn.key]
-              ? { active: true, handle: parsed.socialNetworks[sn.key].handle || "", url: parsed.socialNetworks[sn.key].url || "", followers: parsed.socialNetworks[sn.key].followers || 0 }
-              : { active: false, handle: "", url: "", followers: 0 }
-          ])
-        )
-      : Object.fromEntries(SOCIAL_NETWORKS.map(sn => [sn.key, { active: false, handle: "", url: "", followers: 0 }])),
-    mainGoal: parsed?.strategy?.mainGoal || "",
-    targetAudience: parsed?.strategy?.targetAudience || "",
-    tone: parsed?.strategy?.tone || [],
-    contentPillars: parsed?.strategy?.contentPillars || [],
-    blueprintFile: parsed?.blueprintFile || (profileUserId ? localStorage.getItem(`dv_client_blueprint_${profileUserId}`) : null),
-    blueprintName: parsed?.blueprintName || "",
+    fullName: user?.name || "",
+    businessName: "",
+    industry: "",
+    city: "",
+    country: "",
+    whatsapp: "",
+    photo: null,
+    socials: Object.fromEntries(SOCIAL_NETWORKS.map(sn => [sn.key, { active: false, handle: "", url: "", followers: 0 }])),
+    mainGoal: "",
+    targetAudience: "",
+    tone: [],
+    contentPillars: [],
+    blueprintFile: null,
+    blueprintName: "",
   }));
+
+  // Load existing profile from database
+  useEffect(() => {
+    if (!profileUserId || dbProfileLoaded) return;
+    fetchClientProfile(profileUserId).then((profile) => {
+      if (profile) {
+        setData({
+          fullName: profile.fullName || user?.name || "",
+          businessName: profile.businessName || "",
+          industry: profile.industry || "",
+          city: profile.city || "",
+          country: profile.country || "",
+          whatsapp: profile.whatsapp || "",
+          photo: profile.photoUrl || null,
+          socials: profile.socialNetworks
+            ? Object.fromEntries(
+                SOCIAL_NETWORKS.map(sn => [
+                  sn.key,
+                  profile.socialNetworks[sn.key]
+                    ? { active: true, handle: profile.socialNetworks[sn.key].handle || "", url: profile.socialNetworks[sn.key].url || "", followers: profile.socialNetworks[sn.key].followers || 0 }
+                    : { active: false, handle: "", url: "", followers: 0 }
+                ])
+              )
+            : Object.fromEntries(SOCIAL_NETWORKS.map(sn => [sn.key, { active: false, handle: "", url: "", followers: 0 }])),
+          mainGoal: profile.strategy?.mainGoal || "",
+          targetAudience: profile.strategy?.targetAudience || "",
+          tone: profile.strategy?.tone || [],
+          contentPillars: profile.strategy?.contentPillars || [],
+          blueprintFile: profile.blueprintFile || null,
+          blueprintName: profile.blueprintName || "",
+        });
+      }
+      setDbProfileLoaded(true);
+    });
+  }, [profileUserId, dbProfileLoaded]);
 
   const update = (partial: Partial<OnboardingData>) => setData(prev => ({ ...prev, ...partial }));
 
