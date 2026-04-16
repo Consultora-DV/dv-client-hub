@@ -464,9 +464,7 @@ export default function VideosPage() {
     });
   }, []);
 
-  const selectAll = useCallback(() => {
-    setSelectedIds(new Set(sortedAndFilteredVideos.map((v) => v.id)));
-  }, []);
+  // selectAll moved below sortedAndFilteredVideos
 
   const deselectAll = useCallback(() => {
     setSelectedIds(new Set());
