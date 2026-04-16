@@ -182,6 +182,8 @@ export default function CalendarPage() {
   const [addEventDate, setAddEventDate] = useState<string | null>(null);
   const [contentTypeFilter, setContentTypeFilter] = useState("all");
   const [deleteTarget, setDeleteTarget] = useState<CalendarEvent | null>(null);
+  const [dragEventId, setDragEventId] = useState<string | null>(null);
+  const [dragOverDay, setDragOverDay] = useState<number | null>(null);
 
   const filteredEvents = useMemo(() => {
     if (contentTypeFilter === "all") return calendarEvents;
