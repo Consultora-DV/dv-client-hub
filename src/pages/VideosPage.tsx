@@ -533,25 +533,38 @@ export default function VideosPage() {
         </div>
       )}
 
-      {/* Status filter bar */}
-      <div className="flex gap-2 flex-wrap">
-        {filterConfig.map((f) => {
-          const count = statusCounts[f.key] || 0;
-          const isActive = statusFilter === f.key;
-          return (
-            <button
-              key={f.key}
-              onClick={() => handleFilterChange(f.key)}
-              className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors border ${
-                isActive
-                  ? `${f.color} border-current`
-                  : "bg-secondary/50 text-muted-foreground border-border/50 hover:bg-secondary"
-              }`}
-            >
-              {f.label} ({count})
-            </button>
-          );
-        })}
+      {/* Status filter + sort bar */}
+      <div className="flex flex-col sm:flex-row gap-3 sm:items-center sm:justify-between">
+        <div className="flex gap-2 flex-wrap">
+          {filterConfig.map((f) => {
+            const count = statusCounts[f.key] || 0;
+            const isActive = statusFilter === f.key;
+            return (
+              <button
+                key={f.key}
+                onClick={() => handleFilterChange(f.key)}
+                className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors border ${
+                  isActive
+                    ? `${f.color} border-current`
+                    : "bg-secondary/50 text-muted-foreground border-border/50 hover:bg-secondary"
+                }`}
+              >
+                {f.label} ({count})
+              </button>
+            );
+          })}
+        </div>
+        <Select value={sortBy} onValueChange={(v) => { setSortBy(v as SortOption); setPage(1); }}>
+          <SelectTrigger className="w-auto min-w-[180px] bg-secondary border-border/50 rounded-xl text-xs h-8">
+            <ArrowUpDown className="h-3.5 w-3.5 mr-1.5 text-muted-foreground" />
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent className="glass gold-border">
+            {sortOptions.map((o) => (
+              <SelectItem key={o.key} value={o.key} className="text-xs">{o.label}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
