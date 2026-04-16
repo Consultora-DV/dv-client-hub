@@ -28,11 +28,12 @@ export function AppSidebar() {
   const [showProfile, setShowProfile] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
 
+  const videoCount = videos.length;
   const pendingCount = videos.filter((v) => v.status === "pending").length;
 
   const allItems = [
     { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard },
-    { title: isClient ? "Mis Videos" : "Videos", url: "/videos", icon: Video, badge: pendingCount },
+    { title: isClient ? "Mis Videos" : "Videos", url: "/videos", icon: Video, badge: videoCount },
     { title: isClient ? "Mis Documentos" : "Documentos", url: "/documentos", icon: FileText },
     { title: "Calendario", url: "/calendario", icon: Calendar },
     { title: "Métricas", url: "/metricas", icon: BarChart3 },
@@ -84,8 +85,12 @@ export function AppSidebar() {
                       >
                         <item.icon className="h-5 w-5 shrink-0" />
                         <span className="group-data-[collapsible=icon]:hidden">{item.title}</span>
-                        {item.badge && item.badge > 0 && (
-                          <Badge className="ml-auto bg-status-pending text-primary-foreground text-xs px-1.5 py-0.5 group-data-[collapsible=icon]:hidden">
+                        {item.badge != null && item.badge > 0 && (
+                          <Badge className={`ml-auto text-xs px-1.5 py-0.5 group-data-[collapsible=icon]:hidden ${
+                            item.url === "/videos" && pendingCount > 0
+                              ? "bg-status-pending text-primary-foreground"
+                              : "bg-secondary text-muted-foreground"
+                          }`}>
                             {item.badge}
                           </Badge>
                         )}
