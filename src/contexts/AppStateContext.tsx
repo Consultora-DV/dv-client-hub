@@ -1,4 +1,4 @@
-import { createContext, useContext, ReactNode, useCallback, useMemo, useState, useEffect } from "react";
+import { createContext, useContext, ReactNode, useCallback, useMemo, useState, useEffect, useRef } from "react";
 import {
   Video, Document, CalendarEvent, Notification, Comment, Script, Client,
 } from "@/data/mockData";
@@ -7,6 +7,12 @@ import { useAuth } from "@/contexts/AuthContext";
 import { PostMetric, PlatformMetrics, calculateMonthlySummary } from "@/services/metricsParser";
 import { filterDuplicates } from "@/lib/deduplication";
 import { supabase } from "@/integrations/supabase/client";
+import {
+  fetchVideos, fetchCalendarEvents, fetchAllComments,
+  insertVideos, insertCalendarEvents, insertComment,
+  updateVideoStatus, insertPostMetrics,
+  getExistingShortCodes, getExistingEventKeys,
+} from "@/services/supabaseDataService";
 
 export interface ImportResult {
   videosAdded: number;
@@ -42,8 +48,7 @@ interface AppStateContextType {
   selectedClienteId: string | null;
   setSelectedClienteId: (id: string | null) => void;
   clients: Client[];
-  importFromApify: (videos: Video[], events: CalendarEvent[]) => ImportResult;
-  // Script functions
+  importFromApify: (videos: Video[], events: CalendarEvent[]) => Promise<ImportResult>;
   scriptComments: Record<string, Comment[]>;
   approveScript: (scriptId: string) => void;
   requestChangesScript: (scriptId: string, text: string) => void;
@@ -57,23 +62,76 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
   const { user } = useAuth();
   const [clients, setClients] = useState<Client[]>([]);
   const [isLoadingClients, setIsLoadingClients] = useState(true);
-  const [allVideos, setVideos] = useLocalStorage<Video[]>("dv_videos_state", []);
+
+  // DB-backed state
+  const [allVideos, setAllVideosState] = useState<Video[]>([]);
+  const [allCalendarEvents, setAllEventsState] = useState<CalendarEvent[]>([]);
+  const [comments, setCommentsState] = useState<Record<string, Comment[]>>({});
+
+  // Still localStorage-backed (not part of shared import flow)
   const [allDocuments, setDocuments] = useLocalStorage<Document[]>("dv_documents_state", []);
   const [allScripts, setScripts] = useLocalStorage<Script[]>("dv_scripts_state", []);
-  const [allCalendarEvents, setCalendarEvents] = useLocalStorage<CalendarEvent[]>("dv_calendar_state", []);
   const [notifications, setNotifications] = useLocalStorage<Notification[]>("dv_notifications_state", []);
-  const [comments, setComments] = useLocalStorage<Record<string, Comment[]>>("dv_comments_state", {});
   const [scriptComments, setScriptComments] = useLocalStorage<Record<string, Comment[]>>("dv_scripts_comments", {});
   const [selectedClienteId, setSelectedClienteId] = useLocalStorage<string | null>("dv_selected_cliente", null);
 
-  // Fetch clients (users with role "cliente" or no role) from DB
+  const initialLoadDone = useRef(false);
+
+  // ── Load data from DB ──
+  useEffect(() => {
+    if (!user) return;
+    async function load() {
+      const [vids, evts, cmts] = await Promise.all([
+        fetchVideos(),
+        fetchCalendarEvents(),
+        fetchAllComments(),
+      ]);
+      setAllVideosState(vids);
+      setAllEventsState(evts);
+      setCommentsState(cmts);
+      initialLoadDone.current = true;
+    }
+    load();
+  }, [user]);
+
+  // ── Realtime subscriptions ──
+  useEffect(() => {
+    if (!user) return;
+
+    const channel = supabase
+      .channel("app-realtime")
+      .on("postgres_changes", { event: "*", schema: "public", table: "videos" }, () => {
+        fetchVideos().then(setAllVideosState);
+      })
+      .on("postgres_changes", { event: "*", schema: "public", table: "calendar_events" }, () => {
+        fetchCalendarEvents().then(setAllEventsState);
+      })
+      .on("postgres_changes", { event: "*", schema: "public", table: "video_comments" }, () => {
+        fetchAllComments().then(setCommentsState);
+      })
+      .subscribe();
+
+    return () => { supabase.removeChannel(channel); };
+  }, [user]);
+
+  // Wrapper setters that also update DB state locally
+  const setVideos = useCallback((updater: Video[] | ((prev: Video[]) => Video[])) => {
+    setAllVideosState((prev) => typeof updater === "function" ? updater(prev) : updater);
+  }, []);
+  const setCalendarEvents = useCallback((updater: CalendarEvent[] | ((prev: CalendarEvent[]) => CalendarEvent[])) => {
+    setAllEventsState((prev) => typeof updater === "function" ? updater(prev) : updater);
+  }, []);
+  const setComments = useCallback((updater: Record<string, Comment[]> | ((prev: Record<string, Comment[]>) => Record<string, Comment[]>)) => {
+    setCommentsState((prev) => typeof updater === "function" ? updater(prev) : updater);
+  }, []);
+
+  // ── Fetch clients ──
   useEffect(() => {
     async function loadClients() {
       try {
         const { data: profiles, error: pErr } = await supabase.from("profiles").select("*");
         if (pErr || !profiles) {
           console.error("Error loading profiles:", pErr);
-          // Fallback to cache
           try {
             const cached = localStorage.getItem("dv_clients_cache");
             if (cached) setClients(JSON.parse(cached));
@@ -155,82 +213,44 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
     setNotifications((prev) => [notification, ...prev]);
   }, [setNotifications]);
 
-  const approveVideo = useCallback((videoId: string) => {
+  const approveVideo = useCallback(async (videoId: string) => {
     const now = new Date().toISOString();
-    setVideos((prev) =>
-      prev.map((v) =>
-        v.id === videoId
-          ? {
-              ...v,
-              status: "approved" as const,
-              statusHistory: [...v.statusHistory, { status: "Aprobado", date: now.split("T")[0], by: user?.name || "Cliente" }],
-            }
-          : v
-      )
-    );
     const video = allVideos.find((v) => v.id === videoId);
-    if (video) {
-      addNotification({
-        type: "video_aprobado",
-        message: `${user?.name || "Cliente"} aprobó '${video.title}'`,
-        date: now,
-        read: false,
-        link: "/videos",
-      });
-    }
-  }, [setVideos, allVideos, user, addNotification]);
+    if (!video) return;
+    const newHistory = [...video.statusHistory, { status: "Aprobado", date: now.split("T")[0], by: user?.name || "Cliente" }];
+    try {
+      await updateVideoStatus(videoId, "approved", newHistory);
+    } catch { /* realtime will sync */ }
+    addNotification({
+      type: "video_aprobado",
+      message: `${user?.name || "Cliente"} aprobó '${video.title}'`,
+      date: now, read: false, link: "/videos",
+    });
+  }, [allVideos, user, addNotification]);
 
-  const requestChanges = useCallback((videoId: string, comment: string) => {
+  const requestChanges = useCallback(async (videoId: string, comment: string) => {
     const now = new Date().toISOString();
-    setVideos((prev) =>
-      prev.map((v) =>
-        v.id === videoId
-          ? {
-              ...v,
-              status: "changes" as const,
-              statusHistory: [...v.statusHistory, { status: "Cambios solicitados", date: now.split("T")[0], by: user?.name || "Cliente" }],
-            }
-          : v
-      )
-    );
-    const newComment: Comment = {
-      id: `c_${Date.now()}`,
-      author: user?.name || "Cliente",
-      isClient: user?.role === "cliente",
-      text: comment,
-      date: now,
-    };
-    setComments((prev) => ({
-      ...prev,
-      [videoId]: [newComment, ...(prev[videoId] || [])],
-    }));
     const video = allVideos.find((v) => v.id === videoId);
-    if (video) {
-      addNotification({
-        type: "video_cambios",
-        message: `${user?.name || "Cliente"} solicitó cambios en '${video.title}'`,
-        date: now,
-        read: false,
-        link: "/videos",
-      });
-    }
-  }, [setVideos, setComments, allVideos, user, addNotification]);
+    if (!video) return;
+    const newHistory = [...video.statusHistory, { status: "Cambios solicitados", date: now.split("T")[0], by: user?.name || "Cliente" }];
+    try {
+      await updateVideoStatus(videoId, "changes", newHistory);
+      await insertComment(videoId, user?.name || "Cliente", comment, user?.role === "cliente", user?.id || "");
+    } catch { /* realtime will sync */ }
+    addNotification({
+      type: "video_cambios",
+      message: `${user?.name || "Cliente"} solicitó cambios en '${video.title}'`,
+      date: now, read: false, link: "/videos",
+    });
+  }, [allVideos, user, addNotification]);
 
-  const addComment = useCallback((videoId: string, text: string) => {
-    const newComment: Comment = {
-      id: `c_${Date.now()}`,
-      author: user?.name || "Usuario",
-      isClient: user?.role === "cliente",
-      text,
-      date: new Date().toISOString(),
-    };
-    setComments((prev) => ({
-      ...prev,
-      [videoId]: [newComment, ...(prev[videoId] || [])],
-    }));
-  }, [setComments, user]);
+  const addComment = useCallback(async (videoId: string, text: string) => {
+    try {
+      await insertComment(videoId, user?.name || "Usuario", text, user?.role === "cliente", user?.id || "");
+    } catch { /* realtime will sync */ }
+  }, [user]);
 
-  // Script functions
+  // Script functions (still localStorage)
   const approveScript = useCallback((scriptId: string) => {
     const now = new Date().toISOString();
     setScripts((prev) =>
@@ -249,9 +269,7 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
       addNotification({
         type: "script_aprobado",
         message: `${user?.name || "Admin"} aprobó el guión "${script.title}"`,
-        date: now,
-        read: false,
-        link: "/documentos",
+        date: now, read: false, link: "/documentos",
       });
     }
   }, [setScripts, allScripts, user, addNotification]);
@@ -285,9 +303,7 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
       addNotification({
         type: "script_cambios",
         message: `${user?.name || "Admin"} solicitó cambios en "${script.title}"`,
-        date: now,
-        read: false,
-        link: "/documentos",
+        date: now, read: false, link: "/documentos",
       });
     }
   }, [setScripts, setScriptComments, allScripts, user, addNotification]);
@@ -312,98 +328,84 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
     );
   }, [setScripts]);
 
-  const feedApifyToMetrics = useCallback((importedVideos: Video[], targetClienteId: string) => {
-    const igPosts: PostMetric[] = importedVideos
-      .filter((v) => v.igShortCode)
-      .map((v) => ({
-        id: v.igShortCode || v.id,
-        url: v.embedUrl || "",
-        thumbnail: v.thumbnail,
-        title: v.igCaption || v.title,
-        date: v.deliveryDate,
-        type: v.igViews ? "REEL" : "POST",
-        views: v.igViews || 0,
-        likes: v.igLikes || 0,
-        comments: v.igComments || 0,
-        shares: 0,
-        reach: 0,
-        engagement: v.igViews && v.igViews > 0
-          ? ((v.igLikes || 0) + (v.igComments || 0)) / v.igViews * 100
-          : 0,
-      }));
-
-    if (igPosts.length === 0) return { added: 0, skipped: 0 };
-
-    const metricsKey = `dv_metrics_${targetClienteId}_instagram`;
-    try {
-      const existing: PlatformMetrics | null = JSON.parse(localStorage.getItem(metricsKey) || "null");
-      const existingPosts = existing?.posts || [];
-      const { unique, duplicates } = filterDuplicates(
-        igPosts,
-        existingPosts,
-        (p) => p.url || p.id
-      );
-      const allPosts = [...existingPosts, ...unique];
-      const summary = calculateMonthlySummary(allPosts);
-
-      const updated: PlatformMetrics = {
-        clienteId: targetClienteId,
-        platform: "instagram",
-        uploadedAt: new Date().toISOString(),
-        fileName: existing?.fileName || "Importado desde Apify",
-        posts: allPosts,
-        monthlySummary: summary,
-      };
-      localStorage.setItem(metricsKey, JSON.stringify(updated));
-      return { added: unique.length, skipped: duplicates.length };
-    } catch {
-      return { added: 0, skipped: 0 };
-    }
-  }, []);
-
-  const importFromApify = useCallback((newVideos: Video[], newEvents: CalendarEvent[]) => {
+  // ── Import from Apify → writes directly to Supabase ──
+  const importFromApify = useCallback(async (newVideos: Video[], newEvents: CalendarEvent[]): Promise<ImportResult> => {
     const targetClient = newVideos[0]?.clienteId || newEvents[0]?.clienteId || "";
 
+    // Deduplicate videos
+    const existingKeys = await getExistingShortCodes(targetClient);
+    const uniqueVideos = newVideos.filter((v) => {
+      const key = (v as any).igShortCode || v.embedUrl || "";
+      return key && !existingKeys.has(key);
+    });
+    const videosSkipped = newVideos.length - uniqueVideos.length;
+
+    // Deduplicate events
+    const existingEventKeys = await getExistingEventKeys(targetClient);
+    const uniqueEvents = newEvents.filter((e) => {
+      const sc = (e as any).igShortCode;
+      if (sc && existingEventKeys.has(sc)) return false;
+      const fallback = `${e.date}|${e.title}|${e.clienteId}`;
+      return !existingEventKeys.has(fallback);
+    });
+    const eventsSkipped = newEvents.length - uniqueEvents.length;
+
+    // Insert into DB
     let videosAdded = 0;
-    let videosSkipped = 0;
     let eventsAdded = 0;
-    let eventsSkipped = 0;
+    let metricsAdded = 0;
 
-    setVideos((prev) => {
-      const { unique, duplicates } = filterDuplicates(
-        newVideos,
-        prev,
-        (v) => v.embedUrl || `${v.title}|${v.clienteId}|${v.deliveryDate}`
-      );
-      videosAdded = unique.length;
-      videosSkipped = duplicates.length;
-      return [...prev, ...unique];
-    });
+    try {
+      const inserted = await insertVideos(uniqueVideos);
+      videosAdded = inserted.length;
+    } catch (err) {
+      console.error("Error inserting videos:", err);
+    }
 
-    setCalendarEvents((prev) => {
-      const { unique, duplicates } = filterDuplicates(
-        newEvents,
-        prev,
-        (e) => (e as any).igShortCode || `${e.date}|${e.title}|${e.clienteId}`
-      );
-      eventsAdded = unique.length;
-      eventsSkipped = duplicates.length;
-      return [...prev, ...unique];
-    });
+    try {
+      const inserted = await insertCalendarEvents(uniqueEvents);
+      eventsAdded = inserted.length;
+    } catch (err) {
+      console.error("Error inserting events:", err);
+    }
 
-    const metricsResult = feedApifyToMetrics(newVideos, targetClient);
+    // Metrics from video IG data
+    const igPosts = uniqueVideos
+      .filter((v) => (v as any).igShortCode)
+      .map((v) => ({
+        url: v.embedUrl || "",
+        thumbnail: v.thumbnail,
+        title: (v as any).igCaption || v.title,
+        date: v.deliveryDate,
+        type: (v as any).igViews ? "REEL" : "POST",
+        views: (v as any).igViews || 0,
+        likes: (v as any).igLikes || 0,
+        comments: (v as any).igComments || 0,
+        shares: 0,
+        reach: 0,
+        engagement: (v as any).igViews && (v as any).igViews > 0
+          ? (((v as any).igLikes || 0) + ((v as any).igComments || 0)) / (v as any).igViews * 100
+          : 0,
+        igShortCode: (v as any).igShortCode || "",
+      }));
+
+    try {
+      metricsAdded = await insertPostMetrics(targetClient, "instagram", igPosts);
+    } catch (err) {
+      console.error("Error inserting metrics:", err);
+    }
+
     const totalSkipped = videosSkipped + eventsSkipped;
-
     addNotification({
       type: "import_completado",
-      message: `Importación: ${videosAdded} videos, ${eventsAdded} eventos${metricsResult.added > 0 ? `, ${metricsResult.added} métricas` : ""}${totalSkipped > 0 ? ` · ${totalSkipped} duplicados omitidos` : ""}`,
+      message: `Importación: ${videosAdded} videos, ${eventsAdded} eventos${metricsAdded > 0 ? `, ${metricsAdded} métricas` : ""}${totalSkipped > 0 ? ` · ${totalSkipped} duplicados omitidos` : ""}`,
       date: new Date().toISOString(),
       read: false,
       link: "/videos",
     });
 
-    return { videosAdded, videosSkipped, eventsAdded, eventsSkipped, metricsAdded: metricsResult.added, metricsSkipped: metricsResult.skipped };
-  }, [setVideos, setCalendarEvents, addNotification, feedApifyToMetrics]);
+    return { videosAdded, videosSkipped, eventsAdded, eventsSkipped, metricsAdded, metricsSkipped: 0 };
+  }, [addNotification]);
 
   return (
     <AppStateContext.Provider
