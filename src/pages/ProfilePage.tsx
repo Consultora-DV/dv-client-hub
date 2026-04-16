@@ -98,6 +98,16 @@ export default function ProfilePage() {
     );
   }
 
+  if (profileLoading) {
+    return (
+      <div className="max-w-4xl mx-auto">
+        <div className="glass gold-border rounded-xl p-10 text-center">
+          <p className="text-sm text-muted-foreground">Cargando perfil...</p>
+        </div>
+      </div>
+    );
+  }
+
   if (!profileData && !clientInfo) {
     return (
       <div className="max-w-4xl mx-auto">
@@ -105,8 +115,11 @@ export default function ProfilePage() {
           <div className="w-16 h-16 mx-auto rounded-full bg-primary/10 flex items-center justify-center">
             <Edit className="h-8 w-8 text-primary" />
           </div>
-          <h2 className="text-xl font-display font-bold text-foreground">Sin perfil seleccionado</h2>
-          <p className="text-sm text-muted-foreground">Selecciona un cliente desde el menú superior para ver su perfil.</p>
+          <h2 className="text-xl font-display font-bold text-foreground">Sin perfil configurado</h2>
+          <p className="text-sm text-muted-foreground">Este cliente aún no ha completado su perfil.</p>
+          <Button onClick={() => setEditingOnboarding(true)} variant="outline" className="rounded-xl">
+            <Edit className="h-4 w-4 mr-2" /> Completar perfil
+          </Button>
         </motion.div>
       </div>
     );
