@@ -585,13 +585,15 @@ export default function VideosPage() {
         {paginatedVideos.map((video) => (
           <div key={video.id} className="relative group">
             <VideoCard video={video} commentCount={(comments[video.id] || []).length} onClick={() => setSelected(video)} />
-            <button
-              onClick={(e) => { e.stopPropagation(); setDeleteTarget(video); }}
-              className="absolute top-3 right-3 p-1.5 rounded-lg bg-background/80 text-muted-foreground hover:text-destructive opacity-0 group-hover:opacity-100 transition-opacity z-10"
-              title="Eliminar video"
-            >
-              <Trash2 className="h-4 w-4" />
-            </button>
+            {isAdmin && (
+              <button
+                onClick={(e) => { e.stopPropagation(); setDeleteTarget(video); }}
+                className="absolute top-3 right-3 p-1.5 rounded-lg bg-background/80 text-muted-foreground hover:text-destructive opacity-0 group-hover:opacity-100 transition-opacity z-10"
+                title="Eliminar video"
+              >
+                <Trash2 className="h-4 w-4" />
+              </button>
+            )
           </div>
         ))}
         {paginatedVideos.length === 0 && (
