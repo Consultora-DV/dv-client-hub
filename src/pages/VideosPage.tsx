@@ -48,6 +48,15 @@ const statusConfig: Record<string, { label: string; class: string }> = {
 };
 
 type StatusFilter = "all" | "pending" | "approved" | "changes" | "published";
+type SortOption = "date_desc" | "date_asc" | "likes" | "views" | "comments";
+
+const sortOptions: { key: SortOption; label: string }[] = [
+  { key: "date_desc", label: "Más recientes" },
+  { key: "date_asc", label: "Más antiguos" },
+  { key: "views", label: "Más vistas" },
+  { key: "likes", label: "Más likes" },
+  { key: "comments", label: "Más comentarios" },
+];
 
 const filterConfig: { key: StatusFilter; label: string; color: string }[] = [
   { key: "all", label: "Todos", color: "bg-secondary text-foreground" },
