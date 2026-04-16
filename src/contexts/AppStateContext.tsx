@@ -79,10 +79,42 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
 
   // ── Migrate localStorage data to DB (one-time) ──
   const migrateLocalStorage = useCallback(async () => {
-    const migrationKey = "dv_migration_to_db_done";
+    const migrationKey = "dv_migration_to_db_v2";
     if (localStorage.getItem(migrationKey) === "true") return;
 
     try {
+      // Build a mapping from old string IDs to real UUIDs using profiles
+      const { data: profiles } = await supabase.from("profiles").select("user_id, display_name, email");
+      const idMap = new Map<string, string>();
+      for (const p of profiles || []) {
+        // Map various possible old-format IDs to real UUID
+        const name = (p.display_name || "").toLowerCase().replace(/\s+/g, "-").replace(/\./g, "");
+        const nameWithDot = (p.display_name || "").toLowerCase().replace(/\s+/g, "-");
+        idMap.set(name, p.user_id);
+        idMap.set(nameWithDot, p.user_id);
+        idMap.set(p.user_id, p.user_id); // already UUID
+        if (p.email) idMap.set(p.email, p.user_id);
+        // Common variants
+        const parts = (p.display_name || "").split(" ");
+        if (parts.length >= 2) {
+          idMap.set(`${parts[0].toLowerCase()}-${parts[parts.length - 1].toLowerCase()}`, p.user_id);
+          // Handle "Dra. Fedra Aldama" -> "fedra-aldama", "dra-fedra-aldama"
+          const withoutTitle = parts.filter(p => !p.match(/^(dr|dra|ing|lic|prof)\.?$/i));
+          if (withoutTitle.length >= 2) {
+            idMap.set(withoutTitle.map(w => w.toLowerCase()).join("-"), p.user_id);
+          }
+        }
+      }
+
+      const resolveClienteId = (oldId: string): string | null => {
+        if (!oldId) return null;
+        // Already a valid UUID?
+        if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(oldId)) {
+          return oldId;
+        }
+        return idMap.get(oldId.toLowerCase()) || idMap.get(oldId) || null;
+      };
+
       // Read localStorage videos
       const localVideosRaw = localStorage.getItem("dv_videos_state");
       const localVideos: Video[] = localVideosRaw ? JSON.parse(localVideosRaw) : [];
@@ -92,13 +124,18 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
       const localEvents: CalendarEvent[] = localEventsRaw ? JSON.parse(localEventsRaw) : [];
 
       if (localVideos.length > 0) {
-        // Check existing to avoid duplicates
         const existingVids = await fetchVideos();
         const existingCodes = new Set(existingVids.map((v: Video) => (v as any).igShortCode || v.embedUrl).filter(Boolean));
-        const newVids = localVideos.filter((v) => {
-          const key = (v as any).igShortCode || v.embedUrl;
-          return key && !existingCodes.has(key);
-        });
+        const newVids = localVideos
+          .map((v) => {
+            const realId = resolveClienteId(v.clienteId);
+            return realId ? { ...v, clienteId: realId } : null;
+          })
+          .filter((v): v is Video => {
+            if (!v) return false;
+            const key = (v as any).igShortCode || v.embedUrl;
+            return key ? !existingCodes.has(key) : true;
+          });
         if (newVids.length > 0) {
           await insertVideos(newVids);
           console.log(`Migrated ${newVids.length} videos from localStorage to DB`);
@@ -108,10 +145,16 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
       if (localEvents.length > 0) {
         const existingEvts = await fetchCalendarEvents();
         const existingKeys = new Set(existingEvts.map((e: CalendarEvent) => (e as any).igShortCode || `${e.date}|${e.title}`).filter(Boolean));
-        const newEvts = localEvents.filter((e) => {
-          const key = (e as any).igShortCode || `${e.date}|${e.title}`;
-          return !existingKeys.has(key);
-        });
+        const newEvts = localEvents
+          .map((e) => {
+            const realId = resolveClienteId(e.clienteId);
+            return realId ? { ...e, clienteId: realId } : null;
+          })
+          .filter((e): e is CalendarEvent => {
+            if (!e) return false;
+            const key = (e as any).igShortCode || `${e.date}|${e.title}`;
+            return !existingKeys.has(key);
+          });
         if (newEvts.length > 0) {
           await insertCalendarEvents(newEvts);
           console.log(`Migrated ${newEvts.length} events from localStorage to DB`);
@@ -124,6 +167,8 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
         try {
           const metrics: PlatformMetrics = JSON.parse(localStorage.getItem(key) || "null");
           if (!metrics?.posts?.length) continue;
+          const realClienteId = resolveClienteId(metrics.clienteId);
+          if (!realClienteId) continue;
           const posts = metrics.posts.map((p: PostMetric) => ({
             url: p.url,
             thumbnail: p.thumbnail,
@@ -138,8 +183,8 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
             engagement: p.engagement,
             igShortCode: p.id || "",
           }));
-          await insertPostMetrics(metrics.clienteId, metrics.platform, posts);
-          console.log(`Migrated ${posts.length} metrics for ${metrics.clienteId}`);
+          await insertPostMetrics(realClienteId, metrics.platform, posts);
+          console.log(`Migrated ${posts.length} metrics for ${realClienteId}`);
         } catch { /* skip broken entries */ }
       }
 
