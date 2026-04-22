@@ -19,6 +19,7 @@ import ProfilePage from "@/pages/ProfilePage";
 import ResetPasswordPage from "@/pages/ResetPasswordPage";
 import ClientWelcomePage from "@/pages/ClientWelcomePage";
 import NotFound from "@/pages/NotFound";
+import PendingApprovalPage from "@/pages/PendingApprovalPage";
 
 const queryClient = new QueryClient();
 
@@ -29,6 +30,15 @@ function OnboardingGuard({ children }: { children: React.ReactNode }) {
     if (done !== "true") {
       return <Navigate to="/onboarding" replace />;
     }
+  }
+  return <>{children}</>;
+}
+
+function ApprovalGuard({ children }: { children: React.ReactNode }) {
+  const { user } = useAuth();
+  if (user?.role === "admin") return <>{children}</>;
+  if (user && user.approvalStatus !== "approved") {
+    return <PendingApprovalPage />;
   }
   return <>{children}</>;
 }
@@ -60,7 +70,7 @@ function AppRoutes() {
                 <Route path="/" element={<Navigate to="/dashboard" replace />} />
                 <Route path="/auth" element={<Navigate to="/dashboard" replace />} />
                 <Route path="/onboarding" element={<OnboardingPage />} />
-                <Route element={<OnboardingGuard><AppLayout /></OnboardingGuard>}>
+                <Route element={<ApprovalGuard><OnboardingGuard><AppLayout /></OnboardingGuard></ApprovalGuard>}>
                   <Route path="/dashboard" element={<DashboardPage />} />
                   <Route path="/videos" element={<VideosPage />} />
                   <Route path="/documentos" element={<DocumentsPage />} />
