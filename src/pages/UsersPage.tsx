@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { UserCog, UserPlus, X, Mail, Copy, Check, Clock, ShieldCheck, Ban } from "lucide-react";
+import { UserCog, UserPlus, X, Mail, Copy, Check, Clock, ShieldCheck, Ban, Trash2, AlertTriangle } from "lucide-react";
 import { toast } from "sonner";
 
 interface ManagedUser {
@@ -211,6 +211,8 @@ export default function UsersPage() {
   const { user: currentUser } = useAuth();
   const [users, setUsers] = useState<ManagedUser[]>([]);
   const [editingUser, setEditingUser] = useState<ManagedUser | null>(null);
+  const [deletingUser, setDeletingUser] = useState<ManagedUser | null>(null);
+  const [deleteLoading, setDeleteLoading] = useState(false);
   const [showInvite, setShowInvite] = useState(false);
   const [loading, setLoading] = useState(true);
 
@@ -271,6 +273,25 @@ export default function UsersPage() {
     } else {
       toast.success(status === "approved" ? "Usuario aprobado ✓" : status === "rejected" ? "Usuario rechazado" : "Estado actualizado");
       loadUsers();
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!deletingUser) return;
+    setDeleteLoading(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("delete-user", {
+        body: { userId: deletingUser.user_id },
+      });
+      if (error) throw new Error(error.message);
+      if (data?.error) throw new Error(data.error);
+      toast.success(`Usuario ${deletingUser.name} eliminado`);
+      setDeletingUser(null);
+      loadUsers();
+    } catch (err: any) {
+      toast.error("Error al eliminar: " + (err.message || "intenta de nuevo"));
+    } finally {
+      setDeleteLoading(false);
     }
   };
 
