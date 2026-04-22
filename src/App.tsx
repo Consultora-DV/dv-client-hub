@@ -14,7 +14,7 @@ import DocumentsPage from "@/pages/DocumentsPage";
 import CalendarPage from "@/pages/CalendarPage";
 import MetricsPage from "@/pages/MetricsPage";
 import UsersPage from "@/pages/UsersPage";
-import OnboardingPage from "@/pages/OnboardingPage";
+
 import ProfilePage from "@/pages/ProfilePage";
 import ResetPasswordPage from "@/pages/ResetPasswordPage";
 import ClientWelcomePage from "@/pages/ClientWelcomePage";
@@ -58,7 +58,7 @@ function AppRoutes() {
               <Routes>
                 <Route path="/" element={<Navigate to="/dashboard" replace />} />
                 <Route path="/auth" element={<Navigate to="/dashboard" replace />} />
-                <Route path="/onboarding" element={<OnboardingPage />} />
+                
                 <Route element={<ApprovalGuard><AppLayout /></ApprovalGuard>}>
                   <Route path="/dashboard" element={<DashboardPage />} />
                   <Route path="/videos" element={<VideosPage />} />
