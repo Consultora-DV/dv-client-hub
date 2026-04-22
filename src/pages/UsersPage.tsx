@@ -411,6 +411,15 @@ export default function UsersPage() {
                   >
                     <UserCog className="h-4 w-4" />
                   </button>
+                  {u.user_id !== currentUser?.id && (
+                    <button
+                      onClick={() => setDeletingUser(u)}
+                      className="p-2 rounded-lg hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors"
+                      title="Eliminar usuario"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  )}
                 </div>
               )}
             </div>
@@ -473,6 +482,17 @@ export default function UsersPage() {
                     >
                       <UserCog className="h-3 w-3" />
                       Editar rol
+                    </Button>
+                  )}
+                  {u.user_id !== currentUser?.id && (
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => setDeletingUser(u)}
+                      className="h-8 gap-1 text-destructive hover:text-destructive hover:bg-destructive/10 text-xs"
+                      title="Eliminar"
+                    >
+                      <Trash2 className="h-3 w-3" />
                     </Button>
                   )}
                 </div>
