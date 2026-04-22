@@ -60,6 +60,11 @@ interface AppStateContextType {
   requestChangesScript: (scriptId: string, text: string) => void;
   addScriptComment: (scriptId: string, commentText: string) => void;
   markScriptViewed: (scriptId: string) => void;
+  addDocumentToDb: (doc: Omit<Document, "id">) => Promise<void>;
+  addScriptToDb: (script: Omit<Script, "id">) => Promise<void>;
+  removeDocumentFromDb: (id: string) => Promise<void>;
+  removeScriptFromDb: (id: string) => Promise<void>;
+  updateDocumentInDb: (id: string, updates: Partial<Document>) => Promise<void>;
 }
 
 const AppStateContext = createContext<AppStateContextType | null>(null);
