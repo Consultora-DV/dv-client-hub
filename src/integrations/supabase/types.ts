@@ -118,6 +118,48 @@ export type Database = {
         }
         Relationships: []
       }
+      documents: {
+        Row: {
+          cliente_id: string
+          created_at: string
+          date: string
+          drive_link: string
+          file_url: string | null
+          id: string
+          is_new: boolean
+          name: string
+          sort_order: number
+          type: string
+          updated_at: string
+        }
+        Insert: {
+          cliente_id: string
+          created_at?: string
+          date?: string
+          drive_link?: string
+          file_url?: string | null
+          id?: string
+          is_new?: boolean
+          name: string
+          sort_order?: number
+          type?: string
+          updated_at?: string
+        }
+        Update: {
+          cliente_id?: string
+          created_at?: string
+          date?: string
+          drive_link?: string
+          file_url?: string | null
+          id?: string
+          is_new?: boolean
+          name?: string
+          sort_order?: number
+          type?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       post_metrics: {
         Row: {
           cliente_id: string
@@ -208,6 +250,92 @@ export type Database = {
           id?: string
           updated_at?: string
           user_id?: string
+        }
+        Relationships: []
+      }
+      script_comments: {
+        Row: {
+          author: string
+          created_at: string
+          date: string
+          id: string
+          is_client: boolean
+          script_id: string
+          text: string
+          user_id: string
+        }
+        Insert: {
+          author: string
+          created_at?: string
+          date?: string
+          id?: string
+          is_client?: boolean
+          script_id: string
+          text: string
+          user_id: string
+        }
+        Update: {
+          author?: string
+          created_at?: string
+          date?: string
+          id?: string
+          is_client?: boolean
+          script_id?: string
+          text?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "script_comments_script_id_fkey"
+            columns: ["script_id"]
+            isOneToOne: false
+            referencedRelation: "scripts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      scripts: {
+        Row: {
+          cliente_id: string
+          created_at: string
+          date: string
+          drive_link: string
+          id: string
+          is_new: boolean
+          sort_order: number
+          status: string
+          status_history: Json
+          title: string
+          updated_at: string
+          visto: boolean
+        }
+        Insert: {
+          cliente_id: string
+          created_at?: string
+          date?: string
+          drive_link?: string
+          id?: string
+          is_new?: boolean
+          sort_order?: number
+          status?: string
+          status_history?: Json
+          title: string
+          updated_at?: string
+          visto?: boolean
+        }
+        Update: {
+          cliente_id?: string
+          created_at?: string
+          date?: string
+          drive_link?: string
+          id?: string
+          is_new?: boolean
+          sort_order?: number
+          status?: string
+          status_history?: Json
+          title?: string
+          updated_at?: string
+          visto?: boolean
         }
         Relationships: []
       }
