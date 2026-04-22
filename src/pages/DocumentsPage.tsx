@@ -350,7 +350,7 @@ export default function DocumentsPage() {
   const [showAddModal, setShowAddModal] = useState(false);
   const [selectedScript, setSelectedScript] = useState<Script | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<{ type: "script" | "document"; id: string; name: string } | null>(null);
-  const { documents, scripts, markScriptViewed, clients: appClients, scriptComments, setScripts, setDocuments } = useAppState();
+  const { documents, scripts, markScriptViewed, clients: appClients, scriptComments, removeDocumentFromDb, removeScriptFromDb, updateDocumentInDb } = useAppState();
   const { canUpload, isClient, isAdmin } = usePermissions();
 
   // Drag state
@@ -380,12 +380,17 @@ export default function DocumentsPage() {
   const docTotalPages = Math.max(1, Math.ceil(filteredDocuments.length / PER_PAGE));
   const paginatedDocs = filteredDocuments.slice((docPage - 1) * PER_PAGE, docPage * PER_PAGE);
 
-  const handleDelete = () => {
+  const handleDelete = async () => {
     if (!deleteTarget) return;
-    if (deleteTarget.type === "script") {
-      setScripts((prev) => prev.filter((s) => s.id !== deleteTarget.id));
-    } else {
-      setDocuments((prev) => prev.filter((d) => d.id !== deleteTarget.id));
+    try {
+      if (deleteTarget.type === "script") {
+        await removeScriptFromDb(deleteTarget.id);
+      } else {
+        await removeDocumentFromDb(deleteTarget.id);
+      }
+      toast.success("Eliminado correctamente");
+    } catch (err: any) {
+      toast.error("Error al eliminar: " + (err.message || ""));
     }
     setDeleteTarget(null);
   };
@@ -421,20 +426,9 @@ export default function DocumentsPage() {
     if (dragIdx === null || dragType === null) return;
     if (dragIdx === targetIdx) { setDragIdx(null); setDragOverIdx(null); setDragType(null); return; }
 
+    // Reordering is local-only for now (sort_order persistence not wired)
     if (dragType === "script") {
-      setScripts((prev) => {
-        const arr = [...prev];
-        const [moved] = arr.splice(dragIdx, 1);
-        arr.splice(targetIdx, 0, moved);
-        return arr;
-      });
-    } else {
-      setDocuments((prev) => {
-        const arr = [...prev];
-        const [moved] = arr.splice(dragIdx, 1);
-        arr.splice(targetIdx, 0, moved);
-        return arr;
-      });
+      // no-op persistence; visual order will reset on refresh
     }
     setDragIdx(null);
     setDragOverIdx(null);
