@@ -232,20 +232,24 @@ export default function UsersPage() {
     const roleMap = new Map<string, string>();
     allRoles?.forEach((r) => roleMap.set(r.user_id, r.role));
 
-    const managed: ManagedUser[] = profiles.map((p) => ({
+    const managed: ManagedUser[] = profiles.map((p: any) => ({
       id: p.id,
       user_id: p.user_id,
       name: p.display_name || p.email || "Usuario",
       email: p.email || "",
       role: (roleMap.get(p.user_id) as UserRole) ?? "cliente",
+      approvalStatus: (p.approval_status as ApprovalStatus) ?? "approved",
     }));
+
+    // Pendientes primero, luego rechazados, luego aprobados
+    const order: Record<ApprovalStatus, number> = { pending: 0, rejected: 1, approved: 2 };
+    managed.sort((a, b) => order[a.approvalStatus] - order[b.approvalStatus]);
 
     setUsers(managed);
     setLoading(false);
   };
 
   const handleSaveRole = async (userId: string, role: UserRole) => {
-    // Delete existing role first, then insert new one
     await supabase.from("user_roles").delete().eq("user_id", userId);
     const { error } = await supabase.from("user_roles").insert({ user_id: userId, role });
     if (error) {
@@ -255,6 +259,19 @@ export default function UsersPage() {
       loadUsers();
     }
     setEditingUser(null);
+  };
+
+  const handleApprove = async (userId: string, status: ApprovalStatus) => {
+    const { error } = await supabase
+      .from("profiles")
+      .update({ approval_status: status })
+      .eq("user_id", userId);
+    if (error) {
+      toast.error("Error: " + error.message);
+    } else {
+      toast.success(status === "approved" ? "Usuario aprobado ✓" : status === "rejected" ? "Usuario rechazado" : "Estado actualizado");
+      loadUsers();
+    }
   };
 
   if (loading) {
