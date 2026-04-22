@@ -627,7 +627,7 @@ export default function DocumentsPage() {
                           const { data, error } = await supabase.storage.from("documents").upload(path, file);
                           if (error) { toast.error("Error: " + error.message); return; }
                           const { data: urlData } = supabase.storage.from("documents").getPublicUrl(data.path);
-                          setDocuments((prev) => prev.map((doc) => doc.id === d.id ? { ...doc, fileUrl: urlData.publicUrl } : doc));
+                          await updateDocumentInDb(d.id, { fileUrl: urlData.publicUrl });
                           toast.success("Archivo subido correctamente");
                         } catch (err: any) { toast.error("Error al subir: " + (err.message || "desconocido")); }
                       }} />
