@@ -78,6 +78,14 @@ Deno.serve(async (req) => {
       );
     }
 
+    // Auto-approve users created by admin (they don't need manual approval)
+    if (newUser.user) {
+      await adminClient
+        .from("profiles")
+        .update({ approval_status: "approved" })
+        .eq("user_id", newUser.user.id);
+    }
+
     // Send password reset email so user can set their own password
     await adminClient.auth.admin.generateLink({
       type: "recovery",
