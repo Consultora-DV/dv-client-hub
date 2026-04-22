@@ -19,6 +19,7 @@ import ProfilePage from "@/pages/ProfilePage";
 import ResetPasswordPage from "@/pages/ResetPasswordPage";
 import ClientWelcomePage from "@/pages/ClientWelcomePage";
 import NotFound from "@/pages/NotFound";
+import PendingApprovalPage from "@/pages/PendingApprovalPage";
 
 const queryClient = new QueryClient();
 
@@ -29,6 +30,15 @@ function OnboardingGuard({ children }: { children: React.ReactNode }) {
     if (done !== "true") {
       return <Navigate to="/onboarding" replace />;
     }
+  }
+  return <>{children}</>;
+}
+
+function ApprovalGuard({ children }: { children: React.ReactNode }) {
+  const { user } = useAuth();
+  if (user?.role === "admin") return <>{children}</>;
+  if (user && user.approvalStatus !== "approved") {
+    return <PendingApprovalPage />;
   }
   return <>{children}</>;
 }
