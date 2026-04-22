@@ -17,6 +17,7 @@ import UsersPage from "@/pages/UsersPage";
 import OnboardingPage from "@/pages/OnboardingPage";
 import ProfilePage from "@/pages/ProfilePage";
 import ResetPasswordPage from "@/pages/ResetPasswordPage";
+import ClientWelcomePage from "@/pages/ClientWelcomePage";
 import NotFound from "@/pages/NotFound";
 
 const queryClient = new QueryClient();
