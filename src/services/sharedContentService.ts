@@ -78,7 +78,7 @@ export async function updateDocument(documentId: string, updates: Partial<Docume
   if (updates.driveLink !== undefined) row.drive_link = updates.driveLink;
   if (updates.fileUrl !== undefined) row.file_url = updates.fileUrl;
   if (updates.isNew !== undefined) row.is_new = updates.isNew;
-  const { error } = await supabase.from("documents").update(row).eq("id", documentId);
+  const { error } = await supabase.from("documents" as any).update(row as any).eq("id", documentId);
   if (error) throw error;
 }
 
@@ -102,7 +102,7 @@ export async function fetchScripts(): Promise<Script[]> {
 
 export async function createScript(script: Omit<Script, "id">): Promise<Script> {
   const { data, error } = await supabase
-    .from("scripts")
+    .from("scripts" as any)
     .insert({
       cliente_id: script.clienteId,
       title: script.title,
@@ -112,7 +112,7 @@ export async function createScript(script: Omit<Script, "id">): Promise<Script> 
       is_new: script.isNew,
       visto: script.visto,
       status_history: script.statusHistory,
-    })
+    } as any)
     .select()
     .single();
   if (error) throw error;
@@ -128,7 +128,7 @@ export async function updateScript(scriptId: string, updates: Partial<Script>): 
   if (updates.isNew !== undefined) row.is_new = updates.isNew;
   if (updates.visto !== undefined) row.visto = updates.visto;
   if (updates.statusHistory !== undefined) row.status_history = updates.statusHistory;
-  const { error } = await supabase.from("scripts").update(row).eq("id", scriptId);
+  const { error } = await supabase.from("scripts" as any).update(row as any).eq("id", scriptId);
   if (error) throw error;
 }
 
