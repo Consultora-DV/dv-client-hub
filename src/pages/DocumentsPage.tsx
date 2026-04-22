@@ -164,7 +164,7 @@ function ScriptDetailModal({ script, onClose }: { script: Script; onClose: () =>
 }
 
 function AddDocumentModal({ onClose }: { onClose: () => void }) {
-  const { setDocuments, allDocuments, setScripts, allScripts, clients: appClients } = useAppState();
+  const { allDocuments, allScripts, clients: appClients, addDocumentToDb, addScriptToDb } = useAppState();
   const [category, setCategory] = useState<"documento" | "guion">("documento");
   const [name, setName] = useState("");
   const [type, setType] = useState<Document["type"]>("pdf");
@@ -213,20 +213,24 @@ function AddDocumentModal({ onClose }: { onClose: () => void }) {
         setUploading(false);
         return;
       }
-      const newScript: Script = {
-        id: `s_${Date.now()}`,
-        clienteId,
-        title: name.trim(),
-        date: new Date().toISOString().split("T")[0],
-        status: "nuevo",
-        driveLink: fileUrl || driveLink || "#",
-        isNew: true,
-        visto: false,
-        comments: [],
-        statusHistory: [{ status: "Creado", date: new Date().toISOString().split("T")[0], by: "Sistema" }],
-      };
-      setScripts((prev) => [newScript, ...prev]);
-      toast.success("Guión agregado correctamente");
+      try {
+        await addScriptToDb({
+          clienteId,
+          title: name.trim(),
+          date: new Date().toISOString().split("T")[0],
+          status: "nuevo",
+          driveLink: fileUrl || driveLink || "#",
+          isNew: true,
+          visto: false,
+          comments: [],
+          statusHistory: [{ status: "Creado", date: new Date().toISOString().split("T")[0], by: "Sistema" }],
+        });
+        toast.success("Guión agregado correctamente");
+      } catch (err: any) {
+        toast.error("Error al guardar guión: " + (err.message || ""));
+        setUploading(false);
+        return;
+      }
     } else {
       const isDuplicate = allDocuments.some((d) => {
         if (driveLink && driveLink !== "#" && d.driveLink === driveLink && d.clienteId === clienteId) return true;
@@ -237,18 +241,22 @@ function AddDocumentModal({ onClose }: { onClose: () => void }) {
         setUploading(false);
         return;
       }
-      const newDoc: Document = {
-        id: `d_${Date.now()}`,
-        clienteId,
-        name: name.trim(),
-        type,
-        date: new Date().toISOString().split("T")[0],
-        driveLink: driveLink || "#",
-        fileUrl,
-        isNew: true,
-      };
-      setDocuments((prev) => [newDoc, ...prev]);
-      toast.success("Documento agregado correctamente");
+      try {
+        await addDocumentToDb({
+          clienteId,
+          name: name.trim(),
+          type,
+          date: new Date().toISOString().split("T")[0],
+          driveLink: driveLink || "#",
+          fileUrl,
+          isNew: true,
+        });
+        toast.success("Documento agregado correctamente");
+      } catch (err: any) {
+        toast.error("Error al guardar documento: " + (err.message || ""));
+        setUploading(false);
+        return;
+      }
     }
     setUploading(false);
     onClose();
