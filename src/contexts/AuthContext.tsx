@@ -4,6 +4,7 @@ import { toast } from "sonner";
 import type { User, Session } from "@supabase/supabase-js";
 
 export type UserRole = "admin" | "editor" | "diseñador" | "cliente";
+export type ApprovalStatus = "pending" | "approved" | "rejected";
 
 export interface AppUser {
   id: string;
@@ -12,6 +13,7 @@ export interface AppUser {
   avatar: string;
   business: string;
   role: UserRole;
+  approvalStatus: ApprovalStatus;
   clienteId?: string;
   customAvatar?: string;
 }
