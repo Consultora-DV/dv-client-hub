@@ -633,6 +633,7 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
         clients,
         importFromApify,
         scriptComments, approveScript, requestChangesScript, addScriptComment, markScriptViewed,
+        addDocumentToDb, addScriptToDb, removeDocumentFromDb, removeScriptFromDb, updateDocumentInDb,
       }}
     >
       {children}
