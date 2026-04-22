@@ -40,13 +40,13 @@ async function fetchUserRole(userId: string): Promise<UserRole> {
   return (data?.role as UserRole) ?? "cliente";
 }
 
-async function fetchProfile(userId: string): Promise<{ display_name: string | null; email: string | null; avatar_url: string | null; business: string | null }> {
+async function fetchProfile(userId: string): Promise<{ display_name: string | null; email: string | null; avatar_url: string | null; business: string | null; approval_status: ApprovalStatus | null }> {
   const { data } = await supabase
     .from("profiles")
-    .select("display_name, email, avatar_url, business")
+    .select("display_name, email, avatar_url, business, approval_status")
     .eq("user_id", userId)
     .maybeSingle();
-  return data ?? { display_name: null, email: null, avatar_url: null, business: null };
+  return data ?? { display_name: null, email: null, avatar_url: null, business: null, approval_status: null };
 }
 
 function buildAppUser(authUser: User, profile: Awaited<ReturnType<typeof fetchProfile>>, role: UserRole): AppUser {
@@ -58,6 +58,7 @@ function buildAppUser(authUser: User, profile: Awaited<ReturnType<typeof fetchPr
     avatar: name.substring(0, 2).toUpperCase(),
     business: profile.business || "",
     role,
+    approvalStatus: (profile.approval_status as ApprovalStatus) ?? "pending",
     clienteId: role === "cliente" ? authUser.id : undefined,
   };
 }
