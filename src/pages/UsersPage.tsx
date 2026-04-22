@@ -516,6 +516,57 @@ export default function UsersPage() {
             onInvited={loadUsers}
           />
         )}
+        {deletingUser && (
+          <motion.div
+            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm p-4"
+            onClick={() => !deleteLoading && setDeletingUser(null)}
+          >
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.95, opacity: 0 }}
+              onClick={(e) => e.stopPropagation()}
+              className="glass border border-destructive/30 rounded-2xl w-full max-w-md overflow-hidden"
+            >
+              <div className="p-5 border-b border-border/50 flex items-center gap-3">
+                <div className="w-10 h-10 rounded-full bg-destructive/15 flex items-center justify-center">
+                  <AlertTriangle className="h-5 w-5 text-destructive" />
+                </div>
+                <h2 className="font-display text-lg font-semibold text-foreground">Eliminar usuario</h2>
+              </div>
+              <div className="p-5 space-y-4">
+                <p className="text-sm text-foreground">
+                  ¿Seguro que quieres eliminar a <strong>{deletingUser.name}</strong>?
+                </p>
+                <div className="bg-destructive/5 border border-destructive/20 rounded-xl p-3 space-y-1">
+                  <p className="text-xs font-semibold text-destructive">Esta acción es permanente y eliminará:</p>
+                  <ul className="text-xs text-muted-foreground list-disc list-inside space-y-0.5">
+                    <li>La cuenta y acceso del usuario</li>
+                    <li>Su perfil y datos personales</li>
+                    <li>Sus videos, eventos, comentarios y métricas</li>
+                  </ul>
+                </div>
+                <div className="flex gap-2 pt-1">
+                  <Button
+                    onClick={handleDelete}
+                    disabled={deleteLoading}
+                    className="flex-1 bg-destructive hover:bg-destructive/90 text-destructive-foreground gap-2"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                    {deleteLoading ? "Eliminando..." : "Sí, eliminar"}
+                  </Button>
+                  <Button
+                    variant="outline"
+                    onClick={() => setDeletingUser(null)}
+                    disabled={deleteLoading}
+                    className="flex-1"
+                  >
+                    Cancelar
+                  </Button>
+                </div>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
       </AnimatePresence>
     </div>
   );
