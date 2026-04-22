@@ -282,20 +282,41 @@ export default function UsersPage() {
     );
   }
 
+  const pendingCount = users.filter((u) => u.approvalStatus === "pending").length;
+  const isAdmin = currentUser?.role === "admin";
+
   return (
     <div className="max-w-4xl mx-auto space-y-6">
       <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-display font-bold text-foreground">Gestión de Usuarios</h1>
-          <p className="text-sm text-muted-foreground mt-1">Administra roles de usuarios registrados</p>
+          <p className="text-sm text-muted-foreground mt-1">Administra roles y aprobaciones de usuarios</p>
         </div>
-        {currentUser?.role === "admin" && (
+        {isAdmin && (
           <Button onClick={() => setShowInvite(true)} className="gold-gradient text-primary-foreground gap-2">
             <UserPlus className="h-4 w-4" />
             Agregar usuario
           </Button>
         )}
       </motion.div>
+
+      {pendingCount > 0 && isAdmin && (
+        <motion.div
+          initial={{ opacity: 0, y: -10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="glass gold-border rounded-xl p-4 flex items-center gap-3"
+        >
+          <div className="w-10 h-10 rounded-full bg-status-pending/20 flex items-center justify-center shrink-0">
+            <Clock className="h-5 w-5 text-status-pending" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-semibold text-foreground">
+              {pendingCount} {pendingCount === 1 ? "usuario pendiente" : "usuarios pendientes"} de aprobación
+            </p>
+            <p className="text-xs text-muted-foreground">Revisa y aprueba para que puedan acceder al panel.</p>
+          </div>
+        </motion.div>
+      )}
 
       {/* Desktop table */}
       <div className="hidden md:block glass gold-border rounded-xl overflow-hidden">
@@ -304,8 +325,13 @@ export default function UsersPage() {
         )}
         {users.map((u) => {
           const badge = roleBadges[u.role];
+          const ab = approvalBadges[u.approvalStatus];
+          const isPending = u.approvalStatus === "pending";
           return (
-            <div key={u.id} className="flex items-center gap-4 px-5 py-4 border-b border-border/30 last:border-0">
+            <div
+              key={u.id}
+              className={`flex items-center gap-4 px-5 py-4 border-b border-border/30 last:border-0 ${isPending ? "bg-status-pending/5" : ""}`}
+            >
               <div className="w-10 h-10 rounded-full bg-secondary flex items-center justify-center text-sm font-semibold text-foreground">
                 {u.name.split(" ").map((n) => n[0]).join("").slice(0, 2)}
               </div>
@@ -313,15 +339,58 @@ export default function UsersPage() {
                 <p className="text-sm font-medium text-foreground">{u.name}</p>
                 <p className="text-xs text-muted-foreground">{u.email}</p>
               </div>
+              <Badge className={`text-[9px] ${ab.class}`}>{ab.label}</Badge>
               {badge && <Badge className={`text-[9px] ${badge.class}`}>{badge.label}</Badge>}
-              {currentUser?.role === "admin" && (
-                <button
-                  onClick={() => setEditingUser(u)}
-                  className="p-2 rounded-lg hover:bg-secondary text-muted-foreground hover:text-foreground transition-colors"
-                  title="Editar usuario"
-                >
-                  <UserCog className="h-4 w-4" />
-                </button>
+              {isAdmin && (
+                <div className="flex items-center gap-1">
+                  {isPending && (
+                    <>
+                      <Button
+                        size="sm"
+                        onClick={() => handleApprove(u.user_id, "approved")}
+                        className="h-8 gap-1 gold-gradient text-primary-foreground text-xs"
+                      >
+                        <Check className="h-3 w-3" />
+                        Aprobar
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => handleApprove(u.user_id, "rejected")}
+                        className="h-8 gap-1 text-destructive hover:text-destructive hover:bg-destructive/10 text-xs"
+                      >
+                        <Ban className="h-3 w-3" />
+                      </Button>
+                    </>
+                  )}
+                  {u.approvalStatus === "approved" && (
+                    <button
+                      onClick={() => handleApprove(u.user_id, "rejected")}
+                      className="p-2 rounded-lg hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors"
+                      title="Revocar acceso"
+                    >
+                      <Ban className="h-4 w-4" />
+                    </button>
+                  )}
+                  {u.approvalStatus === "rejected" && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => handleApprove(u.user_id, "approved")}
+                      className="h-8 gap-1 text-xs"
+                    >
+                      <ShieldCheck className="h-3 w-3" />
+                      Reactivar
+                    </Button>
+                  )}
+                  <button
+                    onClick={() => setEditingUser(u)}
+                    className="p-2 rounded-lg hover:bg-secondary text-muted-foreground hover:text-foreground transition-colors"
+                    title="Editar rol"
+                  >
+                    <UserCog className="h-4 w-4" />
+                  </button>
+                </div>
               )}
             </div>
           );
@@ -335,8 +404,10 @@ export default function UsersPage() {
         )}
         {users.map((u) => {
           const badge = roleBadges[u.role];
+          const ab = approvalBadges[u.approvalStatus];
+          const isPending = u.approvalStatus === "pending";
           return (
-            <div key={u.id} className="glass gold-border rounded-xl p-4 space-y-3">
+            <div key={u.id} className={`glass gold-border rounded-xl p-4 space-y-3 ${isPending ? "ring-1 ring-status-pending/30" : ""}`}>
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-full bg-secondary flex items-center justify-center text-sm font-semibold text-foreground shrink-0">
                   {u.name.split(" ").map((n) => n[0]).join("").slice(0, 2)}
@@ -346,18 +417,45 @@ export default function UsersPage() {
                   <p className="text-xs text-muted-foreground truncate">{u.email}</p>
                 </div>
               </div>
-              <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2 flex-wrap">
+                <Badge className={`text-[9px] ${ab.class}`}>{ab.label}</Badge>
                 {badge && <Badge className={`text-[9px] ${badge.class}`}>{badge.label}</Badge>}
-                {currentUser?.role === "admin" && (
-                  <button
-                    onClick={() => setEditingUser(u)}
-                    className="p-2 rounded-lg hover:bg-secondary text-muted-foreground hover:text-foreground transition-colors"
-                    title="Editar usuario"
-                  >
-                    <UserCog className="h-4 w-4" />
-                  </button>
-                )}
               </div>
+              {isAdmin && (
+                <div className="flex items-center gap-2 pt-1 border-t border-border/30">
+                  {isPending && (
+                    <>
+                      <Button
+                        size="sm"
+                        onClick={() => handleApprove(u.user_id, "approved")}
+                        className="flex-1 h-8 gap-1 gold-gradient text-primary-foreground text-xs"
+                      >
+                        <Check className="h-3 w-3" />
+                        Aprobar
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => handleApprove(u.user_id, "rejected")}
+                        className="h-8 gap-1 text-destructive text-xs"
+                      >
+                        <Ban className="h-3 w-3" />
+                      </Button>
+                    </>
+                  )}
+                  {!isPending && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => setEditingUser(u)}
+                      className="flex-1 h-8 gap-1 text-xs"
+                    >
+                      <UserCog className="h-3 w-3" />
+                      Editar rol
+                    </Button>
+                  )}
+                </div>
+              )}
             </div>
           );
         })}
