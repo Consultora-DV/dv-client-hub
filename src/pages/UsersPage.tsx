@@ -1,12 +1,12 @@
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { useAuth, UserRole } from "@/contexts/AuthContext";
+import { useAuth, UserRole, ApprovalStatus } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { UserCog, UserPlus, X, Mail, Copy, Check } from "lucide-react";
+import { UserCog, UserPlus, X, Mail, Copy, Check, Clock, ShieldCheck, Ban } from "lucide-react";
 import { toast } from "sonner";
 
 interface ManagedUser {
@@ -15,6 +15,7 @@ interface ManagedUser {
   name: string;
   email: string;
   role: UserRole;
+  approvalStatus: ApprovalStatus;
 }
 
 const roleBadges: Record<string, { label: string; class: string }> = {
@@ -22,6 +23,12 @@ const roleBadges: Record<string, { label: string; class: string }> = {
   editor: { label: "EDITOR", class: "bg-status-published/20 text-status-published border-status-published/30" },
   diseñador: { label: "DISEÑADOR", class: "bg-status-changes/20 text-status-changes border-status-changes/30" },
   cliente: { label: "CLIENTE", class: "bg-secondary text-muted-foreground" },
+};
+
+const approvalBadges: Record<ApprovalStatus, { label: string; class: string }> = {
+  pending: { label: "PENDIENTE", class: "bg-status-pending/20 text-status-pending border border-status-pending/40" },
+  approved: { label: "APROBADO", class: "bg-status-approved/20 text-status-approved border border-status-approved/40" },
+  rejected: { label: "RECHAZADO", class: "bg-destructive/20 text-destructive border border-destructive/40" },
 };
 
 function EditUserModal({ user, onClose, onSave }: {
