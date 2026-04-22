@@ -175,6 +175,34 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
         }
       }
 
+      const localDocumentsRaw = localStorage.getItem("dv_documents_state");
+      const localDocuments: Document[] = localDocumentsRaw ? JSON.parse(localDocumentsRaw) : [];
+      if (localDocuments.length > 0) {
+        const existingDocs = await fetchDocuments();
+        const existingDocKeys = new Set(existingDocs.map((d) => `${d.clienteId}|${d.name}|${d.driveLink}`));
+        for (const doc of localDocuments) {
+          const realId = resolveClienteId(doc.clienteId);
+          if (!realId) continue;
+          const key = `${realId}|${doc.name}|${doc.driveLink}`;
+          if (existingDocKeys.has(key)) continue;
+          await createDocument({ ...doc, clienteId: realId });
+        }
+      }
+
+      const localScriptsRaw = localStorage.getItem("dv_scripts_state");
+      const localScripts: Script[] = localScriptsRaw ? JSON.parse(localScriptsRaw) : [];
+      if (localScripts.length > 0) {
+        const existingScripts = await fetchScripts();
+        const existingScriptKeys = new Set(existingScripts.map((s) => `${s.clienteId}|${s.title}|${s.driveLink}`));
+        for (const script of localScripts) {
+          const realId = resolveClienteId(script.clienteId);
+          if (!realId) continue;
+          const key = `${realId}|${script.title}|${script.driveLink}`;
+          if (existingScriptKeys.has(key)) continue;
+          await createScript({ ...script, clienteId: realId });
+        }
+      }
+
       // Migrate metrics from localStorage
       const allKeys = Object.keys(localStorage).filter((k) => k.startsWith("dv_metrics_"));
       for (const key of allKeys) {
@@ -214,14 +242,20 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
     if (!user) return;
     async function load() {
       await migrateLocalStorage();
-      const [vids, evts, cmts] = await Promise.all([
+      const [vids, evts, cmts, docs, scrs, scrCmts] = await Promise.all([
         fetchVideos(),
         fetchCalendarEvents(),
         fetchAllComments(),
+        fetchDocuments(),
+        fetchScripts(),
+        fetchAllScriptComments(),
       ]);
       setAllVideosState(vids);
       setAllEventsState(evts);
       setCommentsState(cmts);
+      setAllDocumentsState(docs);
+      setAllScriptsState(scrs);
+      setScriptComments(scrCmts);
       initialLoadDone.current = true;
     }
     load();
@@ -242,6 +276,15 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
       .on("postgres_changes", { event: "*", schema: "public", table: "video_comments" }, () => {
         fetchAllComments().then(setCommentsState);
       })
+      .on("postgres_changes", { event: "*", schema: "public", table: "documents" }, () => {
+        fetchDocuments().then(setAllDocumentsState);
+      })
+      .on("postgres_changes", { event: "*", schema: "public", table: "scripts" }, () => {
+        fetchScripts().then(setAllScriptsState);
+      })
+      .on("postgres_changes", { event: "*", schema: "public", table: "script_comments" }, () => {
+        fetchAllScriptComments().then(setScriptComments);
+      })
       .subscribe();
 
     return () => { supabase.removeChannel(channel); };
@@ -256,6 +299,12 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
   }, []);
   const setComments = useCallback((updater: Record<string, Comment[]> | ((prev: Record<string, Comment[]>) => Record<string, Comment[]>)) => {
     setCommentsState((prev) => typeof updater === "function" ? updater(prev) : updater);
+  }, []);
+  const setDocuments = useCallback((updater: Document[] | ((prev: Document[]) => Document[])) => {
+    setAllDocumentsState((prev) => typeof updater === "function" ? updater(prev) : updater);
+  }, []);
+  const setScripts = useCallback((updater: Script[] | ((prev: Script[]) => Script[])) => {
+    setAllScriptsState((prev) => typeof updater === "function" ? updater(prev) : updater);
   }, []);
 
   // ── Fetch clients ──
