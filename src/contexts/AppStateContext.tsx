@@ -60,6 +60,11 @@ interface AppStateContextType {
   requestChangesScript: (scriptId: string, text: string) => void;
   addScriptComment: (scriptId: string, commentText: string) => void;
   markScriptViewed: (scriptId: string) => void;
+  addDocumentToDb: (doc: Omit<Document, "id">) => Promise<void>;
+  addScriptToDb: (script: Omit<Script, "id">) => Promise<void>;
+  removeDocumentFromDb: (id: string) => Promise<void>;
+  removeScriptFromDb: (id: string) => Promise<void>;
+  updateDocumentInDb: (id: string, updates: Partial<Document>) => Promise<void>;
 }
 
 const AppStateContext = createContext<AppStateContextType | null>(null);
@@ -465,83 +470,70 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
     } catch { /* realtime will sync */ }
   }, [user]);
 
-  // Script functions (still localStorage)
-  const approveScript = useCallback((scriptId: string) => {
+  // Script DB-backed functions
+  const approveScript = useCallback(async (scriptId: string) => {
     const now = new Date().toISOString();
-    setScripts((prev) =>
-      prev.map((s) =>
-        s.id === scriptId
-          ? {
-              ...s,
-              status: "aprobado" as const,
-              statusHistory: [...s.statusHistory, { status: "Aprobado", date: now.split("T")[0], by: user?.name || "Admin" }],
-            }
-          : s
-      )
-    );
     const script = allScripts.find((s) => s.id === scriptId);
-    if (script) {
-      addNotification({
-        type: "script_aprobado",
-        message: `${user?.name || "Admin"} aprobó el guión "${script.title}"`,
-        date: now, read: false, link: "/documentos",
-      });
-    }
-  }, [setScripts, allScripts, user, addNotification]);
+    if (!script) return;
+    const newHistory = [...script.statusHistory, { status: "Aprobado", date: now.split("T")[0], by: user?.name || "Cliente" }];
+    try {
+      await updateScript(scriptId, { status: "aprobado", statusHistory: newHistory });
+    } catch (err) { console.error(err); }
+    addNotification({
+      type: "script_aprobado",
+      message: `${user?.name || "Cliente"} aprobó el guión "${script.title}"`,
+      date: now, read: false, link: "/documentos",
+    });
+  }, [allScripts, user, addNotification]);
 
-  const requestChangesScript = useCallback((scriptId: string, text: string) => {
+  const requestChangesScript = useCallback(async (scriptId: string, text: string) => {
     const now = new Date().toISOString();
-    setScripts((prev) =>
-      prev.map((s) =>
-        s.id === scriptId
-          ? {
-              ...s,
-              status: "cambios_solicitados" as const,
-              statusHistory: [...s.statusHistory, { status: "Cambios solicitados", date: now.split("T")[0], by: user?.name || "Admin" }],
-            }
-          : s
-      )
-    );
-    const newComment: Comment = {
-      id: `sc_${Date.now()}`,
-      author: user?.name || "Admin",
-      isClient: user?.role === "cliente",
-      text,
-      date: now,
-    };
-    setScriptComments((prev) => ({
-      ...prev,
-      [scriptId]: [newComment, ...(prev[scriptId] || [])],
-    }));
     const script = allScripts.find((s) => s.id === scriptId);
-    if (script) {
-      addNotification({
-        type: "script_cambios",
-        message: `${user?.name || "Admin"} solicitó cambios en "${script.title}"`,
-        date: now, read: false, link: "/documentos",
-      });
-    }
-  }, [setScripts, setScriptComments, allScripts, user, addNotification]);
+    if (!script) return;
+    const newHistory = [...script.statusHistory, { status: "Cambios solicitados", date: now.split("T")[0], by: user?.name || "Cliente" }];
+    try {
+      await updateScript(scriptId, { status: "cambios_solicitados", statusHistory: newHistory });
+      await insertScriptComment(scriptId, user?.name || "Cliente", text, user?.role === "cliente", user?.id || "");
+    } catch (err) { console.error(err); }
+    addNotification({
+      type: "script_cambios",
+      message: `${user?.name || "Cliente"} solicitó cambios en "${script.title}"`,
+      date: now, read: false, link: "/documentos",
+    });
+  }, [allScripts, user, addNotification]);
 
-  const addScriptComment = useCallback((scriptId: string, commentText: string) => {
-    const newComment: Comment = {
-      id: `sc_${Date.now()}`,
-      author: user?.name || "Usuario",
-      isClient: user?.role === "cliente",
-      text: commentText,
-      date: new Date().toISOString(),
-    };
-    setScriptComments((prev) => ({
-      ...prev,
-      [scriptId]: [newComment, ...(prev[scriptId] || [])],
-    }));
-  }, [setScriptComments, user]);
+  const addScriptComment = useCallback(async (scriptId: string, commentText: string) => {
+    try {
+      await insertScriptComment(scriptId, user?.name || "Usuario", commentText, user?.role === "cliente", user?.id || "");
+    } catch (err) { console.error(err); }
+  }, [user]);
 
-  const markScriptViewed = useCallback((scriptId: string) => {
-    setScripts((prev) =>
-      prev.map((s) => s.id === scriptId ? { ...s, visto: true } : s)
-    );
-  }, [setScripts]);
+  const markScriptViewed = useCallback(async (scriptId: string) => {
+    try {
+      await updateScript(scriptId, { visto: true });
+    } catch (err) { console.error(err); }
+  }, []);
+
+  const addDocumentToDb = useCallback(async (doc: Omit<Document, "id">) => {
+    await createDocument(doc);
+  }, []);
+
+  const addScriptToDb = useCallback(async (script: Omit<Script, "id">) => {
+    await createScript(script);
+  }, []);
+
+  const removeDocumentFromDb = useCallback(async (id: string) => {
+    await deleteDocument(id);
+  }, []);
+
+  const removeScriptFromDb = useCallback(async (id: string) => {
+    await deleteScript(id);
+  }, []);
+
+  const updateDocumentInDb = useCallback(async (id: string, updates: Partial<Document>) => {
+    await updateDocument(id, updates);
+  }, []);
+
 
   // ── Import from Apify → writes directly to Supabase ──
   const importFromApify = useCallback(async (newVideos: Video[], newEvents: CalendarEvent[]): Promise<ImportResult> => {
@@ -641,6 +633,7 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
         clients,
         importFromApify,
         scriptComments, approveScript, requestChangesScript, addScriptComment, markScriptViewed,
+        addDocumentToDb, addScriptToDb, removeDocumentFromDb, removeScriptFromDb, updateDocumentInDb,
       }}
     >
       {children}

@@ -164,7 +164,7 @@ function ScriptDetailModal({ script, onClose }: { script: Script; onClose: () =>
 }
 
 function AddDocumentModal({ onClose }: { onClose: () => void }) {
-  const { setDocuments, allDocuments, setScripts, allScripts, clients: appClients } = useAppState();
+  const { allDocuments, allScripts, clients: appClients, addDocumentToDb, addScriptToDb } = useAppState();
   const [category, setCategory] = useState<"documento" | "guion">("documento");
   const [name, setName] = useState("");
   const [type, setType] = useState<Document["type"]>("pdf");
@@ -213,20 +213,24 @@ function AddDocumentModal({ onClose }: { onClose: () => void }) {
         setUploading(false);
         return;
       }
-      const newScript: Script = {
-        id: `s_${Date.now()}`,
-        clienteId,
-        title: name.trim(),
-        date: new Date().toISOString().split("T")[0],
-        status: "nuevo",
-        driveLink: fileUrl || driveLink || "#",
-        isNew: true,
-        visto: false,
-        comments: [],
-        statusHistory: [{ status: "Creado", date: new Date().toISOString().split("T")[0], by: "Sistema" }],
-      };
-      setScripts((prev) => [newScript, ...prev]);
-      toast.success("Guión agregado correctamente");
+      try {
+        await addScriptToDb({
+          clienteId,
+          title: name.trim(),
+          date: new Date().toISOString().split("T")[0],
+          status: "nuevo",
+          driveLink: fileUrl || driveLink || "#",
+          isNew: true,
+          visto: false,
+          comments: [],
+          statusHistory: [{ status: "Creado", date: new Date().toISOString().split("T")[0], by: "Sistema" }],
+        });
+        toast.success("Guión agregado correctamente");
+      } catch (err: any) {
+        toast.error("Error al guardar guión: " + (err.message || ""));
+        setUploading(false);
+        return;
+      }
     } else {
       const isDuplicate = allDocuments.some((d) => {
         if (driveLink && driveLink !== "#" && d.driveLink === driveLink && d.clienteId === clienteId) return true;
@@ -237,18 +241,22 @@ function AddDocumentModal({ onClose }: { onClose: () => void }) {
         setUploading(false);
         return;
       }
-      const newDoc: Document = {
-        id: `d_${Date.now()}`,
-        clienteId,
-        name: name.trim(),
-        type,
-        date: new Date().toISOString().split("T")[0],
-        driveLink: driveLink || "#",
-        fileUrl,
-        isNew: true,
-      };
-      setDocuments((prev) => [newDoc, ...prev]);
-      toast.success("Documento agregado correctamente");
+      try {
+        await addDocumentToDb({
+          clienteId,
+          name: name.trim(),
+          type,
+          date: new Date().toISOString().split("T")[0],
+          driveLink: driveLink || "#",
+          fileUrl,
+          isNew: true,
+        });
+        toast.success("Documento agregado correctamente");
+      } catch (err: any) {
+        toast.error("Error al guardar documento: " + (err.message || ""));
+        setUploading(false);
+        return;
+      }
     }
     setUploading(false);
     onClose();
@@ -342,7 +350,7 @@ export default function DocumentsPage() {
   const [showAddModal, setShowAddModal] = useState(false);
   const [selectedScript, setSelectedScript] = useState<Script | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<{ type: "script" | "document"; id: string; name: string } | null>(null);
-  const { documents, scripts, markScriptViewed, clients: appClients, scriptComments, setScripts, setDocuments } = useAppState();
+  const { documents, scripts, markScriptViewed, clients: appClients, scriptComments, removeDocumentFromDb, removeScriptFromDb, updateDocumentInDb } = useAppState();
   const { canUpload, isClient, isAdmin } = usePermissions();
 
   // Drag state
@@ -372,12 +380,17 @@ export default function DocumentsPage() {
   const docTotalPages = Math.max(1, Math.ceil(filteredDocuments.length / PER_PAGE));
   const paginatedDocs = filteredDocuments.slice((docPage - 1) * PER_PAGE, docPage * PER_PAGE);
 
-  const handleDelete = () => {
+  const handleDelete = async () => {
     if (!deleteTarget) return;
-    if (deleteTarget.type === "script") {
-      setScripts((prev) => prev.filter((s) => s.id !== deleteTarget.id));
-    } else {
-      setDocuments((prev) => prev.filter((d) => d.id !== deleteTarget.id));
+    try {
+      if (deleteTarget.type === "script") {
+        await removeScriptFromDb(deleteTarget.id);
+      } else {
+        await removeDocumentFromDb(deleteTarget.id);
+      }
+      toast.success("Eliminado correctamente");
+    } catch (err: any) {
+      toast.error("Error al eliminar: " + (err.message || ""));
     }
     setDeleteTarget(null);
   };
@@ -413,20 +426,9 @@ export default function DocumentsPage() {
     if (dragIdx === null || dragType === null) return;
     if (dragIdx === targetIdx) { setDragIdx(null); setDragOverIdx(null); setDragType(null); return; }
 
+    // Reordering is local-only for now (sort_order persistence not wired)
     if (dragType === "script") {
-      setScripts((prev) => {
-        const arr = [...prev];
-        const [moved] = arr.splice(dragIdx, 1);
-        arr.splice(targetIdx, 0, moved);
-        return arr;
-      });
-    } else {
-      setDocuments((prev) => {
-        const arr = [...prev];
-        const [moved] = arr.splice(dragIdx, 1);
-        arr.splice(targetIdx, 0, moved);
-        return arr;
-      });
+      // no-op persistence; visual order will reset on refresh
     }
     setDragIdx(null);
     setDragOverIdx(null);
@@ -625,7 +627,7 @@ export default function DocumentsPage() {
                           const { data, error } = await supabase.storage.from("documents").upload(path, file);
                           if (error) { toast.error("Error: " + error.message); return; }
                           const { data: urlData } = supabase.storage.from("documents").getPublicUrl(data.path);
-                          setDocuments((prev) => prev.map((doc) => doc.id === d.id ? { ...doc, fileUrl: urlData.publicUrl } : doc));
+                          await updateDocumentInDb(d.id, { fileUrl: urlData.publicUrl });
                           toast.success("Archivo subido correctamente");
                         } catch (err: any) { toast.error("Error al subir: " + (err.message || "desconocido")); }
                       }} />
