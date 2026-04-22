@@ -14,6 +14,11 @@ import {
   getExistingShortCodes, getExistingEventKeys,
   persistThumbnails,
 } from "@/services/supabaseDataService";
+import {
+  fetchDocuments, fetchScripts, fetchAllScriptComments,
+  createDocument, createScript, updateDocument, updateScript,
+  deleteDocument, deleteScript, insertScriptComment,
+} from "@/services/sharedContentService";
 
 export interface ImportResult {
   videosAdded: number;
@@ -69,11 +74,10 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
   const [allCalendarEvents, setAllEventsState] = useState<CalendarEvent[]>([]);
   const [comments, setCommentsState] = useState<Record<string, Comment[]>>({});
 
-  // Still localStorage-backed (not part of shared import flow)
-  const [allDocuments, setDocuments] = useLocalStorage<Document[]>("dv_documents_state", []);
-  const [allScripts, setScripts] = useLocalStorage<Script[]>("dv_scripts_state", []);
+  const [allDocuments, setAllDocumentsState] = useState<Document[]>([]);
+  const [allScripts, setAllScriptsState] = useState<Script[]>([]);
   const [notifications, setNotifications] = useLocalStorage<Notification[]>("dv_notifications_state", []);
-  const [scriptComments, setScriptComments] = useLocalStorage<Record<string, Comment[]>>("dv_scripts_comments", {});
+  const [scriptComments, setScriptComments] = useState<Record<string, Comment[]>>({});
   const [selectedClienteId, setSelectedClienteId] = useLocalStorage<string | null>("dv_selected_cliente", null);
 
   const initialLoadDone = useRef(false);
