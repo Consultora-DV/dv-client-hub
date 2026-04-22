@@ -88,9 +88,8 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
   const initialLoadDone = useRef(false);
 
   // ── Migrate legacy localStorage data to DB safely ──
+  // Runs on EVERY load so newly-added local items keep syncing to DB.
   const migrateLocalStorage = useCallback(async () => {
-    const migrationKey = "dv_migration_to_db_v3";
-
     try {
       const { data: profiles } = await supabase.from("profiles").select("user_id, display_name, email");
       const idMap = new Map<string, string>();
@@ -251,13 +250,15 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
         }
       }
 
-      localStorage.setItem(migrationKey, JSON.stringify({
-        ranAt: new Date().toISOString(),
-        videos: videosToInsert.length,
-        events: eventsToInsert.length,
-        documents: documentsToInsert.length,
-        scripts: scriptsToInsert.length,
-      }));
+      if (videosToInsert.length || eventsToInsert.length || documentsToInsert.length || scriptsToInsert.length) {
+        localStorage.setItem("dv_last_migration_run", JSON.stringify({
+          ranAt: new Date().toISOString(),
+          videos: videosToInsert.length,
+          events: eventsToInsert.length,
+          documents: documentsToInsert.length,
+          scripts: scriptsToInsert.length,
+        }));
+      }
     } catch (err) {
       console.error("Migration error:", err);
     }
