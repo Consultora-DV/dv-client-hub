@@ -121,8 +121,14 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
 
       const localVideos: Video[] = JSON.parse(localStorage.getItem("dv_videos_state") || "[]");
       const localEvents: CalendarEvent[] = JSON.parse(localStorage.getItem("dv_calendar_state") || "[]");
-      const localDocuments: Document[] = JSON.parse(localStorage.getItem("dv_documents_state") || "[]");
-      const localScripts: Script[] = JSON.parse(localStorage.getItem("dv_scripts_state") || "[]");
+      // Documents & scripts ya viven en la base de datos. No re-importamos desde
+      // localStorage para evitar duplicados o asignaciones legacy incorrectas.
+      const localDocuments: Document[] = [];
+      const localScripts: Script[] = [];
+      // Limpieza preventiva: si quedan restos en localStorage, los borramos para
+      // que la próxima sesión no intente revivirlos.
+      localStorage.removeItem("dv_documents_state");
+      localStorage.removeItem("dv_scripts_state");
 
       const unresolvedClienteIds = {
         videos: Array.from(new Set(localVideos.map((v) => v.clienteId).filter((id) => !resolveClienteId(id)))),
