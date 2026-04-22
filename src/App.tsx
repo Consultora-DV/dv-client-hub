@@ -59,7 +59,7 @@ function AppRoutes() {
                 <Route path="/" element={<Navigate to="/dashboard" replace />} />
                 <Route path="/auth" element={<Navigate to="/dashboard" replace />} />
                 <Route path="/onboarding" element={<OnboardingPage />} />
-                <Route element={<ApprovalGuard><OnboardingGuard><AppLayout /></OnboardingGuard></ApprovalGuard>}>
+                <Route element={<ApprovalGuard><AppLayout /></ApprovalGuard>}>
                   <Route path="/dashboard" element={<DashboardPage />} />
                   <Route path="/videos" element={<VideosPage />} />
                   <Route path="/documentos" element={<DocumentsPage />} />
