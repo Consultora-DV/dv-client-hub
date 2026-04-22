@@ -570,7 +570,7 @@ function StepSector({
               key={s.id}
               type="button"
               initial={{ opacity: 0, y: 12 }}
-              animate={{ opacity: 1, y: 0 }}
+              animate={active ? { opacity: 1, y: 0, scale: [1, 1.05, 1] } : { opacity: 1, y: 0, scale: 1 }}
               transition={{ delay: i * 0.08 }}
               whileTap={{ scale: 0.95 }}
               onClick={() => update("sector", s.id)}
@@ -580,7 +580,6 @@ function StepSector({
                   ? "border-primary bg-primary/10 shadow-[0_0_24px_-6px_hsl(var(--primary)/0.5)]"
                   : "border-border/50 bg-secondary hover:border-border"
               )}
-              animate={active ? { scale: [1, 1.05, 1] } : { scale: 1 }}
             >
               <Icon className={cn("h-7 w-7", active ? "text-primary" : "text-muted-foreground")} />
               <span className={cn("text-xs text-center px-1", active ? "text-foreground" : "text-muted-foreground")}>
