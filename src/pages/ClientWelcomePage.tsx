@@ -496,7 +496,7 @@ function StepIdentity({
           <Input
             value={data.fullName}
             onChange={(e) => update("fullName", e.target.value)}
-            placeholder="Ej. Bianca Aldama"
+            placeholder="Ej. María González"
             className="mt-2 bg-secondary border-border/50 rounded-xl h-12 focus:border-primary/50"
           />
           {data.fullName && (
@@ -518,7 +518,7 @@ function StepIdentity({
           <Input
             value={data.brandName}
             onChange={(e) => update("brandName", e.target.value)}
-            placeholder="Ej. Bianca Aldama Boutique"
+            placeholder="Ej. Mi Marca Studio"
             className="mt-2 bg-secondary border-border/50 rounded-xl h-12 focus:border-primary/50"
           />
         </div>
