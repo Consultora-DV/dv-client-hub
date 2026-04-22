@@ -44,36 +44,38 @@ function AppRoutes() {
     );
   }
 
-  if (!isAuthenticated) {
-    return (
-      <Routes>
-        <Route path="/bienvenido" element={<ClientWelcomePage />} />
-        <Route path="/reset-password" element={<ResetPasswordPage />} />
-        <Route path="*" element={<AuthPage />} />
-      </Routes>
-    );
-  }
-
+  // Public routes available regardless of auth state
   return (
-    <AppStateProvider>
-      <Routes>
-        <Route path="/" element={<Navigate to="/dashboard" replace />} />
-        <Route path="/auth" element={<Navigate to="/dashboard" replace />} />
-        <Route path="/reset-password" element={<ResetPasswordPage />} />
-        <Route path="/bienvenido" element={<ClientWelcomePage />} />
-        <Route path="/onboarding" element={<OnboardingPage />} />
-        <Route element={<OnboardingGuard><AppLayout /></OnboardingGuard>}>
-          <Route path="/dashboard" element={<DashboardPage />} />
-          <Route path="/videos" element={<VideosPage />} />
-          <Route path="/documentos" element={<DocumentsPage />} />
-          <Route path="/calendario" element={<CalendarPage />} />
-          <Route path="/metricas" element={<MetricsPage />} />
-          <Route path="/usuarios" element={<UsersPage />} />
-          <Route path="/perfil" element={<ProfilePage />} />
-        </Route>
-        <Route path="*" element={<NotFound />} />
-      </Routes>
-    </AppStateProvider>
+    <Routes>
+      <Route path="/bienvenido" element={<ClientWelcomePage />} />
+      <Route path="/reset-password" element={<ResetPasswordPage />} />
+      {!isAuthenticated ? (
+        <Route path="*" element={<AuthPage />} />
+      ) : (
+        <Route
+          path="*"
+          element={
+            <AppStateProvider>
+              <Routes>
+                <Route path="/" element={<Navigate to="/dashboard" replace />} />
+                <Route path="/auth" element={<Navigate to="/dashboard" replace />} />
+                <Route path="/onboarding" element={<OnboardingPage />} />
+                <Route element={<OnboardingGuard><AppLayout /></OnboardingGuard>}>
+                  <Route path="/dashboard" element={<DashboardPage />} />
+                  <Route path="/videos" element={<VideosPage />} />
+                  <Route path="/documentos" element={<DocumentsPage />} />
+                  <Route path="/calendario" element={<CalendarPage />} />
+                  <Route path="/metricas" element={<MetricsPage />} />
+                  <Route path="/usuarios" element={<UsersPage />} />
+                  <Route path="/perfil" element={<ProfilePage />} />
+                </Route>
+                <Route path="*" element={<NotFound />} />
+              </Routes>
+            </AppStateProvider>
+          }
+        />
+      )}
+    </Routes>
   );
 }
 
