@@ -87,128 +87,143 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
 
   const initialLoadDone = useRef(false);
 
-  // ── Migrate localStorage data to DB (one-time) ──
+  // ── Migrate legacy localStorage data to DB safely ──
   const migrateLocalStorage = useCallback(async () => {
-    const migrationKey = "dv_migration_to_db_v2";
-    if (localStorage.getItem(migrationKey) === "true") return;
+    const migrationKey = "dv_migration_to_db_v3";
 
     try {
-      // Build a mapping from old string IDs to real UUIDs using profiles
       const { data: profiles } = await supabase.from("profiles").select("user_id, display_name, email");
       const idMap = new Map<string, string>();
       for (const p of profiles || []) {
-        // Map various possible old-format IDs to real UUID
-        const name = (p.display_name || "").toLowerCase().replace(/\s+/g, "-").replace(/\./g, "");
+        const normalizedName = (p.display_name || "").toLowerCase().replace(/\s+/g, "-").replace(/\./g, "");
         const nameWithDot = (p.display_name || "").toLowerCase().replace(/\s+/g, "-");
-        idMap.set(name, p.user_id);
+        idMap.set(normalizedName, p.user_id);
         idMap.set(nameWithDot, p.user_id);
-        idMap.set(p.user_id, p.user_id); // already UUID
-        if (p.email) idMap.set(p.email, p.user_id);
-        // Common variants
-        const parts = (p.display_name || "").split(" ");
+        idMap.set(p.user_id, p.user_id);
+        if (p.email) idMap.set(p.email.toLowerCase(), p.user_id);
+
+        const parts = (p.display_name || "").split(" ").filter(Boolean);
         if (parts.length >= 2) {
           idMap.set(`${parts[0].toLowerCase()}-${parts[parts.length - 1].toLowerCase()}`, p.user_id);
-          // Handle "Dra. Fedra Aldama" -> "fedra-aldama", "dra-fedra-aldama"
-          const withoutTitle = parts.filter(p => !p.match(/^(dr|dra|ing|lic|prof)\.?$/i));
+          const withoutTitle = parts.filter((part) => !part.match(/^(dr|dra|ing|lic|prof)\.?$/i));
           if (withoutTitle.length >= 2) {
-            idMap.set(withoutTitle.map(w => w.toLowerCase()).join("-"), p.user_id);
+            idMap.set(withoutTitle.map((part) => part.toLowerCase()).join("-"), p.user_id);
           }
         }
       }
 
       const resolveClienteId = (oldId: string): string | null => {
         if (!oldId) return null;
-        // Already a valid UUID?
         if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(oldId)) {
           return oldId;
         }
         return idMap.get(oldId.toLowerCase()) || idMap.get(oldId) || null;
       };
 
-      // Read localStorage videos
-      const localVideosRaw = localStorage.getItem("dv_videos_state");
-      const localVideos: Video[] = localVideosRaw ? JSON.parse(localVideosRaw) : [];
+      const localVideos: Video[] = JSON.parse(localStorage.getItem("dv_videos_state") || "[]");
+      const localEvents: CalendarEvent[] = JSON.parse(localStorage.getItem("dv_calendar_state") || "[]");
+      const localDocuments: Document[] = JSON.parse(localStorage.getItem("dv_documents_state") || "[]");
+      const localScripts: Script[] = JSON.parse(localStorage.getItem("dv_scripts_state") || "[]");
 
-      // Read localStorage events
-      const localEventsRaw = localStorage.getItem("dv_calendar_state");
-      const localEvents: CalendarEvent[] = localEventsRaw ? JSON.parse(localEventsRaw) : [];
+      const unresolvedClienteIds = {
+        videos: Array.from(new Set(localVideos.map((v) => v.clienteId).filter((id) => !resolveClienteId(id)))),
+        events: Array.from(new Set(localEvents.map((e) => e.clienteId).filter((id) => !resolveClienteId(id)))),
+        documents: Array.from(new Set(localDocuments.map((d) => d.clienteId).filter((id) => !resolveClienteId(id)))),
+        scripts: Array.from(new Set(localScripts.map((s) => s.clienteId).filter((id) => !resolveClienteId(id)))),
+      };
+      if (Object.values(unresolvedClienteIds).some((items) => items.length > 0)) {
+        console.warn("ClienteId legacy sin resolver durante migración", unresolvedClienteIds);
+      }
 
-      const unresolvedVideos = localVideos.filter((v) => !resolveClienteId(v.clienteId));
-      const unresolvedEvents = localEvents.filter((e) => !resolveClienteId(e.clienteId));
-      if (unresolvedVideos.length > 0 || unresolvedEvents.length > 0) {
-        console.warn("No se pudieron resolver algunos clienteId legacy", {
-          videoClienteIds: Array.from(new Set(unresolvedVideos.map((v) => v.clienteId))),
-          eventClienteIds: Array.from(new Set(unresolvedEvents.map((e) => e.clienteId))),
+      const [existingVids, existingEvts, existingDocs, existingScripts] = await Promise.all([
+        fetchVideos(),
+        fetchCalendarEvents(),
+        fetchDocuments(),
+        fetchScripts(),
+      ]);
+
+      const existingVideoKeys = new Set(existingVids.map((v: Video) => (v as any).igShortCode || v.embedUrl).filter(Boolean));
+      const existingEventKeys = new Set(existingEvts.map((e: CalendarEvent) => (e as any).igShortCode || `${e.date}|${e.title}`).filter(Boolean));
+      const existingDocKeys = new Set(existingDocs.map((d) => `${d.clienteId}|${d.name}|${d.driveLink || "#"}`));
+      const existingScriptKeys = new Set(existingScripts.map((s) => `${s.clienteId}|${s.title}|${s.driveLink || "#"}`));
+
+      const videosToInsert = localVideos
+        .map((v) => {
+          const realId = resolveClienteId(v.clienteId);
+          return realId ? { ...v, clienteId: realId } : null;
+        })
+        .filter((v): v is Video => {
+          if (!v) return false;
+          const key = (v as any).igShortCode || v.embedUrl;
+          return key ? !existingVideoKeys.has(key) : true;
         });
+
+      const eventsToInsert = localEvents
+        .map((e) => {
+          const realId = resolveClienteId(e.clienteId);
+          return realId ? { ...e, clienteId: realId } : null;
+        })
+        .filter((e): e is CalendarEvent => {
+          if (!e) return false;
+          const key = (e as any).igShortCode || `${e.date}|${e.title}`;
+          return !existingEventKeys.has(key);
+        });
+
+      const documentsToInsert = localDocuments
+        .map((d) => {
+          const realId = resolveClienteId(d.clienteId);
+          return realId ? { ...d, clienteId: realId } : null;
+        })
+        .filter((d): d is Document => {
+          if (!d) return false;
+          return !existingDocKeys.has(`${d.clienteId}|${d.name}|${d.driveLink || "#"}`);
+        });
+
+      const scriptsToInsert = localScripts
+        .map((s) => {
+          const realId = resolveClienteId(s.clienteId);
+          return realId ? { ...s, clienteId: realId } : null;
+        })
+        .filter((s): s is Script => {
+          if (!s) return false;
+          return !existingScriptKeys.has(`${s.clienteId}|${s.title}|${s.driveLink || "#"}`);
+        });
+
+      if (videosToInsert.length > 0) {
+        await insertVideos(videosToInsert);
+        console.log(`Migrated ${videosToInsert.length} videos from localStorage to DB`);
+      }
+      if (eventsToInsert.length > 0) {
+        await insertCalendarEvents(eventsToInsert);
+        console.log(`Migrated ${eventsToInsert.length} events from localStorage to DB`);
+      }
+      if (documentsToInsert.length > 0) {
+        await Promise.all(documentsToInsert.map((doc) => createDocument({
+          clienteId: doc.clienteId,
+          name: doc.name,
+          type: doc.type,
+          date: doc.date,
+          driveLink: doc.driveLink,
+          fileUrl: doc.fileUrl,
+          isNew: doc.isNew,
+        })));
+        console.log(`Migrated ${documentsToInsert.length} documents from localStorage to DB`);
+      }
+      if (scriptsToInsert.length > 0) {
+        await Promise.all(scriptsToInsert.map((script) => createScript({
+          clienteId: script.clienteId,
+          title: script.title,
+          date: script.date,
+          status: script.status,
+          driveLink: script.driveLink,
+          isNew: script.isNew,
+          visto: script.visto,
+          comments: [],
+          statusHistory: script.statusHistory,
+        })));
+        console.log(`Migrated ${scriptsToInsert.length} scripts from localStorage to DB`);
       }
 
-      if (localVideos.length > 0) {
-        const existingVids = await fetchVideos();
-        const existingCodes = new Set(existingVids.map((v: Video) => (v as any).igShortCode || v.embedUrl).filter(Boolean));
-        const newVids = localVideos
-          .map((v) => {
-            const realId = resolveClienteId(v.clienteId);
-            return realId ? { ...v, clienteId: realId } : null;
-          })
-          .filter((v): v is Video => {
-            if (!v) return false;
-            const key = (v as any).igShortCode || v.embedUrl;
-            return key ? !existingCodes.has(key) : true;
-          });
-        if (newVids.length > 0) {
-          await insertVideos(newVids);
-          console.log(`Migrated ${newVids.length} videos from localStorage to DB`);
-        }
-      }
-
-      if (localEvents.length > 0) {
-        const existingEvts = await fetchCalendarEvents();
-        const existingKeys = new Set(existingEvts.map((e: CalendarEvent) => (e as any).igShortCode || `${e.date}|${e.title}`).filter(Boolean));
-        const newEvts = localEvents
-          .map((e) => {
-            const realId = resolveClienteId(e.clienteId);
-            return realId ? { ...e, clienteId: realId } : null;
-          })
-          .filter((e): e is CalendarEvent => {
-            if (!e) return false;
-            const key = (e as any).igShortCode || `${e.date}|${e.title}`;
-            return !existingKeys.has(key);
-          });
-        if (newEvts.length > 0) {
-          await insertCalendarEvents(newEvts);
-          console.log(`Migrated ${newEvts.length} events from localStorage to DB`);
-        }
-      }
-
-      const localDocumentsRaw = localStorage.getItem("dv_documents_state");
-      const localDocuments: Document[] = localDocumentsRaw ? JSON.parse(localDocumentsRaw) : [];
-      if (localDocuments.length > 0) {
-        const existingDocs = await fetchDocuments();
-        const existingDocKeys = new Set(existingDocs.map((d) => `${d.clienteId}|${d.name}|${d.driveLink}`));
-        for (const doc of localDocuments) {
-          const realId = resolveClienteId(doc.clienteId);
-          if (!realId) continue;
-          const key = `${realId}|${doc.name}|${doc.driveLink}`;
-          if (existingDocKeys.has(key)) continue;
-          await createDocument({ ...doc, clienteId: realId });
-        }
-      }
-
-      const localScriptsRaw = localStorage.getItem("dv_scripts_state");
-      const localScripts: Script[] = localScriptsRaw ? JSON.parse(localScriptsRaw) : [];
-      if (localScripts.length > 0) {
-        const existingScripts = await fetchScripts();
-        const existingScriptKeys = new Set(existingScripts.map((s) => `${s.clienteId}|${s.title}|${s.driveLink}`));
-        for (const script of localScripts) {
-          const realId = resolveClienteId(script.clienteId);
-          if (!realId) continue;
-          const key = `${realId}|${script.title}|${script.driveLink}`;
-          if (existingScriptKeys.has(key)) continue;
-          await createScript({ ...script, clienteId: realId });
-        }
-      }
-
-      // Migrate metrics from localStorage
       const allKeys = Object.keys(localStorage).filter((k) => k.startsWith("dv_metrics_"));
       for (const key of allKeys) {
         try {
@@ -231,12 +246,18 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
             igShortCode: p.id || "",
           }));
           await insertPostMetrics(realClienteId, metrics.platform, posts);
-          console.log(`Migrated ${posts.length} metrics for ${realClienteId}`);
-        } catch { /* skip broken entries */ }
+        } catch {
+          /* ignore broken metric entries */
+        }
       }
 
-      localStorage.setItem(migrationKey, "true");
-      console.log("localStorage → DB migration complete");
+      localStorage.setItem(migrationKey, JSON.stringify({
+        ranAt: new Date().toISOString(),
+        videos: videosToInsert.length,
+        events: eventsToInsert.length,
+        documents: documentsToInsert.length,
+        scripts: scriptsToInsert.length,
+      }));
     } catch (err) {
       console.error("Migration error:", err);
     }
