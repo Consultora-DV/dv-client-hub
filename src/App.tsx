@@ -23,17 +23,6 @@ import PendingApprovalPage from "@/pages/PendingApprovalPage";
 
 const queryClient = new QueryClient();
 
-function OnboardingGuard({ children }: { children: React.ReactNode }) {
-  const { user } = useAuth();
-  if (user?.role === "cliente" && user?.id) {
-    const done = localStorage.getItem(`dv_onboarding_complete_${user.id}`);
-    if (done !== "true") {
-      return <Navigate to="/onboarding" replace />;
-    }
-  }
-  return <>{children}</>;
-}
-
 function ApprovalGuard({ children }: { children: React.ReactNode }) {
   const { user } = useAuth();
   if (user?.role === "admin") return <>{children}</>;
