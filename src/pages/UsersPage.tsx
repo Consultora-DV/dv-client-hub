@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { UserCog, UserPlus, X, Mail, Copy, Check, Clock, ShieldCheck, Ban } from "lucide-react";
+import { UserCog, UserPlus, X, Mail, Copy, Check, Clock, ShieldCheck, Ban, Trash2, AlertTriangle } from "lucide-react";
 import { toast } from "sonner";
 
 interface ManagedUser {
@@ -211,6 +211,8 @@ export default function UsersPage() {
   const { user: currentUser } = useAuth();
   const [users, setUsers] = useState<ManagedUser[]>([]);
   const [editingUser, setEditingUser] = useState<ManagedUser | null>(null);
+  const [deletingUser, setDeletingUser] = useState<ManagedUser | null>(null);
+  const [deleteLoading, setDeleteLoading] = useState(false);
   const [showInvite, setShowInvite] = useState(false);
   const [loading, setLoading] = useState(true);
 
@@ -271,6 +273,25 @@ export default function UsersPage() {
     } else {
       toast.success(status === "approved" ? "Usuario aprobado ✓" : status === "rejected" ? "Usuario rechazado" : "Estado actualizado");
       loadUsers();
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!deletingUser) return;
+    setDeleteLoading(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("delete-user", {
+        body: { userId: deletingUser.user_id },
+      });
+      if (error) throw new Error(error.message);
+      if (data?.error) throw new Error(data.error);
+      toast.success(`Usuario ${deletingUser.name} eliminado`);
+      setDeletingUser(null);
+      loadUsers();
+    } catch (err: any) {
+      toast.error("Error al eliminar: " + (err.message || "intenta de nuevo"));
+    } finally {
+      setDeleteLoading(false);
     }
   };
 
@@ -390,6 +411,15 @@ export default function UsersPage() {
                   >
                     <UserCog className="h-4 w-4" />
                   </button>
+                  {u.user_id !== currentUser?.id && (
+                    <button
+                      onClick={() => setDeletingUser(u)}
+                      className="p-2 rounded-lg hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors"
+                      title="Eliminar usuario"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  )}
                 </div>
               )}
             </div>
@@ -454,6 +484,17 @@ export default function UsersPage() {
                       Editar rol
                     </Button>
                   )}
+                  {u.user_id !== currentUser?.id && (
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => setDeletingUser(u)}
+                      className="h-8 gap-1 text-destructive hover:text-destructive hover:bg-destructive/10 text-xs"
+                      title="Eliminar"
+                    >
+                      <Trash2 className="h-3 w-3" />
+                    </Button>
+                  )}
                 </div>
               )}
             </div>
@@ -474,6 +515,57 @@ export default function UsersPage() {
             onClose={() => setShowInvite(false)}
             onInvited={loadUsers}
           />
+        )}
+        {deletingUser && (
+          <motion.div
+            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm p-4"
+            onClick={() => !deleteLoading && setDeletingUser(null)}
+          >
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.95, opacity: 0 }}
+              onClick={(e) => e.stopPropagation()}
+              className="glass border border-destructive/30 rounded-2xl w-full max-w-md overflow-hidden"
+            >
+              <div className="p-5 border-b border-border/50 flex items-center gap-3">
+                <div className="w-10 h-10 rounded-full bg-destructive/15 flex items-center justify-center">
+                  <AlertTriangle className="h-5 w-5 text-destructive" />
+                </div>
+                <h2 className="font-display text-lg font-semibold text-foreground">Eliminar usuario</h2>
+              </div>
+              <div className="p-5 space-y-4">
+                <p className="text-sm text-foreground">
+                  ¿Seguro que quieres eliminar a <strong>{deletingUser.name}</strong>?
+                </p>
+                <div className="bg-destructive/5 border border-destructive/20 rounded-xl p-3 space-y-1">
+                  <p className="text-xs font-semibold text-destructive">Esta acción es permanente y eliminará:</p>
+                  <ul className="text-xs text-muted-foreground list-disc list-inside space-y-0.5">
+                    <li>La cuenta y acceso del usuario</li>
+                    <li>Su perfil y datos personales</li>
+                    <li>Sus videos, eventos, comentarios y métricas</li>
+                  </ul>
+                </div>
+                <div className="flex gap-2 pt-1">
+                  <Button
+                    onClick={handleDelete}
+                    disabled={deleteLoading}
+                    className="flex-1 bg-destructive hover:bg-destructive/90 text-destructive-foreground gap-2"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                    {deleteLoading ? "Eliminando..." : "Sí, eliminar"}
+                  </Button>
+                  <Button
+                    variant="outline"
+                    onClick={() => setDeletingUser(null)}
+                    disabled={deleteLoading}
+                    className="flex-1"
+                  >
+                    Cancelar
+                  </Button>
+                </div>
+              </div>
+            </motion.div>
+          </motion.div>
         )}
       </AnimatePresence>
     </div>
