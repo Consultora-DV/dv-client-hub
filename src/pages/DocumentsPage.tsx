@@ -186,10 +186,10 @@ function AddDocumentModal({ onClose }: { onClose: () => void }) {
 
     let fileUrl: string | undefined;
 
-    // Upload file to storage if provided
+    // Upload file to private storage. We persist the storage PATH (not a public URL)
+    // because the bucket is private; signed URLs are generated on click.
     if (file) {
       try {
-        const ext = file.name.split(".").pop() || "file";
         const path = `${clienteId}/${Date.now()}_${file.name}`;
         const { data, error } = await supabase.storage.from("documents").upload(path, file);
         if (error) {
@@ -197,8 +197,7 @@ function AddDocumentModal({ onClose }: { onClose: () => void }) {
           setUploading(false);
           return;
         }
-        const { data: urlData } = supabase.storage.from("documents").getPublicUrl(data.path);
-        fileUrl = urlData.publicUrl;
+        fileUrl = data.path;
       } catch (err: any) {
         toast.error("Error al subir archivo: " + (err.message || "desconocido"));
         setUploading(false);
@@ -599,12 +598,36 @@ export default function DocumentsPage() {
                   {client && <span className="text-[10px] px-1.5 py-0.5 rounded-full shrink-0" style={{ backgroundColor: client.colorAccent + "22", color: client.colorAccent }}>{client.avatar}</span>}
                   <Badge variant="outline" className="border border-border text-xs text-muted-foreground shrink-0">{typeLabels[d.type]}</Badge>
 
-                  {/* File uploaded to storage - prominent button */}
+                  {/* File uploaded to private storage - generate signed URL on click */}
                   {hasFile && (
-                    <a href={d.fileUrl} target="_blank" rel="noopener noreferrer"
-                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary/10 text-primary text-xs font-medium hover:bg-primary/20 transition-colors shrink-0">
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        try {
+                          const raw = d.fileUrl as string;
+                          // Backward-compat: legacy entries stored a full public URL.
+                          // Extract the storage path from it; new entries already store the path.
+                          const path = raw.startsWith("http")
+                            ? raw.split("/object/public/documents/")[1]?.split("?")[0] ||
+                              raw.split("/documents/")[1]?.split("?")[0] ||
+                              raw
+                            : raw;
+                          const { data, error } = await supabase.storage
+                            .from("documents")
+                            .createSignedUrl(path, 60);
+                          if (error || !data?.signedUrl) {
+                            toast.error("No se pudo generar el enlace. Vuelve a subir el archivo.");
+                            return;
+                          }
+                          window.open(data.signedUrl, "_blank", "noopener,noreferrer");
+                        } catch {
+                          toast.error("No se pudo abrir el archivo.");
+                        }
+                      }}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary/10 text-primary text-xs font-medium hover:bg-primary/20 transition-colors shrink-0"
+                    >
                       <Download className="h-3.5 w-3.5" /> Ver archivo
-                    </a>
+                    </button>
                   )}
 
                   {/* Drive link */}
@@ -626,8 +649,7 @@ export default function DocumentsPage() {
                           const path = `${d.clienteId}/${Date.now()}_${file.name}`;
                           const { data, error } = await supabase.storage.from("documents").upload(path, file);
                           if (error) { toast.error("Error: " + error.message); return; }
-                          const { data: urlData } = supabase.storage.from("documents").getPublicUrl(data.path);
-                          await updateDocumentInDb(d.id, { fileUrl: urlData.publicUrl });
+                          await updateDocumentInDb(d.id, { fileUrl: data.path });
                           toast.success("Archivo subido correctamente");
                         } catch (err: any) { toast.error("Error al subir: " + (err.message || "desconocido")); }
                       }} />
