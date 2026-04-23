@@ -334,12 +334,8 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
       .on("postgres_changes", { event: "*", schema: "public", table: "documents" }, () => {
         fetchDocuments().then(setAllDocumentsState);
       })
-      .on("postgres_changes", { event: "*", schema: "public", table: "scripts" }, () => {
-        fetchScripts().then(setAllScriptsState);
-      })
-      .on("postgres_changes", { event: "*", schema: "public", table: "script_comments" }, () => {
-        fetchAllScriptComments().then(setScriptComments);
-      })
+      // TODO: cleanup scripts feature refs (tracked in audit) — tablas scripts/script_comments eliminadas en 220008
+
       .on("postgres_changes", { event: "*", schema: "public", table: "notifications" }, () => {
         fetchNotifications().then(setNotifications);
       })
