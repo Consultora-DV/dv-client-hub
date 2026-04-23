@@ -32,6 +32,12 @@ function ApprovalGuard({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
+function AdminRoute({ children }: { children: React.ReactNode }) {
+  const { user } = useAuth();
+  if (user?.role !== "admin") return <Navigate to="/dashboard" replace />;
+  return <>{children}</>;
+}
+
 function AppRoutes() {
   const { isAuthenticated, isLoading } = useAuth();
 
@@ -65,7 +71,7 @@ function AppRoutes() {
                   <Route path="/documentos" element={<DocumentsPage />} />
                   <Route path="/calendario" element={<CalendarPage />} />
                   <Route path="/metricas" element={<MetricsPage />} />
-                  <Route path="/usuarios" element={<UsersPage />} />
+                  <Route path="/usuarios" element={<AdminRoute><UsersPage /></AdminRoute>} />
                   <Route path="/perfil" element={<ProfilePage />} />
                 </Route>
                 <Route path="*" element={<NotFound />} />

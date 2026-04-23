@@ -6,33 +6,35 @@ import { motion } from "framer-motion";
 import { Mail, Lock, User } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { isPasswordValid, MIN_PASSWORD_LENGTH } from "@/lib/passwordValidation";
 
 function PasswordStrength({ password }: { password: string }) {
   const checks = useMemo(() => ({
+    hasLength: password.length >= MIN_PASSWORD_LENGTH,
     hasNumber: /\d/.test(password),
     hasUpper: /[A-Z]/.test(password),
     hasSpecial: /[^A-Za-z0-9]/.test(password),
   }), [password]);
 
-  const score = [checks.hasNumber, checks.hasUpper, checks.hasSpecial].filter(Boolean).length;
-  const labels = ["Débil", "Débil", "Media", "Fuerte"];
-  const colors = ["bg-destructive", "bg-destructive", "bg-status-pending", "bg-status-approved"];
+  const score = [checks.hasLength, checks.hasNumber, checks.hasUpper, checks.hasSpecial].filter(Boolean).length;
+  const labels = ["Débil", "Débil", "Débil", "Media", "Fuerte"];
+  const colors = ["bg-destructive", "bg-destructive", "bg-destructive", "bg-status-pending", "bg-status-approved"];
 
   if (!password) return null;
 
   return (
     <div className="space-y-2 mt-2">
       <div className="flex gap-1">
-        {[0, 1, 2].map((i) => (
+        {[0, 1, 2, 3].map((i) => (
           <div key={i} className={`h-1.5 flex-1 rounded-full transition-colors ${i < score ? colors[score] : "bg-secondary"}`} />
         ))}
       </div>
-      <p className={`text-xs ${score <= 1 ? "text-destructive" : score === 2 ? "text-status-pending" : "text-status-approved"}`}>
+      <p className={`text-xs ${score <= 2 ? "text-destructive" : score === 3 ? "text-status-pending" : "text-status-approved"}`}>
         {labels[score]}
       </p>
-      {score < 3 && (
+      {score < 4 && (
         <p className="text-xs text-muted-foreground">
-          Incluye al menos 1 mayúscula, 1 número y 1 signo especial (!@#$...)
+          Mínimo {MIN_PASSWORD_LENGTH} caracteres, 1 mayúscula, 1 número y 1 símbolo especial
         </p>
       )}
     </div>
@@ -51,7 +53,7 @@ export default function AuthPage() {
   const [forgotEmail, setForgotEmail] = useState("");
   const [forgotLoading, setForgotLoading] = useState(false);
 
-  const passwordValid = /\d/.test(password) && /[A-Z]/.test(password) && /[^A-Za-z0-9]/.test(password);
+  const passwordValid = isPasswordValid(password);
 
   const handleForgotPassword = async (e: React.FormEvent) => {
     e.preventDefault();

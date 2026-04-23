@@ -35,7 +35,7 @@ function scriptCommentFromRow(row: any): Comment {
     author: row.author,
     isClient: row.is_client,
     text: row.text,
-    date: row.date,
+    date: row.created_at,
   };
 }
 
@@ -141,7 +141,7 @@ export async function fetchAllScriptComments(): Promise<Record<string, Comment[]
   const { data, error } = await supabase
     .from("script_comments")
     .select("*")
-    .order("date", { ascending: false });
+    .order("created_at", { ascending: false });
   if (error) {
     console.error("fetchAllScriptComments:", error);
     return {};
@@ -161,7 +161,6 @@ export async function insertScriptComment(scriptId: string, author: string, text
     text,
     is_client: isClient,
     user_id: userId,
-    date: new Date().toISOString(),
   });
   if (error) throw error;
 }

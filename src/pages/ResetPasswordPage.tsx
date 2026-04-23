@@ -5,6 +5,7 @@ import { motion } from "framer-motion";
 import { Lock, Eye, EyeOff } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { isPasswordValid, PASSWORD_ERROR_MSG } from "@/lib/passwordValidation";
 
 export default function ResetPasswordPage() {
   const [password, setPassword] = useState("");
@@ -91,8 +92,8 @@ export default function ResetPasswordPage() {
 
   const handleReset = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!/\d/.test(password) || !/[A-Z]/.test(password) || !/[^A-Za-z0-9]/.test(password)) {
-      toast.error("La contraseña debe incluir al menos 1 mayúscula, 1 número y 1 signo especial");
+    if (!isPasswordValid(password)) {
+      toast.error(PASSWORD_ERROR_MSG);
       return;
     }
     if (password !== confirmPassword) {

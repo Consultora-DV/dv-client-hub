@@ -1,13 +1,24 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
+const ALLOWED_ORIGINS = [
+  "https://paneldecliente.lovable.app",
+  "http://localhost:5173",
+  "http://localhost:3000",
+];
+
+function corsHeaders(origin: string | null) {
+  const allowed = origin && ALLOWED_ORIGINS.includes(origin) ? origin : ALLOWED_ORIGINS[0];
+  return {
+    "Access-Control-Allow-Origin": allowed,
+    "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+    "Access-Control-Allow-Methods": "POST, OPTIONS",
+  };
+}
 
 Deno.serve(async (req) => {
+  const origin = req.headers.get("origin");
   if (req.method === "OPTIONS") {
-    return new Response("ok", { headers: corsHeaders });
+    return new Response(null, { headers: corsHeaders(origin) });
   }
 
   try {
@@ -15,7 +26,7 @@ Deno.serve(async (req) => {
     const authHeader = req.headers.get("Authorization");
     if (!authHeader?.startsWith("Bearer ")) {
       return new Response(JSON.stringify({ error: "No autorizado" }), {
-        status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 401, headers: { ...corsHeaders(origin), "Content-Type": "application/json" },
       });
     }
 
@@ -32,7 +43,7 @@ Deno.serve(async (req) => {
     );
     if (claimsErr || !claims?.claims?.sub) {
       return new Response(JSON.stringify({ error: "Token inválido" }), {
-        status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 401, headers: { ...corsHeaders(origin), "Content-Type": "application/json" },
       });
     }
 
@@ -46,14 +57,23 @@ Deno.serve(async (req) => {
     });
     if (!isAdmin) {
       return new Response(JSON.stringify({ error: "Solo administradores pueden invitar usuarios" }), {
-        status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 403, headers: { ...corsHeaders(origin), "Content-Type": "application/json" },
       });
     }
 
     const { email, name, role } = await req.json();
     if (!email || typeof email !== "string") {
       return new Response(JSON.stringify({ error: "Email requerido" }), {
-        status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 400, headers: { ...corsHeaders(origin), "Content-Type": "application/json" },
+      });
+    }
+
+    // Validar rol contra el enum antes de crear el usuario
+    const VALID_ROLES = ["admin", "editor", "diseñador", "cliente"];
+    const assignedRole = role || "cliente";
+    if (!VALID_ROLES.includes(assignedRole)) {
+      return new Response(JSON.stringify({ error: `Rol inválido: '${assignedRole}'. Roles permitidos: ${VALID_ROLES.join(", ")}` }), {
+        status: 400, headers: { ...corsHeaders(origin), "Content-Type": "application/json" },
       });
     }
 
@@ -66,14 +86,14 @@ Deno.serve(async (req) => {
 
     if (createErr) {
       return new Response(JSON.stringify({ error: createErr.message }), {
-        status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 400, headers: { ...corsHeaders(origin), "Content-Type": "application/json" },
       });
     }
 
-    // Assign role if not cliente (cliente is default)
-    if (role && role !== "cliente" && newUser.user) {
+    // Assign role (always explicit now que validamos el enum arriba)
+    if (assignedRole !== "cliente" && newUser.user) {
       await adminClient.from("user_roles").upsert(
-        { user_id: newUser.user.id, role },
+        { user_id: newUser.user.id, role: assignedRole },
         { onConflict: "user_id" }
       );
     }
@@ -100,13 +120,13 @@ Deno.serve(async (req) => {
       userId: newUser.user?.id,
     }), {
       status: 200,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
+      headers: { ...corsHeaders(origin), "Content-Type": "application/json" },
     });
   } catch (error: unknown) {
     console.error("invite-user error:", error);
     const message = error instanceof Error ? error.message : "Error desconocido";
     return new Response(JSON.stringify({ error: message }), {
-      status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      status: 500, headers: { ...corsHeaders(origin), "Content-Type": "application/json" },
     });
   }
 });

@@ -60,6 +60,7 @@ function buildAppUser(authUser: User, profile: Awaited<ReturnType<typeof fetchPr
     role,
     approvalStatus: (profile.approval_status as ApprovalStatus) ?? "pending",
     clienteId: role === "cliente" ? authUser.id : undefined,
+    customAvatar: profile.avatar_url || undefined,
   };
 }
 
@@ -141,10 +142,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const updateProfile = useCallback(async (updates: Partial<AppUser>) => {
     setUser((prev) => prev ? { ...prev, ...updates } : prev);
     if (session?.user) {
-      const dbUpdates: { display_name?: string; email?: string; business?: string } = {};
+      const dbUpdates: { display_name?: string; email?: string; business?: string; avatar_url?: string } = {};
       if (updates.name) dbUpdates.display_name = updates.name;
       if (updates.email) dbUpdates.email = updates.email;
       if (updates.business) dbUpdates.business = updates.business;
+      if (updates.customAvatar !== undefined) dbUpdates.avatar_url = updates.customAvatar;
       if (Object.keys(dbUpdates).length > 0) {
         try {
           const { error } = await supabase.from("profiles").update(dbUpdates).eq("user_id", session.user.id);

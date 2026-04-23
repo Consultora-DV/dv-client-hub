@@ -13,7 +13,7 @@ Deno.serve(async (req) => {
     return new Response("ok", { headers: corsHeaders });
   }
 
-  // Verify user is authenticated
+  // Verificar autenticación
   const authHeader = req.headers.get("Authorization");
   if (!authHeader) {
     return new Response(
@@ -24,15 +24,32 @@ Deno.serve(async (req) => {
 
   const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
   const supabaseKey = Deno.env.get("SUPABASE_ANON_KEY")!;
-  const supabase = createClient(supabaseUrl, supabaseKey, {
+  const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+
+  const anonClient = createClient(supabaseUrl, supabaseKey, {
     global: { headers: { Authorization: authHeader } },
   });
 
-  const { data: { user }, error: authError } = await supabase.auth.getUser();
+  const { data: { user }, error: authError } = await anonClient.auth.getUser();
   if (authError || !user) {
     return new Response(
       JSON.stringify({ error: "No autorizado" }),
       { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+    );
+  }
+
+  // Verificar rol: solo admin o editor pueden usar Apify (evita abuso de créditos)
+  const adminClient = createClient(supabaseUrl, serviceRoleKey);
+  const { data: roleData } = await adminClient
+    .from("user_roles")
+    .select("role")
+    .eq("user_id", user.id)
+    .maybeSingle();
+  const userRole = roleData?.role || "cliente";
+  if (userRole !== "admin" && userRole !== "editor") {
+    return new Response(
+      JSON.stringify({ error: "No autorizado: se requiere rol admin o editor" }),
+      { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   }
 

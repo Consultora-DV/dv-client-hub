@@ -1,4 +1,5 @@
 import { createContext, useContext, ReactNode, useCallback, useMemo, useState, useEffect, useRef } from "react";
+import { toast } from "sonner";
 import {
   Video, Document, CalendarEvent, Notification, Comment, Script, Client,
 } from "@/data/mockData";
@@ -44,6 +45,8 @@ interface AppStateContextType {
   setCalendarEvents: (e: CalendarEvent[] | ((prev: CalendarEvent[]) => CalendarEvent[])) => void;
   notifications: Notification[];
   setNotifications: (n: Notification[] | ((prev: Notification[]) => Notification[])) => void;
+  markNotificationRead: (id: string) => Promise<void>;
+  markAllNotificationsRead: () => Promise<void>;
   comments: Record<string, Comment[]>;
   setComments: (c: Record<string, Comment[]> | ((prev: Record<string, Comment[]>) => Record<string, Comment[]>)) => void;
   approveVideo: (videoId: string) => void;
@@ -81,7 +84,7 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
 
   const [allDocuments, setAllDocumentsState] = useState<Document[]>([]);
   const [allScripts, setAllScriptsState] = useState<Script[]>([]);
-  const [notifications, setNotifications] = useLocalStorage<Notification[]>("dv_notifications_state", []);
+  const [notifications, setNotifications] = useState<Notification[]>([]);
   const [scriptComments, setScriptComments] = useState<Record<string, Comment[]>>({});
   const [selectedClienteId, setSelectedClienteId] = useLocalStorage<string | null>("dv_selected_cliente", null);
 
@@ -270,18 +273,36 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
+  // ── Helpers para notificaciones ──
+  const fetchNotifications = useCallback(async () => {
+    const { data } = await supabase
+      .from("notifications")
+      .select("*")
+      .order("created_at", { ascending: false })
+      .limit(50);
+    return (data || []).map((row) => ({
+      id: row.id as string,
+      type: row.type as Notification["type"],
+      message: row.message as string,
+      date: (row.date || row.created_at) as string,
+      read: row.read as boolean,
+      link: (row.link || "") as string,
+    }));
+  }, []);
+
   // ── Load data from DB ──
   useEffect(() => {
     if (!user) return;
     async function load() {
       await migrateLocalStorage();
-      const [vids, evts, cmts, docs, scrs, scrCmts] = await Promise.all([
+      const [vids, evts, cmts, docs, scrs, scrCmts, notifs] = await Promise.all([
         fetchVideos(),
         fetchCalendarEvents(),
         fetchAllComments(),
         fetchDocuments(),
         fetchScripts(),
         fetchAllScriptComments(),
+        fetchNotifications(),
       ]);
       setAllVideosState(vids);
       setAllEventsState(evts);
@@ -289,10 +310,11 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
       setAllDocumentsState(docs);
       setAllScriptsState(scrs);
       setScriptComments(scrCmts);
+      setNotifications(notifs);
       initialLoadDone.current = true;
     }
     load();
-  }, [user, migrateLocalStorage]);
+  }, [user, migrateLocalStorage, fetchNotifications]);
 
   // ── Realtime subscriptions ──
   useEffect(() => {
@@ -318,10 +340,13 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
       .on("postgres_changes", { event: "*", schema: "public", table: "script_comments" }, () => {
         fetchAllScriptComments().then(setScriptComments);
       })
+      .on("postgres_changes", { event: "*", schema: "public", table: "notifications" }, () => {
+        fetchNotifications().then(setNotifications);
+      })
       .subscribe();
 
     return () => { supabase.removeChannel(channel); };
-  }, [user]);
+  }, [user, fetchNotifications]);
 
   // Wrapper setters that also update DB state locally
   const setVideos = useCallback((updater: Video[] | ((prev: Video[]) => Video[])) => {
@@ -403,20 +428,29 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
     loadClients();
   }, [user]);
 
-  // Auto-select first client if admin and none selected
+  // Resolver cliente seleccionado cuando carga la lista
   useEffect(() => {
     if (!clients.length) return;
+    const isAdminOrEditor = user?.role === "admin" || user?.role === "editor" || user?.role === "diseñador";
 
-    // If no client selected, auto-select the first one
+    // Sin cliente guardado: auto-seleccionar el primero y avisar al admin
     if (!selectedClienteId) {
-      setSelectedClienteId(clients[0].id);
+      const first = clients[0];
+      setSelectedClienteId(first.id);
+      if (isAdminOrEditor) {
+        toast(`Mostrando datos de: ${first.nombre}`, {
+          description: "Cambia el cliente en el selector del menú lateral.",
+          duration: 4000,
+        });
+      }
       return;
     }
 
-    // If selected client doesn't exist, try to resolve legacy slug
+    // Si el id guardado ya existe, no hacer nada
     const exists = clients.some((client) => client.id === selectedClienteId);
     if (exists) return;
 
+    // Resolver slug legacy (ej: "dra-fedra-aldama" → UUID real)
     const normalized = clients.find((client) => {
       const slug = client.nombre.toLowerCase().replace(/\./g, "").replace(/\s+/g, "-");
       const withoutTitle = client.nombre
@@ -431,10 +465,17 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
     if (normalized) {
       setSelectedClienteId(normalized.id);
     } else {
-      // Fallback to first client
-      setSelectedClienteId(clients[0].id);
+      // Fallback al primero, con aviso claro
+      const first = clients[0];
+      setSelectedClienteId(first.id);
+      if (isAdminOrEditor) {
+        toast(`Cliente no encontrado — mostrando: ${first.nombre}`, {
+          description: "El cliente guardado ya no existe. Se seleccionó el primero disponible.",
+          duration: 5000,
+        });
+      }
     }
-  }, [clients, selectedClienteId, setSelectedClienteId]);
+  }, [clients, selectedClienteId, setSelectedClienteId, user?.role]);
 
   const isClient = user?.role === "cliente";
   const clienteId = isClient ? user?.clienteId : selectedClienteId;
@@ -456,10 +497,33 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
     [allCalendarEvents, clienteId]
   );
 
-  const addNotification = useCallback((n: Omit<Notification, "id">) => {
-    const notification: Notification = { ...n, id: `n_${Date.now()}` };
-    setNotifications((prev) => [notification, ...prev]);
-  }, [setNotifications]);
+  const addNotification = useCallback(async (n: Omit<Notification, "id">) => {
+    try {
+      await supabase.from("notifications").insert({
+        type: n.type,
+        message: n.message,
+        date: n.date || new Date().toISOString(),
+        read: false,
+        link: n.link || "",
+      });
+      // El realtime subscription actualizará el estado automáticamente
+    } catch (err) {
+      console.error("addNotification error:", err);
+      // Fallback: actualizar estado local si la DB falla
+      const notification: Notification = { ...n, id: `n_${Date.now()}` };
+      setNotifications((prev) => [notification, ...prev]);
+    }
+  }, []);
+
+  const markNotificationRead = useCallback(async (id: string) => {
+    setNotifications((prev) => prev.map((n) => n.id === id ? { ...n, read: true } : n));
+    await supabase.from("notifications").update({ read: true }).eq("id", id);
+  }, []);
+
+  const markAllNotificationsRead = useCallback(async () => {
+    setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
+    await supabase.from("notifications").update({ read: true }).eq("read", false);
+  }, []);
 
   const approveVideo = useCallback(async (videoId: string) => {
     const now = new Date().toISOString();
@@ -468,12 +532,15 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
     const newHistory = [...video.statusHistory, { status: "Aprobado", date: now.split("T")[0], by: user?.name || "Cliente" }];
     try {
       await updateVideoStatus(videoId, "approved", newHistory);
-    } catch { /* realtime will sync */ }
-    addNotification({
-      type: "video_aprobado",
-      message: `${user?.name || "Cliente"} aprobó '${video.title}'`,
-      date: now, read: false, link: "/videos",
-    });
+      addNotification({
+        type: "video_aprobado",
+        message: `${user?.name || "Cliente"} aprobó '${video.title}'`,
+        date: now, read: false, link: "/videos",
+      });
+    } catch (err) {
+      console.error("approveVideo error:", err);
+      toast.error("No se pudo guardar la aprobación. Intenta de nuevo.");
+    }
   }, [allVideos, user, addNotification]);
 
   const requestChanges = useCallback(async (videoId: string, comment: string) => {
@@ -484,18 +551,24 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
     try {
       await updateVideoStatus(videoId, "changes", newHistory);
       await insertComment(videoId, user?.name || "Cliente", comment, user?.role === "cliente", user?.id || "");
-    } catch { /* realtime will sync */ }
-    addNotification({
-      type: "video_cambios",
-      message: `${user?.name || "Cliente"} solicitó cambios en '${video.title}'`,
-      date: now, read: false, link: "/videos",
-    });
+      addNotification({
+        type: "video_cambios",
+        message: `${user?.name || "Cliente"} solicitó cambios en '${video.title}'`,
+        date: now, read: false, link: "/videos",
+      });
+    } catch (err) {
+      console.error("requestChanges error:", err);
+      toast.error("No se pudieron guardar los cambios solicitados. Intenta de nuevo.");
+    }
   }, [allVideos, user, addNotification]);
 
   const addComment = useCallback(async (videoId: string, text: string) => {
     try {
       await insertComment(videoId, user?.name || "Usuario", text, user?.role === "cliente", user?.id || "");
-    } catch { /* realtime will sync */ }
+    } catch (err) {
+      console.error("addComment error:", err);
+      toast.error("No se pudo enviar el comentario. Intenta de nuevo.");
+    }
   }, [user]);
 
   // Script DB-backed functions
@@ -655,6 +728,7 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
         scripts: scriptsFiltered, allScripts, setScripts,
         calendarEvents, allCalendarEvents, setCalendarEvents,
         notifications, setNotifications,
+        markNotificationRead, markAllNotificationsRead,
         comments, setComments,
         approveVideo, requestChanges, addComment, addNotification,
         isLoadingClients, selectedClienteId, setSelectedClienteId,

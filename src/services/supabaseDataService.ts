@@ -83,7 +83,7 @@ function commentFromRow(row: any): Comment {
     author: row.author,
     isClient: row.is_client,
     text: row.text,
-    date: row.date,
+    date: row.created_at,
   };
 }
 
@@ -102,7 +102,7 @@ export async function fetchCalendarEvents(): Promise<CalendarEvent[]> {
   const { data, error } = await supabase
     .from("calendar_events")
     .select("*")
-    .order("date", { ascending: false });
+    .order("created_at", { ascending: false });
   if (error) { console.error("fetchCalendarEvents:", error); return []; }
   return (data || []).map(eventFromRow);
 }
@@ -112,7 +112,7 @@ export async function fetchVideoComments(videoId: string): Promise<Comment[]> {
     .from("video_comments")
     .select("*")
     .eq("video_id", videoId)
-    .order("date", { ascending: false });
+    .order("created_at", { ascending: false });
   if (error) { console.error("fetchVideoComments:", error); return []; }
   return (data || []).map(commentFromRow);
 }
@@ -121,7 +121,7 @@ export async function fetchAllComments(): Promise<Record<string, Comment[]>> {
   const { data, error } = await supabase
     .from("video_comments")
     .select("*")
-    .order("date", { ascending: false });
+    .order("created_at", { ascending: false });
   if (error) { console.error("fetchAllComments:", error); return {}; }
   const map: Record<string, Comment[]> = {};
   for (const row of data || []) {
@@ -171,7 +171,6 @@ export async function insertComment(
       text,
       is_client: isClient,
       user_id: userId,
-      date: new Date().toISOString(),
     })
     .select()
     .single();
@@ -252,7 +251,7 @@ export async function fetchPlatformMetricsFromDb(
     .select("*")
     .eq("cliente_id", clienteId)
     .eq("platform", platform)
-    .order("date", { ascending: false });
+    .order("created_at", { ascending: false });
 
   if (error) {
     console.error("fetchPlatformMetricsFromDb:", error);

@@ -21,9 +21,9 @@ export function ProfileModal({ onClose }: { onClose: () => void }) {
   const [email, setEmail] = useState(user?.email || "");
   const fileRef = useRef<HTMLInputElement>(null);
 
-  // Photo
-  const photoKey = `dv_user_profile_photo_${user?.id}`;
-  const [photo, setPhoto] = useState<string | null>(() => localStorage.getItem(photoKey));
+  // Photo — URL for preview (from Storage or local blob), file for pending upload
+  const [photo, setPhoto] = useState<string | null>(user?.customAvatar || null);
+  const [photoFile, setPhotoFile] = useState<File | null>(null);
 
   // Password fields
   const [currentPw, setCurrentPw] = useState("");
@@ -37,10 +37,9 @@ export function ProfileModal({ onClose }: { onClose: () => void }) {
   const handlePhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    if (file.size > 2 * 1024 * 1024) { alert("La imagen no puede superar 2MB"); return; }
-    const reader = new FileReader();
-    reader.onload = () => setPhoto(reader.result as string);
-    reader.readAsDataURL(file);
+    if (file.size > 2 * 1024 * 1024) { toast.error("La imagen no puede superar 2MB"); return; }
+    setPhotoFile(file);
+    setPhoto(URL.createObjectURL(file));
   };
 
   const [saving, setSaving] = useState(false);
@@ -60,6 +59,16 @@ export function ProfileModal({ onClose }: { onClose: () => void }) {
       setSaving(true);
       setPwError("");
       try {
+        // Verificar contraseña actual antes de cambiar
+        const { error: signInError } = await supabase.auth.signInWithPassword({
+          email: user?.email || "",
+          password: currentPw,
+        });
+        if (signInError) {
+          setPwError("La contraseña actual es incorrecta");
+          setSaving(false);
+          return;
+        }
         const { error } = await supabase.auth.updateUser({ password: newPw });
         if (error) {
           setPwError(error.message);
@@ -77,14 +86,22 @@ export function ProfileModal({ onClose }: { onClose: () => void }) {
       }
     }
 
-    // Save photo
-    if (photo) {
-      localStorage.setItem(photoKey, photo);
-    } else {
-      localStorage.removeItem(photoKey);
+    // Upload new photo to Supabase Storage if changed
+    let avatarUrl: string | undefined = undefined;
+    if (photoFile && user?.id) {
+      const ext = photoFile.name.split(".").pop() || "jpg";
+      const path = `${user.id}/${Date.now()}_avatar.${ext}`;
+      const { error: upErr } = await supabase.storage.from("avatars").upload(path, photoFile, { upsert: true });
+      if (upErr) {
+        toast.error("Error subiendo foto de perfil");
+        setSaving(false);
+        return;
+      }
+      const { data: urlData } = supabase.storage.from("avatars").getPublicUrl(path);
+      avatarUrl = urlData.publicUrl;
     }
 
-    await updateProfile({ name, email });
+    await updateProfile({ name, email, ...(avatarUrl !== undefined ? { customAvatar: avatarUrl } : {}) });
     setSaving(false);
     onClose();
   };

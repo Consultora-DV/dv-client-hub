@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from "react";
+import { toast } from "sonner";
 import { motion, AnimatePresence } from "framer-motion";
 import { useAuth } from "@/contexts/AuthContext";
 import { useNavigate } from "react-router-dom";
@@ -166,7 +167,7 @@ export default function OnboardingPage({ editMode = false, onComplete, targetUse
   const handlePhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    if (file.size > 2 * 1024 * 1024) { alert("Máximo 2MB"); return; }
+    if (file.size > 2 * 1024 * 1024) { toast.error("La foto no puede superar 2MB"); return; }
     const reader = new FileReader();
     reader.onload = () => update({ photo: reader.result as string });
     reader.readAsDataURL(file);
@@ -175,7 +176,7 @@ export default function OnboardingPage({ editMode = false, onComplete, targetUse
   const handleBlueprintChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    if (file.size > 10 * 1024 * 1024) { alert("Máximo 10MB"); return; }
+    if (file.size > 10 * 1024 * 1024) { toast.error("El documento no puede superar 10MB"); return; }
 
     // Reset AI state
     setAiParseError(null);

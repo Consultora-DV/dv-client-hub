@@ -13,6 +13,8 @@ import { useAppState } from "@/contexts/AppStateContext";
 import { usePermissions } from "@/hooks/usePermissions";
 import { CalendarEvent } from "@/data/mockData";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
+import { insertCalendarEvents } from "@/services/supabaseDataService";
+import { supabase } from "@/integrations/supabase/client";
 
 const platformColors: Record<string, string> = {
   instagram: "bg-instagram",
@@ -39,18 +41,19 @@ const contentTypes = ["reel", "story", "post", "carrusel", "short", "live", "res
 const DAYS = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"];
 
 function AddEventModal({ date, onClose }: { date: string; onClose: () => void }) {
-  const { setCalendarEvents, allCalendarEvents, clients } = useAppState();
+  const { allCalendarEvents, clients } = useAppState();
   const [title, setTitle] = useState("");
   const [platforms, setPlatforms] = useState<string[]>(["instagram"]);
   const [contentType, setContentType] = useState("reel");
   const [time, setTime] = useState("12:00");
   const [clienteId, setClienteId] = useState(clients[0]?.id || "");
+  const [saving, setSaving] = useState(false);
 
   const togglePlatform = (p: string) => {
     setPlatforms((prev) => prev.includes(p) ? prev.filter((x) => x !== p) : [...prev, p]);
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!title.trim() || platforms.length === 0) return;
     const isDuplicate = allCalendarEvents.some(
       (e) => e.date === date && e.title === title.trim() && e.clienteId === clienteId
@@ -60,7 +63,7 @@ function AddEventModal({ date, onClose }: { date: string; onClose: () => void })
       return;
     }
     const newEvent: CalendarEvent = {
-      id: `e_${Date.now()}`,
+      id: "",  // DB genera el UUID real
       clienteId,
       date,
       title: title.trim(),
@@ -68,8 +71,16 @@ function AddEventModal({ date, onClose }: { date: string; onClose: () => void })
       contentType,
       time,
     };
-    setCalendarEvents((prev) => [...prev, newEvent]);
-    onClose();
+    setSaving(true);
+    try {
+      await insertCalendarEvents([newEvent]);
+      toast.success("Evento agregado al calendario");
+      onClose();
+    } catch {
+      toast.error("Error al guardar el evento. Intenta de nuevo.");
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -114,7 +125,7 @@ function AddEventModal({ date, onClose }: { date: string; onClose: () => void })
             </Select></div>
           <div><label className="text-xs text-muted-foreground mb-1.5 block">Hora de publicación</label>
             <Input type="time" value={time} onChange={(e) => setTime(e.target.value)} className="bg-secondary border-border/50 rounded-xl" /></div>
-          <Button onClick={handleSave} disabled={!title.trim() || platforms.length === 0} className="w-full gold-gradient text-primary-foreground rounded-xl h-11">Agregar al calendario</Button>
+          <Button onClick={handleSave} disabled={saving || !title.trim() || platforms.length === 0} className="w-full gold-gradient text-primary-foreground rounded-xl h-11">{saving ? "Guardando..." : "Agregar al calendario"}</Button>
         </div>
       </motion.div>
     </motion.div>
@@ -221,9 +232,16 @@ export default function CalendarPage() {
     .filter((e) => { const d = new Date(e.date); return d.getMonth() === month && d.getFullYear() === year; })
     .sort((a, b) => a.date.localeCompare(b.date));
 
-  const handleDeleteEvent = () => {
+  const handleDeleteEvent = async () => {
     if (!deleteTarget) return;
-    setCalendarEvents((prev) => prev.filter((e) => e.id !== deleteTarget.id));
+    const { error } = await supabase
+      .from("calendar_events")
+      .delete()
+      .eq("id", deleteTarget.id);
+    if (error) {
+      toast.error("Error al eliminar el evento");
+      return;
+    }
     toast.success(`Evento "${deleteTarget.title}" eliminado`);
     setDeleteTarget(null);
   };
@@ -238,14 +256,19 @@ export default function CalendarPage() {
     setDragOverDay(day);
   };
 
-  const handleCalDrop = (day: number) => {
+  const handleCalDrop = async (day: number) => {
     if (!dragEventId) return;
     const dateStr = `${year}-${String(month + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
-    setCalendarEvents((prev) =>
-      prev.map((ev) => ev.id === dragEventId ? { ...ev, date: dateStr } : ev)
-    );
+    const { error } = await supabase
+      .from("calendar_events")
+      .update({ date: dateStr })
+      .eq("id", dragEventId);
     setDragEventId(null);
     setDragOverDay(null);
+    if (error) {
+      toast.error("Error al mover el evento");
+      return;
+    }
     toast.success("Evento movido");
   };
 

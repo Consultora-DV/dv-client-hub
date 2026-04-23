@@ -1,4 +1,5 @@
 import { useState, useRef, ChangeEvent } from "react";
+import { isPasswordValid, PASSWORD_ERROR_MSG } from "@/lib/passwordValidation";
 import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import {
@@ -216,8 +217,8 @@ export default function ClientWelcomePage() {
         toast.error("Email y contraseña son requeridos");
         return false;
       }
-      if (data.password.length < 8) {
-        toast.error("La contraseña debe tener al menos 8 caracteres");
+      if (!isPasswordValid(data.password)) {
+        toast.error(PASSWORD_ERROR_MSG);
         return false;
       }
       if (data.password !== data.confirmPassword) {
@@ -272,9 +273,10 @@ export default function ClientWelcomePage() {
     const p = data.password;
     let s = 0;
     if (p.length >= 8) s++;
-    if (/[A-Z]/.test(p) && /[0-9]/.test(p)) s++;
-    if (/[^A-Za-z0-9]/.test(p) && p.length >= 12) s++;
-    return s;
+    if (/[A-Z]/.test(p)) s++;
+    if (/[0-9]/.test(p)) s++;
+    if (/[^A-Za-z0-9]/.test(p)) s++;
+    return s; // 0-4
   })();
 
   const progress = step === 0 ? 0 : step >= 6 ? 100 : (step / TOTAL_STEPS) * 100;

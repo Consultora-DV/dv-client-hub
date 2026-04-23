@@ -1,7 +1,6 @@
-import { useState } from "react";
 import { Bell, Video, FileText, BarChart3, File, ThumbsUp, AlertCircle, FileCheck, FilePen, Download } from "lucide-react";
 import { useAppState } from "@/contexts/AppStateContext";
-import { Notification, NotificationType } from "@/data/mockData";
+import { NotificationType } from "@/data/mockData";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { useNavigate } from "react-router-dom";
 
@@ -29,57 +28,15 @@ const typeColors: Record<NotificationType, string> = {
   import_completado: "text-status-published",
 };
 
-const READ_IDS_KEY = "dv_notifications_read_ids";
-
-function getPersistedReadIds(): Set<string> {
-  try {
-    const raw = localStorage.getItem(READ_IDS_KEY);
-    return raw ? new Set(JSON.parse(raw)) : new Set();
-  } catch {
-    return new Set();
-  }
-}
-
-function persistReadIds(ids: Set<string>) {
-  localStorage.setItem(READ_IDS_KEY, JSON.stringify([...ids]));
-}
-
 export function NotificationBell() {
-  const { notifications, setNotifications } = useAppState();
+  const { notifications, markNotificationRead, markAllNotificationsRead } = useAppState();
   const navigate = useNavigate();
-
-  // On mount, reconcile persisted read IDs with current notifications
-  const [initialized, setInitialized] = useState(false);
-  if (!initialized) {
-    const persistedIds = getPersistedReadIds();
-    if (persistedIds.size > 0) {
-      const needsUpdate = notifications.some((n) => !n.read && persistedIds.has(n.id));
-      if (needsUpdate) {
-        setNotifications((prev) =>
-          prev.map((n) => (persistedIds.has(n.id) ? { ...n, read: true } : n))
-        );
-      }
-    }
-    setInitialized(true);
-  }
 
   const unreadCount = notifications.filter((n) => !n.read).length;
 
-  const handleClick = (id: string, link: string) => {
-    setNotifications((prev) =>
-      prev.map((n) => (n.id === id ? { ...n, read: true } : n))
-    );
-    const ids = getPersistedReadIds();
-    ids.add(id);
-    persistReadIds(ids);
+  const handleClick = async (id: string, link: string) => {
+    await markNotificationRead(id);
     navigate(link);
-  };
-
-  const markAllRead = () => {
-    setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
-    const ids = getPersistedReadIds();
-    notifications.forEach((n) => ids.add(n.id));
-    persistReadIds(ids);
   };
 
   const formatDate = (dateStr: string) => {
@@ -110,7 +67,7 @@ export function NotificationBell() {
         <div className="p-3 border-b border-border/50 flex items-center justify-between">
           <h4 className="font-semibold text-sm text-foreground">Notificaciones</h4>
           {unreadCount > 0 && (
-            <button onClick={markAllRead} className="text-xs text-primary hover:underline">
+            <button onClick={markAllNotificationsRead} className="text-xs text-primary hover:underline">
               Marcar todas como leídas
             </button>
           )}

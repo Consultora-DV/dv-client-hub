@@ -24,6 +24,7 @@ import { cn } from "@/lib/utils";
 import { useAppState } from "@/contexts/AppStateContext";
 import { usePermissions } from "@/hooks/usePermissions";
 import { CalendarIcon } from "lucide-react";
+import { insertVideos } from "@/services/supabaseDataService";
 
 const platformColors: Record<string, string> = {
   instagram: "bg-instagram",
@@ -355,7 +356,9 @@ function AddVideoModal({ onClose }: { onClose: () => void }) {
     setPlatforms((prev) => prev.includes(p) ? prev.filter((x) => x !== p) : [...prev, p]);
   };
 
-  const handleSave = () => {
+  const [saving, setSaving] = useState(false);
+
+  const handleSave = async () => {
     if (!title.trim() || !deliveryDate || platforms.length === 0) return;
     const url = embedUrl?.trim() || "";
     const isDuplicate = allVideos.some((v) => {
@@ -367,7 +370,7 @@ function AddVideoModal({ onClose }: { onClose: () => void }) {
       return;
     }
     const newVideo: Video = {
-      id: `v_${Date.now()}`,
+      id: "",  // DB genera el UUID real
       clienteId,
       title: title.trim(),
       platform: platforms,
@@ -379,8 +382,16 @@ function AddVideoModal({ onClose }: { onClose: () => void }) {
       comments: [],
       statusHistory: [{ status: "Pendiente de revisión", date: format(new Date(), "yyyy-MM-dd"), by: "Equipo DV" }],
     };
-    setVideos((prev) => [newVideo, ...prev]);
-    onClose();
+    setSaving(true);
+    try {
+      await insertVideos([newVideo]);
+      toast.success("Video agregado correctamente");
+      onClose();
+    } catch {
+      toast.error("Error al guardar el video. Intenta de nuevo.");
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -431,7 +442,7 @@ function AddVideoModal({ onClose }: { onClose: () => void }) {
                 <Calendar mode="single" selected={deliveryDate} onSelect={setDeliveryDate} className={cn("p-3 pointer-events-auto")} />
               </PopoverContent>
             </Popover></div>
-          <Button onClick={handleSave} disabled={!title.trim() || !deliveryDate || platforms.length === 0} className="w-full gold-gradient text-primary-foreground rounded-xl h-11">Publicar para revisión</Button>
+          <Button onClick={handleSave} disabled={saving || !title.trim() || !deliveryDate || platforms.length === 0} className="w-full gold-gradient text-primary-foreground rounded-xl h-11">{saving ? "Guardando..." : "Publicar para revisión"}</Button>
         </div>
       </motion.div>
     </motion.div>

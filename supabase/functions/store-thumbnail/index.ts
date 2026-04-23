@@ -6,7 +6,37 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type",
 };
 
+// Allowlist de dominios permitidos para descargar imágenes (previene SSRF)
+const ALLOWED_IMAGE_HOSTS = [
+  "cdninstagram.com",
+  "fbcdn.net",
+  "instagram.com",
+  "apify.com",
+  "api.apify.com",
+];
+
+function isAllowedImageUrl(url: string): boolean {
+  try {
+    const parsed = new URL(url);
+    // Solo HTTP/HTTPS, nunca file://, ftp://, etc.
+    if (parsed.protocol !== "https:" && parsed.protocol !== "http:") return false;
+    // Bloquear IPs privadas y metadata de cloud
+    const hostname = parsed.hostname.toLowerCase();
+    if (/^(10\.|172\.(1[6-9]|2\d|3[01])\.|192\.168\.|127\.|169\.254\.|::1|localhost)/.test(hostname)) return false;
+    // Verificar contra allowlist de dominios
+    return ALLOWED_IMAGE_HOSTS.some((allowed) => hostname === allowed || hostname.endsWith("." + allowed));
+  } catch {
+    return false;
+  }
+}
+
+const MAX_IMAGE_BYTES = 5 * 1024 * 1024; // 5 MB
+
 async function downloadImage(url: string): Promise<{ buffer: Uint8Array; contentType: string } | null> {
+  if (!isAllowedImageUrl(url)) {
+    console.warn("downloadImage: URL bloqueada por allowlist:", url);
+    return null;
+  }
   try {
     const res = await fetch(url, {
       headers: {
@@ -16,7 +46,12 @@ async function downloadImage(url: string): Promise<{ buffer: Uint8Array; content
     });
     if (!res.ok) return null;
     const contentType = res.headers.get("content-type") || "image/jpeg";
+    // Límite de tamaño para evitar DoS
     const blob = await res.blob();
+    if (blob.size > MAX_IMAGE_BYTES) {
+      console.warn("downloadImage: imagen demasiado grande:", blob.size);
+      return null;
+    }
     const buffer = new Uint8Array(await blob.arrayBuffer());
     return { buffer, contentType };
   } catch {
@@ -77,6 +112,20 @@ Deno.serve(async (req) => {
   }
 
   const supabase = createClient(supabaseUrl, serviceRoleKey);
+
+  // Verificar rol del usuario: solo admin/editor pueden usar esta función
+  const { data: roleData } = await supabase
+    .from("user_roles")
+    .select("role")
+    .eq("user_id", user.id)
+    .maybeSingle();
+  const userRole = roleData?.role || "cliente";
+  if (userRole !== "admin" && userRole !== "editor") {
+    return new Response(
+      JSON.stringify({ error: "No autorizado: se requiere rol admin o editor" }),
+      { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+    );
+  }
 
   try {
     const body = await req.json();
