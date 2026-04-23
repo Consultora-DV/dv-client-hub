@@ -500,6 +500,7 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
   const addNotification = useCallback(async (n: Omit<Notification, "id">) => {
     try {
       await supabase.from("notifications").insert({
+        user_id: user?.id,
         type: n.type,
         message: n.message,
         date: n.date || new Date().toISOString(),
