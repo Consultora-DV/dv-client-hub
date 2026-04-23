@@ -87,80 +87,40 @@ export async function deleteDocument(documentId: string): Promise<void> {
   if (error) throw error;
 }
 
+// TODO: cleanup scripts feature refs (tracked in audit)
+// Las tablas scripts/script_comments fueron eliminadas en migration 20260422220008.
+// Estos wrappers quedan como no-ops para mantener compatibilidad de tipos
+// mientras se hace el refactor completo del frontend.
+
 export async function fetchScripts(): Promise<Script[]> {
-  const { data, error } = await supabase
-    .from("scripts")
-    .select("*")
-    .order("sort_order", { ascending: true })
-    .order("created_at", { ascending: false });
-  if (error) {
-    console.error("fetchScripts:", error);
-    return [];
-  }
-  return (data || []).map(scriptFromRow);
+  // TODO: cleanup scripts feature refs (tracked in audit)
+  return [];
 }
 
-export async function createScript(script: Omit<Script, "id">): Promise<Script> {
-  const { data, error } = await supabase
-    .from("scripts" as any)
-    .insert({
-      cliente_id: script.clienteId,
-      title: script.title,
-      date: script.date,
-      status: script.status,
-      drive_link: script.driveLink || "#",
-      is_new: script.isNew,
-      visto: script.visto,
-      status_history: script.statusHistory,
-    } as any)
-    .select()
-    .single();
-  if (error) throw error;
-  return scriptFromRow(data);
+export async function createScript(_script: Omit<Script, "id">): Promise<Script> {
+  // TODO: cleanup scripts feature refs (tracked in audit)
+  throw new Error("La función de guiones fue retirada del backend.");
 }
 
-export async function updateScript(scriptId: string, updates: Partial<Script>): Promise<void> {
-  const row: Record<string, unknown> = {};
-  if (updates.title !== undefined) row.title = updates.title;
-  if (updates.date !== undefined) row.date = updates.date;
-  if (updates.status !== undefined) row.status = updates.status;
-  if (updates.driveLink !== undefined) row.drive_link = updates.driveLink;
-  if (updates.isNew !== undefined) row.is_new = updates.isNew;
-  if (updates.visto !== undefined) row.visto = updates.visto;
-  if (updates.statusHistory !== undefined) row.status_history = updates.statusHistory;
-  const { error } = await supabase.from("scripts" as any).update(row as any).eq("id", scriptId);
-  if (error) throw error;
+export async function updateScript(_scriptId: string, _updates: Partial<Script>): Promise<void> {
+  // TODO: cleanup scripts feature refs (tracked in audit)
 }
 
-export async function deleteScript(scriptId: string): Promise<void> {
-  const { error } = await supabase.from("scripts").delete().eq("id", scriptId);
-  if (error) throw error;
+export async function deleteScript(_scriptId: string): Promise<void> {
+  // TODO: cleanup scripts feature refs (tracked in audit)
 }
 
 export async function fetchAllScriptComments(): Promise<Record<string, Comment[]>> {
-  const { data, error } = await supabase
-    .from("script_comments")
-    .select("*")
-    .order("created_at", { ascending: false });
-  if (error) {
-    console.error("fetchAllScriptComments:", error);
-    return {};
-  }
-  return (data || []).reduce((acc: Record<string, Comment[]>, row: any) => {
-    const key = row.script_id;
-    if (!acc[key]) acc[key] = [];
-    acc[key].push(scriptCommentFromRow(row));
-    return acc;
-  }, {});
+  // TODO: cleanup scripts feature refs (tracked in audit)
+  return {};
 }
 
-export async function insertScriptComment(scriptId: string, author: string, text: string, isClient: boolean, userId: string): Promise<void> {
-  const { error } = await supabase.from("script_comments").insert({
-    script_id: scriptId,
-    author,
-    text,
-    is_client: isClient,
-    user_id: userId,
-  });
-  if (error) throw error;
+export async function insertScriptComment(
+  _scriptId: string,
+  _author: string,
+  _text: string,
+  _isClient: boolean,
+  _userId: string,
+): Promise<void> {
+  // TODO: cleanup scripts feature refs (tracked in audit)
 }
