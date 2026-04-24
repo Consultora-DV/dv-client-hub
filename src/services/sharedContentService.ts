@@ -112,7 +112,7 @@ export async function createScript(script: Omit<Script, "id">): Promise<Script> 
       is_new: script.isNew,
       visto: script.visto,
       status_history: script.statusHistory,
-    })
+    } as any)
     .select()
     .single();
   if (error) throw error;
@@ -128,7 +128,7 @@ export async function updateScript(scriptId: string, updates: Partial<Script>): 
   if (updates.isNew !== undefined) row.is_new = updates.isNew;
   if (updates.visto !== undefined) row.visto = updates.visto;
   if (updates.statusHistory !== undefined) row.status_history = updates.statusHistory;
-  const { error } = await supabase.from("scripts").update(row).eq("id", scriptId);
+  const { error } = await supabase.from("scripts").update(row as any).eq("id", scriptId);
   if (error) throw error;
 }
 
