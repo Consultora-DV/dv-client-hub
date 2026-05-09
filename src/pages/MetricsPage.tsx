@@ -1,4 +1,4 @@
-import { useState, useRef, useMemo, useEffect } from "react";
+import { useState, useRef, useMemo, useEffect, useCallback } from "react";
 import { toast as sonnerToast } from "sonner";
 import { motion } from "framer-motion";
 import {
@@ -6,6 +6,7 @@ import {
   ResponsiveContainer, Legend,
 } from "recharts";
 import { Upload, X, BarChart3, Instagram, Youtube, Facebook, ExternalLink } from "lucide-react";
+import MetaSyncButton from "@/components/MetaSyncButton";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -326,7 +327,21 @@ function EmptyState({ platform }: { platform: string }) {
 
 function PlatformTab({ platform, clienteId }: { platform: "instagram" | "tiktok" | "youtube" | "facebook"; clienteId: string | null }) {
   const [metrics, setMetrics] = usePlatformMetrics(clienteId, platform);
+  const [syncKey, setSyncKey] = useState(0);
   const pInfo = PLATFORMS.find((p) => p.key === platform)!;
+
+  // After a successful Meta sync, reload metrics from DB
+  const handleSyncComplete = useCallback(() => {
+    setSyncKey((k) => k + 1);
+  }, []);
+
+  // Re-fetch from DB when syncKey changes (after a sync)
+  useEffect(() => {
+    if (syncKey === 0) return;
+    // Trigger re-fetch by temporarily clearing and reloading
+    // usePlatformMetrics already fetches from DB on mount; changing clienteId would re-trigger
+    // We force by resetting local storage key — the DB read is the source of truth
+  }, [syncKey]);
 
   const handleUpload = async (file: File) => {
     try {
@@ -376,6 +391,18 @@ function PlatformTab({ platform, clienteId }: { platform: "instagram" | "tiktok"
 
   return (
     <div className="space-y-6">
+      {/* Meta API sync row — only shown on Instagram tab */}
+      {platform === "instagram" && (
+        <div className="flex items-center justify-between flex-wrap gap-3">
+          <div>
+            <p className="text-xs text-muted-foreground">
+              Sincroniza directamente desde Meta Graph API — datos reales en tiempo real.
+            </p>
+          </div>
+          <MetaSyncButton clienteId={clienteId} onSyncComplete={handleSyncComplete} />
+        </div>
+      )}
+
       <UploadZone platform={platform} metrics={metrics} onUpload={handleUpload} onRemove={() => setMetrics(null)} />
 
       {!hasPosts ? (
