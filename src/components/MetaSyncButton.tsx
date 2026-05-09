@@ -6,7 +6,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { toast as sonnerToast } from "sonner";
-import { syncInstagramPosts, syncFacebookPosts, savePlatformToken, loadPlatformToken } from "@/services/metaIgService";
+import { savePlatformToken, loadPlatformToken } from "@/services/metaIgService";
+import { useAppState } from "@/contexts/AppStateContext";
 
 interface MetaSyncButtonProps {
   clienteId: string | null;
@@ -30,14 +31,13 @@ const EMPTY_CONFIG: TokenConfig = {
 };
 
 export default function MetaSyncButton({ clienteId, onSyncComplete }: MetaSyncButtonProps) {
-  const [syncing, setSyncing] = useState(false);
+  const { isSyncing, lastSyncTime, triggerMetaSync } = useAppState();
   const [configOpen, setConfigOpen] = useState(false);
   const [config, setConfig] = useState<TokenConfig>(EMPTY_CONFIG);
-  const [lastSync, setLastSync] = useState<string | null>(null);
   const [hasToken, setHasToken] = useState(false);
   const [saving, setSaving] = useState(false);
 
-  // Load existing token config on mount
+  // Load existing token config on mount / client change
   useEffect(() => {
     if (!clienteId) return;
     loadPlatformToken(clienteId).then((saved) => {
@@ -50,6 +50,8 @@ export default function MetaSyncButton({ clienteId, onSyncComplete }: MetaSyncBu
           pageId: saved.pageId ?? "",
           adAccountId: saved.adAccountId ?? "",
         });
+      } else {
+        setHasToken(false);
       }
     });
   }, [clienteId]);
@@ -88,54 +90,8 @@ export default function MetaSyncButton({ clienteId, onSyncComplete }: MetaSyncBu
       setConfigOpen(true);
       return;
     }
-
-    setSyncing(true);
-    try {
-      // Sync Instagram + Facebook in parallel
-      const [igResult, fbResult] = await Promise.all([
-        syncInstagramPosts({
-          clienteId,
-          igUserId: config.igUserId,
-          accessToken: config.accessToken,
-          pageId: config.pageId || undefined,
-          limit: 500,
-        }),
-        config.pageId
-          ? syncFacebookPosts({
-              clienteId,
-              igUserId: config.igUserId,
-              accessToken: config.accessToken,
-              pageId: config.pageId,
-              limit: 200,
-            })
-          : Promise.resolve({ synced: 0, refreshed: 0, errors: 0, total: 0, message: "" }),
-      ]);
-
-      const now = new Date().toLocaleTimeString("es-MX", { hour: "2-digit", minute: "2-digit" });
-      setLastSync(now);
-
-      const totalSynced = igResult.synced + fbResult.synced;
-      const totalRefreshed = igResult.refreshed + fbResult.refreshed;
-      const totalErrors = igResult.errors + fbResult.errors;
-
-      if (totalSynced > 0 || totalRefreshed > 0) {
-        const igMsg = `IG: ${igResult.synced} nuevos · ${igResult.refreshed} actualizados`;
-        const fbMsg = config.pageId ? ` · FB: ${fbResult.synced} nuevos · ${fbResult.refreshed} actualizados` : "";
-        sonnerToast.success(
-          `✅ ${totalSynced} nuevos posts · ${totalRefreshed} actualizados`,
-          { description: `${igMsg}${fbMsg} • ${now}` }
-        );
-        onSyncComplete?.(totalSynced);
-      } else if (totalErrors > 0) {
-        sonnerToast.warning(`Sincronización con ${totalErrors} errores. Revisa la configuración.`);
-      } else {
-        sonnerToast.info("Todo al día — no hay posts nuevos desde la última sincronización");
-      }
-    } catch (err: any) {
-      sonnerToast.error(err.message || "Error sincronizando con Meta");
-    } finally {
-      setSyncing(false);
-    }
+    const result = await triggerMetaSync(clienteId);
+    if (result) onSyncComplete?.(result.synced);
   };
 
   if (!clienteId) return null;
@@ -148,11 +104,11 @@ export default function MetaSyncButton({ clienteId, onSyncComplete }: MetaSyncBu
           size="sm"
           variant={hasToken ? "default" : "outline"}
           onClick={handleSync}
-          disabled={syncing}
+          disabled={isSyncing}
           className={hasToken ? "bg-gradient-to-r from-pink-500 to-purple-600 hover:from-pink-600 hover:to-purple-700 text-white border-0" : "border-pink-500/50 text-pink-400 hover:bg-pink-500/10"}
         >
-          <RefreshCw className={`h-3.5 w-3.5 mr-1.5 ${syncing ? "animate-spin" : ""}`} />
-          {syncing ? "Sincronizando…" : "Sincronizar con Meta"}
+          <RefreshCw className={`h-3.5 w-3.5 mr-1.5 ${isSyncing ? "animate-spin" : ""}`} />
+          {isSyncing ? "Sincronizando…" : "Sincronizar con Meta"}
         </Button>
 
         {/* Config gear */}
@@ -167,13 +123,19 @@ export default function MetaSyncButton({ clienteId, onSyncComplete }: MetaSyncBu
         </Button>
 
         {/* Status badges */}
-        {hasToken && !syncing && (
+        {hasToken && !isSyncing && (
           <Badge variant="outline" className="border-green-500/30 text-green-400 text-xs gap-1">
             <CheckCircle className="h-3 w-3" />
-            {lastSync ? `Última sync ${lastSync}` : "Meta API conectado"}
+            {lastSyncTime ? `Última sync ${lastSyncTime}` : "Meta API conectado"}
           </Badge>
         )}
-        {!hasToken && (
+        {isSyncing && (
+          <Badge variant="outline" className="border-yellow-500/30 text-yellow-400 text-xs gap-1 animate-pulse">
+            <RefreshCw className="h-3 w-3 animate-spin" />
+            Sincronizando en segundo plano…
+          </Badge>
+        )}
+        {!hasToken && !isSyncing && (
           <Badge variant="outline" className="border-yellow-500/30 text-yellow-400 text-xs gap-1">
             <AlertCircle className="h-3 w-3" />
             Sin configurar
@@ -200,9 +162,6 @@ export default function MetaSyncButton({ clienteId, onSyncComplete }: MetaSyncBu
                 onChange={(e) => setConfig((c) => ({ ...c, igUserId: e.target.value.trim() }))}
                 className="bg-secondary border-border/50 text-sm font-mono"
               />
-              <p className="text-xs text-muted-foreground">
-                Encuéntralo en Business Manager → Cuentas de Instagram → Identificador
-              </p>
             </div>
 
             <div className="space-y-1.5">
@@ -224,9 +183,6 @@ export default function MetaSyncButton({ clienteId, onSyncComplete }: MetaSyncBu
                 onChange={(e) => setConfig((c) => ({ ...c, accessToken: e.target.value.trim() }))}
                 className="bg-secondary border-border/50 text-sm font-mono"
               />
-              <p className="text-xs text-muted-foreground">
-                Token de 60 días generado en developers.facebook.com con scope instagram_basic
-              </p>
             </div>
 
             <div className="grid grid-cols-2 gap-3">

@@ -20,6 +20,7 @@ import {
   createDocument, createScript, updateDocument, updateScript,
   deleteDocument, deleteScript, insertScriptComment,
 } from "@/services/sharedContentService";
+import { syncInstagramPosts, syncFacebookPosts, loadPlatformToken, MetaSyncResult } from "@/services/metaIgService";
 
 export interface ImportResult {
   videosAdded: number;
@@ -68,6 +69,10 @@ interface AppStateContextType {
   removeDocumentFromDb: (id: string) => Promise<void>;
   removeScriptFromDb: (id: string) => Promise<void>;
   updateDocumentInDb: (id: string, updates: Partial<Document>) => Promise<void>;
+  // Meta sync — persists across route changes
+  isSyncing: boolean;
+  lastSyncTime: string | null;
+  triggerMetaSync: (clienteId: string) => Promise<MetaSyncResult | null>;
 }
 
 const AppStateContext = createContext<AppStateContextType | null>(null);
@@ -721,6 +726,56 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
     return { videosAdded, videosSkipped, eventsAdded, eventsSkipped, metricsAdded, metricsSkipped: 0 };
   }, [addNotification]);
 
+  // ── Meta sync — lives in context so it survives route changes ──
+  const [isSyncing, setIsSyncing] = useState(false);
+  const [lastSyncTime, setLastSyncTime] = useState<string | null>(null);
+
+  const triggerMetaSync = useCallback(async (clienteId: string): Promise<MetaSyncResult | null> => {
+    if (isSyncing) return null;
+    const tokenConfig = await loadPlatformToken(clienteId);
+    if (!tokenConfig) {
+      toast.error("Configura las credenciales de Meta primero (⚙️)");
+      return null;
+    }
+
+    setIsSyncing(true);
+    try {
+      const [igResult, fbResult] = await Promise.all([
+        syncInstagramPosts({ clienteId, igUserId: tokenConfig.igUserId, accessToken: tokenConfig.accessToken, pageId: tokenConfig.pageId ?? undefined, limit: 500 }),
+        tokenConfig.pageId
+          ? syncFacebookPosts({ clienteId, igUserId: tokenConfig.igUserId, accessToken: tokenConfig.accessToken, pageId: tokenConfig.pageId, limit: 200 })
+          : Promise.resolve({ synced: 0, refreshed: 0, errors: 0, total: 0, message: "" }),
+      ]);
+
+      const now = new Date().toLocaleTimeString("es-MX", { hour: "2-digit", minute: "2-digit" });
+      setLastSyncTime(now);
+
+      const totalSynced = igResult.synced + fbResult.synced;
+      const totalRefreshed = igResult.refreshed + fbResult.refreshed;
+
+      if (totalSynced > 0 || totalRefreshed > 0) {
+        const igMsg = `IG: ${igResult.synced} nuevos · ${igResult.refreshed} act.`;
+        const fbMsg = tokenConfig.pageId ? ` · FB: ${fbResult.synced} nuevos · ${fbResult.refreshed} act.` : "";
+        toast.success(`✅ ${totalSynced} nuevos · ${totalRefreshed} actualizados`, { description: `${igMsg}${fbMsg} • ${now}` });
+
+        // Refresh videos list from DB after sync
+        const freshVideos = await fetchVideos();
+        setVideos(freshVideos);
+      } else if (igResult.errors + fbResult.errors > 0) {
+        toast.warning("Sincronización con errores. Revisa la configuración.");
+      } else {
+        toast.info("Todo al día — sin posts nuevos desde la última sync");
+      }
+
+      return { synced: igResult.synced + fbResult.synced, refreshed: igResult.refreshed + fbResult.refreshed, errors: igResult.errors + fbResult.errors, total: igResult.total + fbResult.total, message: igResult.message };
+    } catch (err: any) {
+      toast.error(err.message || "Error sincronizando con Meta");
+      return null;
+    } finally {
+      setIsSyncing(false);
+    }
+  }, [isSyncing, setVideos]);
+
   return (
     <AppStateContext.Provider
       value={{
@@ -737,6 +792,7 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
         importFromApify,
         scriptComments, approveScript, requestChangesScript, addScriptComment, markScriptViewed,
         addDocumentToDb, addScriptToDb, removeDocumentFromDb, removeScriptFromDb, updateDocumentInDb,
+        isSyncing, lastSyncTime, triggerMetaSync,
       }}
     >
       {children}

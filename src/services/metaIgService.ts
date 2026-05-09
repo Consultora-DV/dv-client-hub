@@ -75,6 +75,19 @@ async function fetchAllIgMedia(igUserId: string, token: string, fields: string, 
   return all.slice(0, maxLimit);
 }
 
+// ── Batch insights fetch — runs INSIGHT_BATCH requests in parallel ─
+const INSIGHT_BATCH = 10;
+
+async function fetchInsightsBatch(items: any[], token: string): Promise<Map<string, ReturnType<typeof fetchPostInsights> extends Promise<infer T> ? T : never>> {
+  const map = new Map<string, any>();
+  for (let i = 0; i < items.length; i += INSIGHT_BATCH) {
+    const batch = items.slice(i, i + INSIGHT_BATCH);
+    const results = await Promise.all(batch.map((item) => fetchPostInsights(item.id, token)));
+    batch.forEach((item, idx) => map.set(item.id, results[idx]));
+  }
+  return map;
+}
+
 // ── Instagram sync ────────────────────────────────────────────
 
 export async function syncInstagramPosts(config: IgTokenConfig): Promise<MetaSyncResult> {
@@ -104,7 +117,10 @@ export async function syncInstagramPosts(config: IgTokenConfig): Promise<MetaSyn
 
   const existingVidCodes = new Set((existingVids || []).map((r: any) => r.ig_short_code).filter(Boolean));
 
-  // ── 3. Process each post ──
+  // ── 3. Fetch all insights in parallel batches ──
+  const insightsMap = await fetchInsightsBatch(items, accessToken);
+
+  // ── 4. Process each post ──
   let synced = 0;
   let refreshed = 0;
   let errors = 0;
@@ -113,7 +129,7 @@ export async function syncInstagramPosts(config: IgTokenConfig): Promise<MetaSyn
 
   for (const item of items) {
     const shortcode = item.shortcode;
-    const ins = await fetchPostInsights(item.id, accessToken);
+    const ins = insightsMap.get(item.id) ?? { reach: 0, saved: 0, total_interactions: 0, shares: 0 };
     const caption = safeTruncate((item.caption || "").replace(/\n/g, " "), 200);
     const fullCaption = safeTruncate(item.caption || "", 2200);
     const thumbnail = item.thumbnail_url || item.media_url || "";
@@ -189,14 +205,14 @@ export async function syncInstagramPosts(config: IgTokenConfig): Promise<MetaSyn
     }
   }
 
-  // ── 4. Batch insert post_metrics ──
+  // ── 5. Batch insert post_metrics ──
   if (newPmRows.length > 0) {
     const { error } = await supabase.from("post_metrics").insert(newPmRows);
     if (error) { console.error("post_metrics insert error:", error); errors += newPmRows.length; }
     else synced = newPmRows.length;
   }
 
-  // ── 5. Batch insert videos ──
+  // ── 6. Batch insert videos ──
   if (newVideoRows.length > 0) {
     const { error } = await supabase.from("videos").insert(newVideoRows);
     if (error) console.error("videos insert error:", error);
