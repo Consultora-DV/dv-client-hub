@@ -12,6 +12,7 @@ export interface IgTokenConfig {
   clienteId: string;
   igUserId: string;
   accessToken: string;
+  pageId?: string;
   limit?: number;
 }
 
@@ -24,7 +25,13 @@ function safeTruncate(str: string, maxLen: number): string {
   return Array.from(str).slice(0, maxLen).join("");
 }
 
-// ── Instagram Graph API helpers ───────────────────────────────
+// Extract hashtags from caption
+function extractHashtags(caption: string): string[] {
+  const matches = caption.match(/#[\wÀ-žЀ-ӿ]+/g) || [];
+  return matches.slice(0, 30); // cap at 30
+}
+
+// ── Instagram / Facebook Graph API helpers ────────────────────
 
 async function igGet(path: string, token: string): Promise<any> {
   const sep = path.includes("?") ? "&" : "?";
@@ -48,41 +55,72 @@ async function fetchPostInsights(mediaId: string, token: string) {
   }
 }
 
-// ── Main sync — runs fully client-side ───────────────────────
+// ── Paginated media fetch — follows IG cursors until maxLimit ─
+
+async function fetchAllIgMedia(igUserId: string, token: string, fields: string, maxLimit: number): Promise<any[]> {
+  const pageSize = 100; // IG API max per page
+  let url = `/${igUserId}/media?fields=${fields}&limit=${pageSize}`;
+  const all: any[] = [];
+
+  while (all.length < maxLimit) {
+    const data = await igGet(url, token);
+    const items: any[] = data.data || [];
+    all.push(...items);
+    if (!data.paging?.next || items.length === 0) break;
+    const after = data.paging?.cursors?.after;
+    if (!after) break;
+    url = `/${igUserId}/media?fields=${fields}&limit=${pageSize}&after=${encodeURIComponent(after)}`;
+  }
+
+  return all.slice(0, maxLimit);
+}
+
+// ── Instagram sync ────────────────────────────────────────────
 
 export async function syncInstagramPosts(config: IgTokenConfig): Promise<MetaSyncResult> {
-  const { clienteId, igUserId, accessToken, limit = 50 } = config;
+  const { clienteId, igUserId, accessToken, limit = 500 } = config;
 
-  // 1. Fetch media list from Instagram
   const fields = "id,shortcode,media_type,timestamp,like_count,comments_count,permalink,thumbnail_url,media_url,caption";
-  const mediaData = await igGet(`/${igUserId}/media?fields=${fields}&limit=${Math.min(limit, 100)}`, accessToken);
-  const items: any[] = mediaData.data || [];
+  const items = await fetchAllIgMedia(igUserId, accessToken, fields, limit);
 
   if (items.length === 0) {
     return { synced: 0, refreshed: 0, errors: 0, total: 0, message: "No se encontraron posts" };
   }
 
-  // 2. Get existing shortcodes for deduplication
-  const { data: existing } = await supabase
+  // ── 1. Get existing shortcodes in post_metrics ──
+  const { data: existingPm } = await supabase
     .from("post_metrics")
     .select("ig_short_code")
     .eq("cliente_id", clienteId)
     .eq("platform", "instagram");
 
-  const existingCodes = new Set((existing || []).map((r: any) => r.ig_short_code).filter(Boolean));
+  const existingPmCodes = new Set((existingPm || []).map((r: any) => r.ig_short_code).filter(Boolean));
 
-  // 3. Process each post
+  // ── 2. Get existing shortcodes in videos ──
+  const { data: existingVids } = await supabase
+    .from("videos")
+    .select("ig_short_code")
+    .eq("cliente_id", clienteId);
+
+  const existingVidCodes = new Set((existingVids || []).map((r: any) => r.ig_short_code).filter(Boolean));
+
+  // ── 3. Process each post ──
   let synced = 0;
   let refreshed = 0;
   let errors = 0;
-  const newRows: any[] = [];
+  const newPmRows: any[] = [];
+  const newVideoRows: any[] = [];
 
   for (const item of items) {
     const shortcode = item.shortcode;
+    const ins = await fetchPostInsights(item.id, accessToken);
+    const caption = safeTruncate((item.caption || "").replace(/\n/g, " "), 200);
+    const fullCaption = safeTruncate(item.caption || "", 2200);
+    const thumbnail = item.thumbnail_url || item.media_url || "";
+    const engagement = (item.like_count || 0) + (item.comments_count || 0) + ins.shares + ins.saved;
 
-    if (existingCodes.has(shortcode)) {
-      // Update existing row with fresh counts
-      const ins = await fetchPostInsights(item.id, accessToken);
+    if (existingPmCodes.has(shortcode)) {
+      // Refresh existing post_metrics row
       const { error } = await supabase
         .from("post_metrics")
         .update({
@@ -90,68 +128,211 @@ export async function syncInstagramPosts(config: IgTokenConfig): Promise<MetaSyn
           comments: item.comments_count,
           shares: ins.shares,
           reach: ins.reach,
-          engagement: item.like_count + item.comments_count + ins.shares + ins.saved,
+          views: ins.reach,
+          engagement,
         })
         .eq("ig_short_code", shortcode)
         .eq("cliente_id", clienteId)
         .eq("platform", "instagram");
 
       if (error) errors++; else refreshed++;
-      continue;
+    } else {
+      // Queue new post_metrics row
+      newPmRows.push({
+        cliente_id: clienteId,
+        platform: "instagram",
+        post_url: item.permalink,
+        thumbnail,
+        title: caption,
+        date: item.timestamp?.slice(0, 10) || null,
+        type: item.media_type,
+        views: ins.reach,
+        likes: item.like_count,
+        comments: item.comments_count,
+        shares: ins.shares,
+        reach: ins.reach,
+        engagement,
+        ig_short_code: shortcode,
+      });
     }
 
-    // New post — queue for insert
-    const ins = await fetchPostInsights(item.id, accessToken);
-    const thumbnail = item.thumbnail_url || item.media_url || "";
-    const caption = safeTruncate((item.caption || "").replace(/\n/g, " "), 200);
-
-    newRows.push({
-      cliente_id: clienteId,
-      platform: "instagram",
-      post_url: item.permalink,
-      thumbnail,
-      title: caption,
-      date: item.timestamp?.slice(0, 10) || null,
-      type: item.media_type,
-      views: ins.reach,
-      likes: item.like_count,
-      comments: item.comments_count,
-      shares: ins.shares,
-      reach: ins.reach,
-      engagement: item.like_count + item.comments_count + ins.shares + ins.saved,
-      ig_short_code: shortcode,
-    });
+    // Queue new videos row (if not already in videos table)
+    if (!existingVidCodes.has(shortcode)) {
+      newVideoRows.push({
+        cliente_id: clienteId,
+        title: caption || shortcode,
+        platform: ["instagram"],
+        status: "published",
+        thumbnail,
+        delivery_date: item.timestamp?.slice(0, 10) || null,
+        embed_url: item.permalink || "",
+        drive_link: "#",
+        status_history: [],
+        ig_caption: fullCaption,
+        ig_likes: item.like_count || 0,
+        ig_comments: item.comments_count || 0,
+        ig_views: ins.reach || 0,
+        ig_hashtags: extractHashtags(item.caption || ""),
+        ig_short_code: shortcode,
+      });
+    } else {
+      // Update existing video ig fields
+      await supabase
+        .from("videos")
+        .update({
+          ig_likes: item.like_count,
+          ig_comments: item.comments_count,
+          ig_views: ins.reach,
+        })
+        .eq("ig_short_code", shortcode)
+        .eq("cliente_id", clienteId);
+    }
   }
 
-  // 4. Batch insert new posts
+  // ── 4. Batch insert post_metrics ──
+  if (newPmRows.length > 0) {
+    const { error } = await supabase.from("post_metrics").insert(newPmRows);
+    if (error) { console.error("post_metrics insert error:", error); errors += newPmRows.length; }
+    else synced = newPmRows.length;
+  }
+
+  // ── 5. Batch insert videos ──
+  if (newVideoRows.length > 0) {
+    const { error } = await supabase.from("videos").insert(newVideoRows);
+    if (error) console.error("videos insert error:", error);
+    // Don't count video errors separately — they're a bonus
+  }
+
+  const message = `${synced} nuevos posts · ${refreshed} actualizados · ${items.length} total`;
+  return { synced, refreshed, errors, total: items.length, message };
+}
+
+// ── Facebook Page posts sync ──────────────────────────────────
+
+export async function syncFacebookPosts(config: IgTokenConfig): Promise<MetaSyncResult> {
+  const { clienteId, pageId, accessToken, limit = 200 } = config;
+
+  if (!pageId) {
+    return { synced: 0, refreshed: 0, errors: 0, total: 0, message: "Page ID no configurado" };
+  }
+
+  // Try to get a page access token (needed for insights)
+  let pageToken = accessToken;
+  try {
+    const pageData = await igGet(`/${pageId}?fields=access_token`, accessToken);
+    if (pageData.access_token) pageToken = pageData.access_token;
+  } catch {
+    // Fall back to user token
+  }
+
+  // Fetch Facebook Page posts
+  const fields = "id,message,created_time,permalink_url,full_picture,shares,reactions.summary(true),comments.summary(true)";
+  const pageSize = Math.min(100, limit);
+  let url = `/${pageId}/posts?fields=${fields}&limit=${pageSize}`;
+  const allPosts: any[] = [];
+
+  while (allPosts.length < limit) {
+    let data: any;
+    try {
+      data = await igGet(url, pageToken);
+    } catch {
+      break;
+    }
+    const items: any[] = data.data || [];
+    allPosts.push(...items);
+    if (!data.paging?.next || items.length === 0) break;
+    const after = data.paging?.cursors?.after;
+    if (!after) break;
+    url = `/${pageId}/posts?fields=${fields}&limit=${pageSize}&after=${encodeURIComponent(after)}`;
+  }
+
+  if (allPosts.length === 0) {
+    return { synced: 0, refreshed: 0, errors: 0, total: 0, message: "No se encontraron posts de Facebook" };
+  }
+
+  // Get existing post_urls for deduplication
+  const { data: existingFb } = await supabase
+    .from("post_metrics")
+    .select("post_url")
+    .eq("cliente_id", clienteId)
+    .eq("platform", "facebook");
+
+  const existingUrls = new Set((existingFb || []).map((r: any) => r.post_url).filter(Boolean));
+
+  let synced = 0;
+  let refreshed = 0;
+  let errors = 0;
+  const newRows: any[] = [];
+  const newVideoRows: any[] = [];
+
+  for (const post of allPosts) {
+    const postUrl = post.permalink_url || `https://www.facebook.com/${post.id}`;
+    const likes = post.reactions?.summary?.total_count || 0;
+    const comments = post.comments?.summary?.total_count || 0;
+    const shares = post.shares?.count || 0;
+    const caption = safeTruncate((post.message || "").replace(/\n/g, " "), 200);
+    const thumbnail = post.full_picture || "";
+    const dateStr = post.created_time?.slice(0, 10) || null;
+    const engagement = likes + comments + shares;
+
+    if (existingUrls.has(postUrl)) {
+      const { error } = await supabase
+        .from("post_metrics")
+        .update({ likes, comments, shares, engagement })
+        .eq("post_url", postUrl)
+        .eq("cliente_id", clienteId)
+        .eq("platform", "facebook");
+
+      if (error) errors++; else refreshed++;
+    } else {
+      newRows.push({
+        cliente_id: clienteId,
+        platform: "facebook",
+        post_url: postUrl,
+        thumbnail,
+        title: caption,
+        date: dateStr,
+        type: "POST",
+        views: 0,
+        likes,
+        comments,
+        shares,
+        reach: 0,
+        engagement,
+      });
+
+      newVideoRows.push({
+        cliente_id: clienteId,
+        title: caption || post.id,
+        platform: ["facebook"],
+        status: "published",
+        thumbnail,
+        delivery_date: dateStr,
+        embed_url: postUrl,
+        drive_link: "#",
+        status_history: [],
+        ig_caption: safeTruncate(post.message || "", 2200),
+        ig_likes: likes,
+        ig_comments: comments,
+        ig_views: 0,
+        ig_hashtags: extractHashtags(post.message || ""),
+        ig_short_code: "",
+      });
+    }
+  }
+
   if (newRows.length > 0) {
     const { error } = await supabase.from("post_metrics").insert(newRows);
-    if (error) { console.error("insert error:", error); errors += newRows.length; }
+    if (error) { console.error("fb post_metrics insert error:", error); errors += newRows.length; }
     else synced = newRows.length;
   }
 
-  // 5. Update videos table ig_* fields for matching shortcodes
-  const allShortcodes = items.map((m: any) => m.shortcode).filter(Boolean);
-  if (allShortcodes.length > 0) {
-    const { data: matchedVideos } = await supabase
-      .from("videos")
-      .select("id, ig_short_code")
-      .eq("cliente_id", clienteId)
-      .in("ig_short_code", allShortcodes);
-
-    for (const vid of matchedVideos || []) {
-      const match = items.find((m: any) => m.shortcode === (vid as any).ig_short_code);
-      if (!match) continue;
-      const ins = await fetchPostInsights(match.id, accessToken);
-      await supabase
-        .from("videos")
-        .update({ ig_likes: match.like_count, ig_comments: match.comments_count, ig_views: ins.reach })
-        .eq("id", (vid as any).id);
-    }
+  if (newVideoRows.length > 0) {
+    await supabase.from("videos").insert(newVideoRows);
   }
 
-  const message = `${synced} nuevos posts · ${refreshed} actualizados`;
-  return { synced, refreshed, errors, total: items.length, message };
+  const message = `Facebook: ${synced} nuevos · ${refreshed} actualizados`;
+  return { synced, refreshed, errors, total: allPosts.length, message };
 }
 
 // ── Token storage in platform_tokens table ────────────────────

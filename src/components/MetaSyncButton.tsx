@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { toast as sonnerToast } from "sonner";
-import { syncInstagramPosts, savePlatformToken, loadPlatformToken } from "@/services/metaIgService";
+import { syncInstagramPosts, syncFacebookPosts, savePlatformToken, loadPlatformToken } from "@/services/metaIgService";
 
 interface MetaSyncButtonProps {
   clienteId: string | null;
@@ -91,24 +91,43 @@ export default function MetaSyncButton({ clienteId, onSyncComplete }: MetaSyncBu
 
     setSyncing(true);
     try {
-      const result = await syncInstagramPosts({
-        clienteId,
-        igUserId: config.igUserId,
-        accessToken: config.accessToken,
-        limit: 50,
-      });
+      // Sync Instagram + Facebook in parallel
+      const [igResult, fbResult] = await Promise.all([
+        syncInstagramPosts({
+          clienteId,
+          igUserId: config.igUserId,
+          accessToken: config.accessToken,
+          pageId: config.pageId || undefined,
+          limit: 500,
+        }),
+        config.pageId
+          ? syncFacebookPosts({
+              clienteId,
+              igUserId: config.igUserId,
+              accessToken: config.accessToken,
+              pageId: config.pageId,
+              limit: 200,
+            })
+          : Promise.resolve({ synced: 0, refreshed: 0, errors: 0, total: 0, message: "" }),
+      ]);
 
       const now = new Date().toLocaleTimeString("es-MX", { hour: "2-digit", minute: "2-digit" });
       setLastSync(now);
 
-      if (result.synced > 0 || result.refreshed > 0) {
+      const totalSynced = igResult.synced + fbResult.synced;
+      const totalRefreshed = igResult.refreshed + fbResult.refreshed;
+      const totalErrors = igResult.errors + fbResult.errors;
+
+      if (totalSynced > 0 || totalRefreshed > 0) {
+        const igMsg = `IG: ${igResult.synced} nuevos · ${igResult.refreshed} actualizados`;
+        const fbMsg = config.pageId ? ` · FB: ${fbResult.synced} nuevos · ${fbResult.refreshed} actualizados` : "";
         sonnerToast.success(
-          `✅ ${result.synced} nuevos posts · ${result.refreshed} actualizados`,
-          { description: `Sincronización completa via Meta Graph API • ${now}` }
+          `✅ ${totalSynced} nuevos posts · ${totalRefreshed} actualizados`,
+          { description: `${igMsg}${fbMsg} • ${now}` }
         );
-        onSyncComplete?.(result.synced);
-      } else if (result.errors > 0) {
-        sonnerToast.warning(`Sincronización con ${result.errors} errores. Revisa la configuración.`);
+        onSyncComplete?.(totalSynced);
+      } else if (totalErrors > 0) {
+        sonnerToast.warning(`Sincronización con ${totalErrors} errores. Revisa la configuración.`);
       } else {
         sonnerToast.info("Todo al día — no hay posts nuevos desde la última sincronización");
       }
