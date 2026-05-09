@@ -293,36 +293,54 @@ export async function syncFacebookPosts(config: IgTokenConfig): Promise<MetaSync
 
   // Try to get a page access token (needed for insights)
   let pageToken = accessToken;
+  let pageTokenError = "";
   try {
     const pageData = await igGet(`/${pageId}?fields=access_token`, accessToken);
-    if (pageData.access_token) pageToken = pageData.access_token;
-  } catch {
+    if (pageData.access_token) {
+      pageToken = pageData.access_token;
+    }
+  } catch (e: any) {
+    pageTokenError = e.message || "no page token";
     // Fall back to user token
   }
 
-  // Fetch Facebook Page posts
+  // Try multiple endpoints to fetch posts (different tokens may support different edges)
   const fields = "id,message,created_time,permalink_url,full_picture,shares,reactions.summary(true),comments.summary(true)";
   const pageSize = Math.min(100, limit);
-  let url = `/${pageId}/posts?fields=${fields}&limit=${pageSize}`;
   const allPosts: any[] = [];
+  let fetchError = "";
 
-  while (allPosts.length < limit) {
-    let data: any;
+  // Try endpoints in order: published_posts → posts → feed
+  const endpoints = [
+    `/${pageId}/published_posts?fields=${fields}&limit=${pageSize}`,
+    `/${pageId}/posts?fields=${fields}&limit=${pageSize}`,
+    `/${pageId}/feed?fields=${fields}&limit=${pageSize}`,
+  ];
+
+  for (const startUrl of endpoints) {
+    if (allPosts.length > 0) break; // already got data from a previous endpoint
+    let url = startUrl;
     try {
-      data = await igGet(url, pageToken);
-    } catch {
-      break;
+      while (allPosts.length < limit) {
+        const data = await igGet(url, pageToken);
+        const items: any[] = data.data || [];
+        allPosts.push(...items);
+        if (!data.paging?.next || items.length === 0) break;
+        const after = data.paging?.cursors?.after;
+        if (!after) break;
+        url = `${startUrl.split("?")[0]}?fields=${fields}&limit=${pageSize}&after=${encodeURIComponent(after)}`;
+      }
+    } catch (e: any) {
+      fetchError = e.message || String(e);
+      allPosts.length = 0; // reset and try next endpoint
     }
-    const items: any[] = data.data || [];
-    allPosts.push(...items);
-    if (!data.paging?.next || items.length === 0) break;
-    const after = data.paging?.cursors?.after;
-    if (!after) break;
-    url = `/${pageId}/posts?fields=${fields}&limit=${pageSize}&after=${encodeURIComponent(after)}`;
   }
 
   if (allPosts.length === 0) {
-    return { synced: 0, refreshed: 0, errors: 0, total: 0, message: "No se encontraron posts de Facebook" };
+    const errDetail = fetchError
+      ? ` Error: ${fetchError}`
+      : pageTokenError ? ` (sin page token: ${pageTokenError})` : "";
+    return { synced: 0, refreshed: 0, errors: 1, total: 0, message: `Facebook sin posts.${errDetail}` };
   }
 
   // Get existing post_urls for deduplication

@@ -762,16 +762,23 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
 
       if (totalSynced > 0 || totalRefreshed > 0) {
         const igMsg = `IG: ${igResult.synced} nuevos · ${igResult.refreshed} act.`;
-        const fbMsg = tokenConfig.pageId ? ` · FB: ${fbResult.synced} nuevos · ${fbResult.refreshed} act.` : "";
+        const fbMsg = pageId ? ` · FB: ${fbResult.synced} nuevos · ${fbResult.refreshed} act.` : "";
         toast.success(`✅ ${totalSynced} nuevos · ${totalRefreshed} actualizados`, { description: `${igMsg}${fbMsg} • ${now}` });
 
         // Refresh videos list from DB after sync
         const freshVideos = await fetchVideos();
         setVideos(freshVideos);
       } else if (igResult.errors + fbResult.errors > 0) {
-        toast.warning("Sincronización con errores. Revisa la configuración.");
+        // Show specific FB error so we can diagnose it
+        const fbErrMsg = fbResult.errors > 0 ? fbResult.message : "";
+        toast.warning("Sincronización con errores.", {
+          description: fbErrMsg || "Revisa la configuración de credenciales.",
+        });
       } else {
-        toast.info("Todo al día — sin posts nuevos desde la última sync");
+        const fbStatus = pageId
+          ? (fbResult.total > 0 ? ` · FB: ${fbResult.total} posts OK` : ` · FB: ${fbResult.message}`)
+          : " · FB: Page ID no configurado";
+        toast.info("Todo al día — sin posts nuevos desde la última sync", { description: `IG OK${fbStatus}` });
       }
 
       return { synced: igResult.synced + fbResult.synced, refreshed: igResult.refreshed + fbResult.refreshed, errors: igResult.errors + fbResult.errors, total: igResult.total + fbResult.total, message: igResult.message };
