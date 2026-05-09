@@ -429,14 +429,37 @@ export async function syncFacebookPosts(config: IgTokenConfig): Promise<MetaSync
 // ── Token storage in platform_tokens table ────────────────────
 
 // ── Auto-detect Facebook Page ID from user token ─────────────
+// Checks both direct admin pages (/me/accounts) and Business Portfolio pages
 
 export async function fetchUserPages(accessToken: string): Promise<{ id: string; name: string }[]> {
+  const pagesMap = new Map<string, string>(); // id → name, deduped
+
+  // 1. Direct admin/editor pages
   try {
-    const data = await igGet(`/me/accounts?fields=id,name`, accessToken);
-    return (data.data || []).map((p: any) => ({ id: p.id as string, name: p.name as string }));
-  } catch {
-    return [];
-  }
+    const data = await igGet(`/me/accounts?fields=id,name&limit=100`, accessToken);
+    for (const p of data.data || []) {
+      pagesMap.set(p.id, p.name);
+    }
+  } catch { /* no direct pages */ }
+
+  // 2. Pages accessible via Business Portfolio (partner/agency access)
+  try {
+    const biz = await igGet(`/me/businesses?fields=id,name&limit=20`, accessToken);
+    for (const b of biz.data || []) {
+      // owned pages
+      try {
+        const owned = await igGet(`/${b.id}/owned_pages?fields=id,name&limit=50`, accessToken);
+        for (const p of owned.data || []) pagesMap.set(p.id, p.name);
+      } catch { /* skip */ }
+      // client pages (agency relationship)
+      try {
+        const client = await igGet(`/${b.id}/client_pages?fields=id,name&limit=50`, accessToken);
+        for (const p of client.data || []) pagesMap.set(p.id, p.name);
+      } catch { /* skip */ }
+    }
+  } catch { /* no business access */ }
+
+  return Array.from(pagesMap.entries()).map(([id, name]) => ({ id, name }));
 }
 
 export async function savePlatformToken(

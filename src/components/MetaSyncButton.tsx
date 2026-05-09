@@ -234,21 +234,24 @@ export default function MetaSyncButton({ clienteId, onSyncComplete }: MetaSyncBu
                 className="bg-secondary border-border/50 text-sm font-mono"
               />
               {detectedPages.length > 0 && (
-                <div className="flex flex-wrap gap-1 pt-1">
-                  {detectedPages.map((p) => (
-                    <button
-                      key={p.id}
-                      type="button"
-                      onClick={() => setConfig((c) => ({ ...c, pageId: p.id }))}
-                      className={`text-[10px] px-2 py-0.5 rounded-full border transition-colors ${
-                        config.pageId === p.id
-                          ? "bg-blue-500/20 text-blue-400 border-blue-500/40"
-                          : "bg-secondary text-muted-foreground border-border/50 hover:border-blue-500/40"
-                      }`}
-                    >
-                      📘 {p.name} ({p.id})
-                    </button>
-                  ))}
+                <div className="max-h-40 overflow-y-auto rounded-lg border border-border/40 bg-secondary/30 p-2 space-y-1">
+                  <p className="text-[10px] text-muted-foreground mb-1">{detectedPages.length} página(s) detectada(s) — haz clic para seleccionar:</p>
+                  <div className="flex flex-wrap gap-1">
+                    {detectedPages.map((p) => (
+                      <button
+                        key={p.id}
+                        type="button"
+                        onClick={() => setConfig((c) => ({ ...c, pageId: p.id }))}
+                        className={`text-[10px] px-2 py-0.5 rounded-full border transition-colors ${
+                          config.pageId === p.id
+                            ? "bg-blue-500/20 text-blue-400 border-blue-500/40"
+                            : "bg-secondary text-muted-foreground border-border/50 hover:border-blue-500/40"
+                        }`}
+                      >
+                        📘 {p.name} ({p.id})
+                      </button>
+                    ))}
+                  </div>
                 </div>
               )}
             </div>
