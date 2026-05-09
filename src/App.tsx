@@ -13,6 +13,7 @@ import VideosPage from "@/pages/VideosPage";
 import DocumentsPage from "@/pages/DocumentsPage";
 import CalendarPage from "@/pages/CalendarPage";
 import MetricsPage from "@/pages/MetricsPage";
+import AdsPage from "@/pages/AdsPage";
 import UsersPage from "@/pages/UsersPage";
 
 import ProfilePage from "@/pages/ProfilePage";
@@ -71,6 +72,7 @@ function AppRoutes() {
                   <Route path="/documentos" element={<DocumentsPage />} />
                   <Route path="/calendario" element={<CalendarPage />} />
                   <Route path="/metricas" element={<MetricsPage />} />
+                  <Route path="/ads" element={<AdsPage />} />
                   <Route path="/usuarios" element={<AdminRoute><UsersPage /></AdminRoute>} />
                   <Route path="/perfil" element={<ProfilePage />} />
                 </Route>
