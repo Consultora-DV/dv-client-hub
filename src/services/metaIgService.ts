@@ -75,6 +75,25 @@ async function fetchAllIgMedia(igUserId: string, token: string, fields: string, 
   return all.slice(0, maxLimit);
 }
 
+// ── Upload thumbnail to Supabase Storage (permanent URL) ─────────
+async function storeThumbnail(clienteId: string, key: string, cdnUrl: string): Promise<string> {
+  if (!cdnUrl) return "";
+  try {
+    const res = await fetch(cdnUrl);
+    if (!res.ok) return cdnUrl;
+    const blob = await res.blob();
+    const ext = blob.type.includes("png") ? "png" : "jpg";
+    const path = `${clienteId}/${key}.${ext}`;
+    const { error } = await supabase.storage
+      .from("thumbnails")
+      .upload(path, blob, { contentType: blob.type, upsert: true });
+    if (error) return cdnUrl; // fall back to CDN URL if upload fails
+    return supabase.storage.from("thumbnails").getPublicUrl(path).data.publicUrl;
+  } catch {
+    return cdnUrl; // fall back silently
+  }
+}
+
 // ── Batch insights fetch — runs INSIGHT_BATCH requests in parallel ─
 const INSIGHT_BATCH = 10;
 
@@ -117,8 +136,21 @@ export async function syncInstagramPosts(config: IgTokenConfig): Promise<MetaSyn
 
   const existingVidCodes = new Set((existingVids || []).map((r: any) => r.ig_short_code).filter(Boolean));
 
-  // ── 3. Fetch all insights in parallel batches ──
+  // ── 3. Fetch all insights + store thumbnails in parallel batches ──
   const insightsMap = await fetchInsightsBatch(items, accessToken);
+
+  // Upload thumbnails to Supabase Storage in batches of 10
+  const thumbnailMap = new Map<string, string>();
+  for (let i = 0; i < items.length; i += INSIGHT_BATCH) {
+    const batch = items.slice(i, i + INSIGHT_BATCH);
+    const results = await Promise.all(
+      batch.map((item) => {
+        const cdnUrl = item.thumbnail_url || item.media_url || "";
+        return storeThumbnail(clienteId, item.shortcode, cdnUrl);
+      })
+    );
+    batch.forEach((item, idx) => thumbnailMap.set(item.shortcode, results[idx]));
+  }
 
   // ── 4. Process each post ──
   let synced = 0;
@@ -132,7 +164,8 @@ export async function syncInstagramPosts(config: IgTokenConfig): Promise<MetaSyn
     const ins = insightsMap.get(item.id) ?? { reach: 0, saved: 0, total_interactions: 0, shares: 0 };
     const caption = safeTruncate((item.caption || "").replace(/\n/g, " "), 200);
     const fullCaption = safeTruncate(item.caption || "", 2200);
-    const thumbnail = item.thumbnail_url || item.media_url || "";
+    // Use permanent Supabase URL if uploaded, otherwise fall back to CDN URL
+    const thumbnail = thumbnailMap.get(shortcode) || item.thumbnail_url || item.media_url || "";
     const engagement = (item.like_count || 0) + (item.comments_count || 0) + ins.shares + ins.saved;
 
     if (existingPmCodes.has(shortcode)) {

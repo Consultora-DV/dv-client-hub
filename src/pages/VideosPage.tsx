@@ -110,16 +110,28 @@ function VideoCard({ video, commentCount, onClick }: { video: Video; commentCoun
     >
       <div className="aspect-video relative overflow-hidden bg-secondary">
         {video.thumbnail && !video.thumbnail.includes("placeholder") ? (
-          <img src={video.thumbnail} alt={video.title} className="w-full h-full object-cover" onError={(e) => {
-            // If thumbnail fails (expired CDN), show Instagram embed fallback for IG videos
-            const target = e.target as HTMLImageElement;
-            target.style.display = "none";
-            const fallback = target.parentElement?.querySelector(".thumb-fallback") as HTMLElement;
-            if (fallback) fallback.style.display = "flex";
-          }} />
+          <img
+            src={video.thumbnail}
+            alt={video.title}
+            className="w-full h-full object-cover"
+            onError={(e) => {
+              const target = e.target as HTMLImageElement;
+              target.style.display = "none";
+              const fallback = target.parentElement?.querySelector(".thumb-fallback") as HTMLElement;
+              if (fallback) fallback.style.display = "flex";
+            }}
+          />
         ) : null}
         <div className={`thumb-fallback absolute inset-0 items-center justify-center bg-secondary ${video.thumbnail && !video.thumbnail.includes("placeholder") ? "hidden" : "flex"}`}>
-          {isImported ? (
+          {isImported && (video as any).igShortCode ? (
+            <iframe
+              src={`https://www.instagram.com/p/${(video as any).igShortCode}/embed/captioned/`}
+              className="w-full h-full border-0 pointer-events-none"
+              scrolling="no"
+              loading="lazy"
+              title={video.title}
+            />
+          ) : isImported ? (
             <div className="flex flex-col items-center gap-2">
               <Instagram className="h-8 w-8 text-muted-foreground/50" />
               <span className="text-[10px] text-muted-foreground/50">Vista previa no disponible</span>
