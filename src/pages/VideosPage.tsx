@@ -562,12 +562,14 @@ export default function VideosPage() {
     if (hasBroken) {
       repairAttempted.current = true;
       setRepairingThumbs(true);
-      import("@/services/supabaseDataService").then(({ repairThumbnails }) => {
+      import("@/services/supabaseDataService").then(({ repairThumbnails, fetchVideos }) => {
         repairThumbnails(selectedClienteId)
-          .then((result) => {
+          .then(async (result) => {
             if (result.repaired > 0) {
               toast.success(`${result.repaired} miniaturas restauradas`);
-              window.location.reload();
+              // Refresh videos via state instead of page reload
+              const fresh = await fetchVideos();
+              setVideos(fresh);
             } else if (result.failed > 0) {
               toast.info("No se pudieron restaurar las miniaturas.");
             }
@@ -576,7 +578,7 @@ export default function VideosPage() {
           .finally(() => setRepairingThumbs(false));
       });
     }
-  }, [videos, selectedClienteId]);
+  }, [videos, selectedClienteId, setVideos]);
 
   const [statusFilter, setStatusFilter] = useState<StatusFilter>(() => {
     return (sessionStorage.getItem("dv_video_filter") as StatusFilter) || "all";
