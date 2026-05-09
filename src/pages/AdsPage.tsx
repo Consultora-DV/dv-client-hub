@@ -3,7 +3,7 @@ import { motion } from "framer-motion";
 import {
   RefreshCw, TrendingUp, TrendingDown, AlertTriangle, CheckCircle,
   Clock, DollarSign, Target, Zap, ChevronDown, ChevronUp,
-  BarChart2, Layers, Activity,
+  BarChart2, Layers, Activity, Image,
 } from "lucide-react";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
@@ -14,7 +14,9 @@ import { useAppState } from "@/contexts/AppStateContext";
 import { loadPlatformToken } from "@/services/metaIgService";
 import {
   fetchAccountInsights, fetchCampaigns, fetchAdSets, fetchDailyBreakdown,
+  fetchAdsWithCreatives,
   AccountInsights, CampaignData, AdSetData, DailyMetric, DatePreset, DATE_PRESETS,
+  AdCreative,
 } from "@/services/metaAdsService";
 
 // ── Constants ─────────────────────────────────────────────────
@@ -591,6 +593,133 @@ function AdSetsTab({ adAccountId, token, datePreset, refreshKey }: {
   );
 }
 
+// ── Creativos Tab ─────────────────────────────────────────────
+function CreativosTab({ adAccountId, token, datePreset, refreshKey }: {
+  adAccountId: string; token: string; datePreset: DatePreset; refreshKey: number;
+}) {
+  const [ads, setAds] = useState<AdCreative[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [showPaused, setShowPaused] = useState(false);
+  const [expanded, setExpanded] = useState<string | null>(null);
+
+  const load = useCallback(async () => {
+    setLoading(true); setError(null);
+    try { setAds(await fetchAdsWithCreatives(adAccountId, token, datePreset)); }
+    catch (e: any) { setError(e.message); }
+    finally { setLoading(false); }
+  }, [adAccountId, token, datePreset, refreshKey]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => { load(); }, [load]);
+
+  const visible = ads.filter(a => showPaused || a.status === "ACTIVE");
+  const active = ads.filter(a => a.status === "ACTIVE");
+
+  if (loading) return <div className="flex items-center justify-center py-20 text-muted-foreground gap-3"><RefreshCw className="h-5 w-5 animate-spin" /> Cargando creativos…</div>;
+  if (error) return <div className="glass gold-border rounded-xl p-6 text-destructive text-sm">Error: {error}</div>;
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between flex-wrap gap-2">
+        <div className="flex items-center gap-2">
+          <Badge className="bg-status-approved/20 text-status-approved border-status-approved/30">{active.length} activos</Badge>
+          <span className="text-xs text-muted-foreground">· {ads.length} creativos en total</span>
+        </div>
+        <Button variant="ghost" size="sm" className="text-xs" onClick={() => setShowPaused(v => !v)}>
+          {showPaused ? "Ocultar pausados" : "Ver pausados"}
+          {showPaused ? <ChevronUp className="h-3 w-3 ml-1" /> : <ChevronDown className="h-3 w-3 ml-1" />}
+        </Button>
+      </div>
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        {visible.map((ad) => {
+          const rs = roasStatus(ad.roas);
+          const isExpanded = expanded === ad.id;
+          const thumb = ad.thumbnailUrl || ad.imageUrl;
+          return (
+            <div key={ad.id} className={`glass gold-border rounded-xl overflow-hidden flex flex-col ${ad.status !== "ACTIVE" ? "opacity-60" : ""}`}>
+              {/* Thumbnail */}
+              <div className="aspect-video bg-secondary relative overflow-hidden cursor-pointer" onClick={() => setExpanded(isExpanded ? null : ad.id)}>
+                {thumb ? (
+                  <img src={thumb} alt={ad.title} className="w-full h-full object-cover" onError={e => (e.target as HTMLImageElement).style.display = "none"} />
+                ) : (
+                  <div className="flex items-center justify-center h-full text-muted-foreground/30">
+                    <Image className="h-10 w-10" />
+                  </div>
+                )}
+                <div className="absolute inset-0 bg-gradient-to-t from-background/80 via-transparent to-transparent" />
+                <div className="absolute bottom-2 left-2 right-2">
+                  {ad.title && <p className="text-xs font-semibold text-white line-clamp-1">{ad.title}</p>}
+                </div>
+                <div className="absolute top-2 right-2">
+                  <Badge variant="outline" className={`text-[10px] border ${statusColor(ad.status)}`}>{ad.status}</Badge>
+                </div>
+              </div>
+
+              {/* Metrics row */}
+              <div className="px-3 py-2 grid grid-cols-4 gap-1 border-b border-border/30">
+                <div className="text-center">
+                  <p className="text-[9px] text-muted-foreground">Gasto</p>
+                  <p className="text-xs font-bold text-foreground">{mxn(ad.spend)}</p>
+                </div>
+                <div className="text-center">
+                  <p className="text-[9px] text-muted-foreground">ROAS</p>
+                  <p className={`text-xs font-bold ${rs.cls}`}>{ad.spend > 0 ? roasFmt(ad.roas) : "—"}</p>
+                </div>
+                <div className="text-center">
+                  <p className="text-[9px] text-muted-foreground">CTR</p>
+                  <p className="text-xs font-bold text-foreground">{pct(ad.ctr)}</p>
+                </div>
+                <div className="text-center">
+                  <p className="text-[9px] text-muted-foreground">CPM</p>
+                  <p className="text-xs font-bold text-foreground">{ad.cpm > 0 ? mxn(ad.cpm) : "—"}</p>
+                </div>
+              </div>
+
+              {/* Info */}
+              <div className="p-3 space-y-1.5 flex-1">
+                <p className="text-[10px] text-muted-foreground truncate">{ad.campaignName}</p>
+                <p className="text-xs font-medium text-foreground truncate">{ad.name}</p>
+                {ad.body && (
+                  <p className={`text-[11px] text-muted-foreground leading-relaxed ${isExpanded ? "" : "line-clamp-2"}`}>
+                    {ad.body}
+                  </p>
+                )}
+                {ad.body && ad.body.length > 80 && (
+                  <button onClick={() => setExpanded(isExpanded ? null : ad.id)} className="text-[10px] text-primary hover:underline">
+                    {isExpanded ? "Ver menos" : "Ver copy completo"}
+                  </button>
+                )}
+              </div>
+
+              {/* Extra metrics when expanded */}
+              {isExpanded && (
+                <div className="px-3 pb-3 grid grid-cols-3 gap-2 border-t border-border/30 pt-2">
+                  <div className="text-center">
+                    <p className="text-[9px] text-muted-foreground">Impresiones</p>
+                    <p className="text-xs font-semibold">{fmt(ad.impressions)}</p>
+                  </div>
+                  <div className="text-center">
+                    <p className="text-[9px] text-muted-foreground">Compras</p>
+                    <p className="text-xs font-semibold">{ad.purchases > 0 ? ad.purchases : "—"}</p>
+                  </div>
+                  <div className="text-center">
+                    <p className="text-[9px] text-muted-foreground">CPA</p>
+                    <p className="text-xs font-semibold">{ad.cpa > 0 ? mxn(ad.cpa) : "—"}</p>
+                  </div>
+                </div>
+              )}
+            </div>
+          );
+        })}
+        {visible.length === 0 && (
+          <div className="col-span-full text-center py-12 text-muted-foreground text-sm">Sin creativos activos</div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 // ── Analysis Tab (Master Brief) ───────────────────────────────
 function AnalysisTab() {
   const briefs = [
@@ -903,6 +1032,9 @@ export default function AdsPage() {
             <TabsTrigger value="adsets" className="text-xs sm:text-sm gap-1.5">
               <Layers className="h-4 w-4" /> Ad Sets
             </TabsTrigger>
+            <TabsTrigger value="creatives" className="text-xs sm:text-sm gap-1.5">
+              <Image className="h-4 w-4" /> Creativos
+            </TabsTrigger>
             <TabsTrigger value="analysis" className="text-xs sm:text-sm gap-1.5">
               <AlertTriangle className="h-4 w-4" /> Diagnóstico
             </TabsTrigger>
@@ -916,6 +1048,9 @@ export default function AdsPage() {
           </TabsContent>
           <TabsContent value="adsets" className="mt-4">
             <AdSetsTab adAccountId={adAccountId} token={token} datePreset={datePreset} refreshKey={refreshKey} />
+          </TabsContent>
+          <TabsContent value="creatives" className="mt-4">
+            <CreativosTab adAccountId={adAccountId} token={token} datePreset={datePreset} refreshKey={refreshKey} />
           </TabsContent>
           <TabsContent value="analysis" className="mt-4">
             <AnalysisTab />

@@ -259,6 +259,84 @@ export async function fetchAdSets(
   return adsets;
 }
 
+// ── Ads with creative assets ──────────────────────────────────
+
+export interface AdCreative {
+  id: string;
+  name: string;
+  status: string;
+  campaignId: string;
+  campaignName: string;
+  adsetId: string;
+  adsetName: string;
+  thumbnailUrl: string;
+  imageUrl: string;
+  body: string;
+  title: string;
+  // insights
+  spend: number;
+  impressions: number;
+  clicks: number;
+  ctr: number;
+  cpm: number;
+  purchases: number;
+  roas: number;
+  cpa: number;
+}
+
+export async function fetchAdsWithCreatives(
+  adAccountId: string,
+  token: string,
+  datePreset = "last_30d"
+): Promise<AdCreative[]> {
+  const insightFields = "spend,impressions,clicks,ctr,cpm,actions,action_values";
+  // URL-encode { } for the creative subfields
+  const fields = `name,status,adset_id,campaign_id,adset{name},campaign{name},creative%7Bthumbnail_url,image_url,body,title%7D,insights.date_preset(${datePreset})%7B${insightFields}%7D`;
+
+  let url = `/act_${adAccountId}/ads?fields=${fields}&limit=30`;
+  const ads: AdCreative[] = [];
+
+  while (url) {
+    const data = await adGet(url, token);
+    for (const a of data.data || []) {
+      const ins = a.insights?.data?.[0] || {};
+      const actions = ins.actions || [];
+      const actionValues = ins.action_values || [];
+      const spend = parseFloat(ins.spend || "0");
+      const revenue = actionValue(actionValues, "offsite_conversion.fb_pixel_purchase");
+      const purchases = actionValue(actions, "offsite_conversion.fb_pixel_purchase");
+      const c = a.creative || {};
+      ads.push({
+        id: a.id,
+        name: a.name,
+        status: a.status,
+        campaignId: a.campaign_id || "",
+        campaignName: a.campaign?.name || "",
+        adsetId: a.adset_id || "",
+        adsetName: a.adset?.name || "",
+        thumbnailUrl: c.thumbnail_url || "",
+        imageUrl: c.image_url || "",
+        body: c.body || "",
+        title: c.title || "",
+        spend,
+        impressions: parseInt(ins.impressions || "0"),
+        clicks: parseInt(ins.clicks || "0"),
+        ctr: parseFloat(ins.ctr || "0"),
+        cpm: parseFloat(ins.cpm || "0"),
+        purchases,
+        roas: spend > 0 ? revenue / spend : 0,
+        cpa: purchases > 0 ? spend / purchases : 0,
+      });
+    }
+    const after = data.paging?.cursors?.after;
+    url = after && data.paging?.next
+      ? `/act_${adAccountId}/ads?fields=${fields}&limit=30&after=${encodeURIComponent(after)}`
+      : "";
+  }
+
+  return ads;
+}
+
 // ── Date presets ──────────────────────────────────────────────
 
 export type DatePreset =
