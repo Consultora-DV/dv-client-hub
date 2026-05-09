@@ -140,16 +140,15 @@ function VideoCard({ video, commentCount, onClick }: { video: Video; commentCoun
             <img src="/placeholder.svg" alt="" className="w-12 h-12 opacity-30" />
           )}
         </div>
-        <div className="absolute top-3 left-3 flex gap-1 flex-wrap">
-          <PlatformPills platforms={video.platform} />
-        </div>
-        {isImported && (
-          <div className="absolute top-3 right-3">
-            <Badge className="bg-blue-500/20 text-blue-400 border-blue-500/30 text-[10px]">📥 Instagram</Badge>
-          </div>
-        )}
       </div>
       <div className="p-4 space-y-2">
+        {/* Platform pills + import badge — BELOW the thumbnail, no overlap */}
+        <div className="flex items-center gap-1.5 flex-wrap">
+          <PlatformPills platforms={video.platform} />
+          {isImported && (
+            <Badge className="bg-secondary text-muted-foreground border-border/50 text-[10px]">📥 Importado</Badge>
+          )}
+        </div>
         <h3 className="font-semibold text-sm text-foreground line-clamp-2">{video.title}</h3>
         {/* Caption preview */}
         {video.igCaption && (

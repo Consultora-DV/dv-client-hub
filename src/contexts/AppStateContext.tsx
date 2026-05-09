@@ -20,7 +20,7 @@ import {
   createDocument, createScript, updateDocument, updateScript,
   deleteDocument, deleteScript, insertScriptComment,
 } from "@/services/sharedContentService";
-import { syncInstagramPosts, syncFacebookPosts, loadPlatformToken, MetaSyncResult } from "@/services/metaIgService";
+import { syncInstagramPosts, syncFacebookPosts, loadPlatformToken, fetchUserPages, MetaSyncResult } from "@/services/metaIgService";
 
 export interface ImportResult {
   videosAdded: number;
@@ -740,10 +740,17 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
 
     setIsSyncing(true);
     try {
+      // Auto-detect Facebook Page ID if not saved yet
+      let pageId = tokenConfig.pageId ?? undefined;
+      if (!pageId) {
+        const pages = await fetchUserPages(tokenConfig.accessToken);
+        if (pages.length > 0) pageId = pages[0].id;
+      }
+
       const [igResult, fbResult] = await Promise.all([
-        syncInstagramPosts({ clienteId, igUserId: tokenConfig.igUserId, accessToken: tokenConfig.accessToken, pageId: tokenConfig.pageId ?? undefined, limit: 500 }),
-        tokenConfig.pageId
-          ? syncFacebookPosts({ clienteId, igUserId: tokenConfig.igUserId, accessToken: tokenConfig.accessToken, pageId: tokenConfig.pageId, limit: 200 })
+        syncInstagramPosts({ clienteId, igUserId: tokenConfig.igUserId, accessToken: tokenConfig.accessToken, pageId, limit: 500 }),
+        pageId
+          ? syncFacebookPosts({ clienteId, igUserId: tokenConfig.igUserId, accessToken: tokenConfig.accessToken, pageId, limit: 200 })
           : Promise.resolve({ synced: 0, refreshed: 0, errors: 0, total: 0, message: "" }),
       ]);
 

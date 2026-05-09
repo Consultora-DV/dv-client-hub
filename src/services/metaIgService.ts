@@ -428,6 +428,17 @@ export async function syncFacebookPosts(config: IgTokenConfig): Promise<MetaSync
 
 // ── Token storage in platform_tokens table ────────────────────
 
+// ── Auto-detect Facebook Page ID from user token ─────────────
+
+export async function fetchUserPages(accessToken: string): Promise<{ id: string; name: string }[]> {
+  try {
+    const data = await igGet(`/me/accounts?fields=id,name`, accessToken);
+    return (data.data || []).map((p: any) => ({ id: p.id as string, name: p.name as string }));
+  } catch {
+    return [];
+  }
+}
+
 export async function savePlatformToken(
   clienteId: string,
   igUserId: string,
