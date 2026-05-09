@@ -18,6 +18,12 @@ export interface IgTokenConfig {
 const IG_API = "https://graph.facebook.com/v21.0";
 const POST_METRICS = "reach,saved,total_interactions,shares";
 
+// Safe truncate that respects emoji surrogate pairs
+function safeTruncate(str: string, maxLen: number): string {
+  if (!str) return "";
+  return Array.from(str).slice(0, maxLen).join("");
+}
+
 // ── Instagram Graph API helpers ───────────────────────────────
 
 async function igGet(path: string, token: string): Promise<any> {
@@ -97,7 +103,7 @@ export async function syncInstagramPosts(config: IgTokenConfig): Promise<MetaSyn
     // New post — queue for insert
     const ins = await fetchPostInsights(item.id, accessToken);
     const thumbnail = item.thumbnail_url || item.media_url || "";
-    const caption = (item.caption || "").slice(0, 200).replace(/\n/g, " ");
+    const caption = safeTruncate((item.caption || "").replace(/\n/g, " "), 200);
 
     newRows.push({
       cliente_id: clienteId,
