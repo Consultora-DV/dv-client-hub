@@ -42,7 +42,7 @@ const PLATFORMS = [
 
 type PlatformKey = typeof PLATFORMS[number]["key"];
 
-function usePlatformMetrics(clienteId: string | null, platform: string): [PlatformMetrics | null, (v: PlatformMetrics | null) => void] {
+function usePlatformMetrics(clienteId: string | null, platform: string, refreshKey?: number): [PlatformMetrics | null, (v: PlatformMetrics | null) => void] {
   const key = clienteId ? `dv_metrics_${clienteId}_${platform}` : `dv_metrics_none_${platform}`;
   const [localMetrics, setLocalMetrics] = useLocalStorage<PlatformMetrics | null>(key, null);
   const [dbMetrics, setDbMetrics] = useState<PlatformMetrics | null>(null);
@@ -65,7 +65,7 @@ function usePlatformMetrics(clienteId: string | null, platform: string): [Platfo
     return () => {
       cancelled = true;
     };
-  }, [clienteId, platform]);
+  }, [clienteId, platform, refreshKey]);
 
   return [dbMetrics || localMetrics, setLocalMetrics];
 }
@@ -326,22 +326,14 @@ function EmptyState({ platform }: { platform: string }) {
 }
 
 function PlatformTab({ platform, clienteId }: { platform: "instagram" | "tiktok" | "youtube" | "facebook"; clienteId: string | null }) {
-  const [metrics, setMetrics] = usePlatformMetrics(clienteId, platform);
   const [syncKey, setSyncKey] = useState(0);
+  const [metrics, setMetrics] = usePlatformMetrics(clienteId, platform, syncKey);
   const pInfo = PLATFORMS.find((p) => p.key === platform)!;
 
-  // After a successful Meta sync, reload metrics from DB
+  // After a successful Meta sync, bump syncKey → triggers re-fetch in usePlatformMetrics
   const handleSyncComplete = useCallback(() => {
     setSyncKey((k) => k + 1);
   }, []);
-
-  // Re-fetch from DB when syncKey changes (after a sync)
-  useEffect(() => {
-    if (syncKey === 0) return;
-    // Trigger re-fetch by temporarily clearing and reloading
-    // usePlatformMetrics already fetches from DB on mount; changing clienteId would re-trigger
-    // We force by resetting local storage key — the DB read is the source of truth
-  }, [syncKey]);
 
   const handleUpload = async (file: File) => {
     try {
