@@ -1,12 +1,12 @@
 import { useState, useEffect } from "react";
-import { RefreshCw, CheckCircle, AlertCircle, Settings } from "lucide-react";
+import { RefreshCw, CheckCircle, AlertCircle, Settings, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { toast as sonnerToast } from "sonner";
-import { savePlatformToken, loadPlatformToken } from "@/services/metaIgService";
+import { savePlatformToken, loadPlatformToken, fetchUserPages } from "@/services/metaIgService";
 import { useAppState } from "@/contexts/AppStateContext";
 
 interface MetaSyncButtonProps {
@@ -36,6 +36,8 @@ export default function MetaSyncButton({ clienteId, onSyncComplete }: MetaSyncBu
   const [config, setConfig] = useState<TokenConfig>(EMPTY_CONFIG);
   const [hasToken, setHasToken] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [detectingPages, setDetectingPages] = useState(false);
+  const [detectedPages, setDetectedPages] = useState<{ id: string; name: string }[]>([]);
 
   // Load existing token config on mount / client change
   useEffect(() => {
@@ -78,6 +80,31 @@ export default function MetaSyncButton({ clienteId, onSyncComplete }: MetaSyncBu
       sonnerToast.error(err.message || "Error guardando configuración");
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleDetectPages = async () => {
+    if (!config.accessToken) {
+      sonnerToast.error("Ingresa el Access Token primero");
+      return;
+    }
+    setDetectingPages(true);
+    try {
+      const pages = await fetchUserPages(config.accessToken);
+      if (pages.length === 0) {
+        sonnerToast.warning("No se encontraron páginas de Facebook. El token necesita el permiso pages_show_list.");
+      } else {
+        setDetectedPages(pages);
+        // Auto-fill with first page if field is empty
+        if (!config.pageId) {
+          setConfig((c) => ({ ...c, pageId: pages[0].id }));
+        }
+        sonnerToast.success(`${pages.length} página(s) encontrada(s): ${pages.map((p) => p.name).join(", ")}`);
+      }
+    } catch (err: any) {
+      sonnerToast.error(err.message || "Error al detectar páginas");
+    } finally {
+      setDetectingPages(false);
     }
   };
 
@@ -185,25 +212,55 @@ export default function MetaSyncButton({ clienteId, onSyncComplete }: MetaSyncBu
               />
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1.5">
+            <div className="space-y-1.5">
+              <div className="flex items-center justify-between">
                 <Label className="text-xs text-muted-foreground">Facebook Page ID</Label>
-                <Input
-                  placeholder="700532247451757"
-                  value={config.pageId}
-                  onChange={(e) => setConfig((c) => ({ ...c, pageId: e.target.value.trim() }))}
-                  className="bg-secondary border-border/50 text-sm font-mono"
-                />
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="h-6 text-[11px] text-blue-400 hover:text-blue-300 px-2"
+                  onClick={handleDetectPages}
+                  disabled={detectingPages || !config.accessToken}
+                >
+                  <Search className="h-3 w-3 mr-1" />
+                  {detectingPages ? "Detectando…" : "Detectar páginas"}
+                </Button>
               </div>
-              <div className="space-y-1.5">
-                <Label className="text-xs text-muted-foreground">Ad Account ID</Label>
-                <Input
-                  placeholder="act_995765…"
-                  value={config.adAccountId}
-                  onChange={(e) => setConfig((c) => ({ ...c, adAccountId: e.target.value.trim() }))}
-                  className="bg-secondary border-border/50 text-sm font-mono"
-                />
-              </div>
+              <Input
+                placeholder="700532247451757"
+                value={config.pageId}
+                onChange={(e) => setConfig((c) => ({ ...c, pageId: e.target.value.trim() }))}
+                className="bg-secondary border-border/50 text-sm font-mono"
+              />
+              {detectedPages.length > 0 && (
+                <div className="flex flex-wrap gap-1 pt-1">
+                  {detectedPages.map((p) => (
+                    <button
+                      key={p.id}
+                      type="button"
+                      onClick={() => setConfig((c) => ({ ...c, pageId: p.id }))}
+                      className={`text-[10px] px-2 py-0.5 rounded-full border transition-colors ${
+                        config.pageId === p.id
+                          ? "bg-blue-500/20 text-blue-400 border-blue-500/40"
+                          : "bg-secondary text-muted-foreground border-border/50 hover:border-blue-500/40"
+                      }`}
+                    >
+                      📘 {p.name} ({p.id})
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div className="space-y-1.5">
+              <Label className="text-xs text-muted-foreground">Ad Account ID</Label>
+              <Input
+                placeholder="act_995765…"
+                value={config.adAccountId}
+                onChange={(e) => setConfig((c) => ({ ...c, adAccountId: e.target.value.trim() }))}
+                className="bg-secondary border-border/50 text-sm font-mono"
+              />
             </div>
           </div>
 
