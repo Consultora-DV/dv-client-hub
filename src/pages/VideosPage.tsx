@@ -50,6 +50,7 @@ const statusConfig: Record<string, { label: string; class: string }> = {
 };
 
 type StatusFilter = "all" | "pending" | "approved" | "changes" | "published";
+type PlatformFilter = "all" | "instagram" | "facebook" | "tiktok" | "youtube";
 type SortOption = "date_desc" | "date_asc" | "likes" | "views" | "comments";
 
 const sortOptions: { key: SortOption; label: string }[] = [
@@ -66,6 +67,14 @@ const filterConfig: { key: StatusFilter; label: string; color: string }[] = [
   { key: "approved", label: "Aprobados", color: "bg-status-approved/20 text-status-approved" },
   { key: "changes", label: "Cambios solicitados", color: "bg-status-changes/20 text-status-changes" },
   { key: "published", label: "Publicados", color: "bg-status-published/20 text-status-published" },
+];
+
+const platformFilterConfig: { key: PlatformFilter; label: string; icon: string; activeClass: string }[] = [
+  { key: "all", label: "Todas", icon: "🌐", activeClass: "bg-secondary text-foreground border-border" },
+  { key: "instagram", label: "Instagram", icon: "📸", activeClass: "bg-gradient-to-r from-pink-500/20 to-purple-600/20 text-pink-400 border-pink-500/40" },
+  { key: "facebook", label: "Facebook", icon: "📘", activeClass: "bg-blue-600/20 text-blue-400 border-blue-500/40" },
+  { key: "tiktok", label: "TikTok", icon: "🎵", activeClass: "bg-cyan-500/20 text-cyan-400 border-cyan-500/40" },
+  { key: "youtube", label: "YouTube", icon: "▶️", activeClass: "bg-red-600/20 text-red-400 border-red-500/40" },
 ];
 
 function formatMetric(n: number): string {
@@ -523,16 +532,22 @@ export default function VideosPage() {
     if (selectedIds.size === 0) return;
     setBulkDeleting(true);
     try {
-      const { deleteVideosByIds } = await import("@/services/supabaseDataService");
-      await deleteVideosByIds(Array.from(selectedIds));
+      const { supabase } = await import("@/integrations/supabase/client");
+      const ids = Array.from(selectedIds);
+      const { error } = await supabase.from("videos").delete().in("id", ids);
+      if (error) {
+        console.error("Bulk delete error:", error);
+        toast.error(`Error al eliminar: ${error.message}`);
+        return;
+      }
       setVideos((prev) => prev.filter((v) => !selectedIds.has(v.id)));
-      toast.success(`${selectedIds.size} videos eliminados`);
+      toast.success(`${ids.length} videos eliminados`);
       setSelectedIds(new Set());
       setSelectMode(false);
       setShowBulkConfirm(false);
-    } catch (err) {
+    } catch (err: any) {
       console.error("Bulk delete error:", err);
-      toast.error("Error al eliminar videos");
+      toast.error(err?.message || "Error al eliminar videos");
     } finally {
       setBulkDeleting(false);
     }
@@ -566,6 +581,7 @@ export default function VideosPage() {
   const [statusFilter, setStatusFilter] = useState<StatusFilter>(() => {
     return (sessionStorage.getItem("dv_video_filter") as StatusFilter) || "all";
   });
+  const [platformFilter, setPlatformFilter] = useState<PlatformFilter>("all");
   const [sortBy, setSortBy] = useState<SortOption>("date_desc");
 
   const handleFilterChange = (f: StatusFilter) => {
@@ -574,8 +590,20 @@ export default function VideosPage() {
     sessionStorage.setItem("dv_video_filter", f);
   };
 
+  const handlePlatformFilter = (p: PlatformFilter) => {
+    setPlatformFilter(p);
+    setPage(1);
+  };
+
   const sortedAndFilteredVideos = useMemo(() => {
     let list = statusFilter === "all" ? [...videos] : videos.filter((v) => v.status === statusFilter);
+
+    if (platformFilter !== "all") {
+      list = list.filter((v) => {
+        const platforms = Array.isArray(v.platform) ? v.platform : [v.platform].filter(Boolean);
+        return platforms.includes(platformFilter);
+      });
+    }
 
     list.sort((a, b) => {
       switch (sortBy) {
@@ -608,6 +636,17 @@ export default function VideosPage() {
     const counts: Record<string, number> = { all: videos.length };
     for (const v of videos) {
       counts[v.status] = (counts[v.status] || 0) + 1;
+    }
+    return counts;
+  }, [videos]);
+
+  const platformCounts = useMemo(() => {
+    const counts: Record<string, number> = { all: videos.length };
+    for (const v of videos) {
+      const platforms = Array.isArray(v.platform) ? v.platform : [v.platform].filter(Boolean);
+      for (const p of platforms) {
+        counts[p] = (counts[p] || 0) + 1;
+      }
     }
     return counts;
   }, [videos]);
@@ -674,6 +713,27 @@ export default function VideosPage() {
           Restaurando miniaturas de Instagram...
         </div>
       )}
+
+      {/* Platform filter */}
+      <div className="flex gap-2 flex-wrap">
+        {platformFilterConfig.map((p) => {
+          const count = platformCounts[p.key] ?? 0;
+          const isActive = platformFilter === p.key;
+          return (
+            <button
+              key={p.key}
+              onClick={() => handlePlatformFilter(p.key)}
+              className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors border ${
+                isActive
+                  ? p.activeClass
+                  : "bg-secondary/50 text-muted-foreground border-border/50 hover:bg-secondary"
+              }`}
+            >
+              {p.icon} {p.label} {p.key !== "all" && `(${count})`}
+            </button>
+          );
+        })}
+      </div>
 
       {/* Status filter + sort bar */}
       <div className="flex flex-col sm:flex-row gap-3 sm:items-center sm:justify-between">

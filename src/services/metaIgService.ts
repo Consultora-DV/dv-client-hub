@@ -205,18 +205,44 @@ export async function syncInstagramPosts(config: IgTokenConfig): Promise<MetaSyn
     }
   }
 
-  // ── 5. Batch insert post_metrics ──
+  // ── 5. Upsert post_metrics (safe on re-sync) ──
   if (newPmRows.length > 0) {
-    const { error } = await supabase.from("post_metrics").insert(newPmRows);
-    if (error) { console.error("post_metrics insert error:", error); errors += newPmRows.length; }
-    else synced = newPmRows.length;
+    const { error } = await supabase
+      .from("post_metrics")
+      .upsert(newPmRows, { onConflict: "cliente_id,platform,ig_short_code", ignoreDuplicates: false });
+    if (error) {
+      // Fallback: insert individually, skip conflicts
+      let inserted = 0;
+      for (const row of newPmRows) {
+        const { error: e2 } = await supabase.from("post_metrics").insert(row);
+        if (!e2) inserted++;
+        else errors++;
+      }
+      synced = inserted;
+    } else {
+      synced = newPmRows.length;
+    }
   }
 
-  // ── 6. Batch insert videos ──
+  // ── 6. Upsert videos (delete-then-insert to avoid duplicates) ──
   if (newVideoRows.length > 0) {
+    const shortcodes = newVideoRows.map((r) => r.ig_short_code).filter(Boolean);
+    const permalinks = newVideoRows.map((r) => r.embed_url).filter((u) => u && u !== "#");
+
+    // Remove any existing videos with same shortcode or permalink for this client
+    if (shortcodes.length > 0) {
+      await supabase.from("videos").delete()
+        .eq("cliente_id", clienteId)
+        .in("ig_short_code", shortcodes);
+    }
+    if (permalinks.length > 0) {
+      await supabase.from("videos").delete()
+        .eq("cliente_id", clienteId)
+        .in("embed_url", permalinks);
+    }
+
     const { error } = await supabase.from("videos").insert(newVideoRows);
     if (error) console.error("videos insert error:", error);
-    // Don't count video errors separately — they're a bonus
   }
 
   const message = `${synced} nuevos posts · ${refreshed} actualizados · ${items.length} total`;
@@ -338,12 +364,28 @@ export async function syncFacebookPosts(config: IgTokenConfig): Promise<MetaSync
   }
 
   if (newRows.length > 0) {
-    const { error } = await supabase.from("post_metrics").insert(newRows);
-    if (error) { console.error("fb post_metrics insert error:", error); errors += newRows.length; }
-    else synced = newRows.length;
+    const { error } = await supabase
+      .from("post_metrics")
+      .upsert(newRows, { onConflict: "cliente_id,platform,post_url", ignoreDuplicates: false });
+    if (error) {
+      let inserted = 0;
+      for (const row of newRows) {
+        const { error: e2 } = await supabase.from("post_metrics").insert(row);
+        if (!e2) inserted++; else errors++;
+      }
+      synced = inserted;
+    } else {
+      synced = newRows.length;
+    }
   }
 
   if (newVideoRows.length > 0) {
+    const fbPermalinks = newVideoRows.map((r) => r.embed_url).filter((u) => u && u !== "#");
+    if (fbPermalinks.length > 0) {
+      await supabase.from("videos").delete()
+        .eq("cliente_id", clienteId)
+        .in("embed_url", fbPermalinks);
+    }
     await supabase.from("videos").insert(newVideoRows);
   }
 
