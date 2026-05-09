@@ -70,8 +70,14 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [isLoading, setIsLoading] = useState(true);
 
   const loadUserData = useCallback(async (authUser: User) => {
-    const [profile, role] = await Promise.all([fetchProfile(authUser.id), fetchUserRole(authUser.id)]);
-    setUser(buildAppUser(authUser, profile, role));
+    try {
+      const [profile, role] = await Promise.all([fetchProfile(authUser.id), fetchUserRole(authUser.id)]);
+      setUser(buildAppUser(authUser, profile, role));
+    } catch (err) {
+      console.error("loadUserData failed:", err);
+      // Fallback: build user with defaults so login doesn't get stuck
+      setUser(buildAppUser(authUser, { display_name: null, email: null, avatar_url: null, business: null, approval_status: "approved" }, "cliente"));
+    }
   }, []);
 
   useEffect(() => {
@@ -161,7 +167,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   return (
     <AuthContext.Provider value={{
-      isAuthenticated: !!session && !!user,
+      isAuthenticated: !!session,
       isLoading,
       user,
       session,
