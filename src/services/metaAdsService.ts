@@ -78,6 +78,51 @@ export async function fetchAccountInsights(
   };
 }
 
+// ── Daily breakdown (time series) ─────────────────────────────
+
+export interface DailyMetric {
+  date: string;      // "YYYY-MM-DD"
+  spend: number;
+  revenue: number;
+  purchases: number;
+  clicks: number;
+  impressions: number;
+  roas: number;
+  addToCart: number;
+}
+
+export async function fetchDailyBreakdown(
+  adAccountId: string,
+  token: string,
+  datePreset = "last_30d"
+): Promise<DailyMetric[]> {
+  const fields = "spend,impressions,clicks,actions,action_values";
+  const data = await adGet(
+    `/act_${adAccountId}/insights?fields=${fields}&date_preset=${datePreset}&time_increment=1&level=account`,
+    token
+  );
+
+  return ((data.data || []) as any[])
+    .map((d) => {
+      const actions = d.actions || [];
+      const actionValues = d.action_values || [];
+      const spend = parseFloat(d.spend || "0");
+      const revenue = actionValue(actionValues, "offsite_conversion.fb_pixel_purchase");
+      const purchases = actionValue(actions, "offsite_conversion.fb_pixel_purchase");
+      return {
+        date: d.date_start as string,
+        spend,
+        revenue,
+        purchases,
+        clicks: parseInt(d.clicks || "0"),
+        impressions: parseInt(d.impressions || "0"),
+        roas: spend > 0 ? revenue / spend : 0,
+        addToCart: actionValue(actions, "offsite_conversion.fb_pixel_add_to_cart"),
+      };
+    })
+    .sort((a, b) => a.date.localeCompare(b.date));
+}
+
 // ── Campaign list with per-campaign insights ──────────────────
 
 export interface CampaignData {
@@ -146,6 +191,75 @@ export async function fetchCampaigns(
 
   return campaigns;
 }
+
+// ── Ad Set level data ─────────────────────────────────────────
+
+export interface AdSetData {
+  id: string;
+  name: string;
+  status: string;
+  campaignName: string;
+  optimizationGoal: string;
+  spend: number;
+  revenue: number;
+  roas: number;
+  purchases: number;
+  addToCart: number;
+  clicks: number;
+  impressions: number;
+  ctr: number;
+  cpm: number;
+  cpa: number;
+}
+
+export async function fetchAdSets(
+  adAccountId: string,
+  token: string,
+  datePreset = "last_30d"
+): Promise<AdSetData[]> {
+  const insightFields = "spend,impressions,clicks,ctr,cpm,actions,action_values";
+  const fields = `name,status,campaign{name},optimization_goal,insights.date_preset(${datePreset}){${insightFields}}`;
+
+  let url = `/act_${adAccountId}/adsets?fields=${fields}&limit=50`;
+  const adsets: AdSetData[] = [];
+
+  while (url) {
+    const data = await adGet(url, token);
+    for (const a of data.data || []) {
+      const ins = a.insights?.data?.[0] || {};
+      const actions = ins.actions || [];
+      const actionValues = ins.action_values || [];
+      const spend = parseFloat(ins.spend || "0");
+      const revenue = actionValue(actionValues, "offsite_conversion.fb_pixel_purchase");
+      const purchases = actionValue(actions, "offsite_conversion.fb_pixel_purchase");
+      adsets.push({
+        id: a.id,
+        name: a.name,
+        status: a.status,
+        campaignName: a.campaign?.name || "",
+        optimizationGoal: a.optimization_goal || "",
+        spend,
+        revenue,
+        roas: spend > 0 ? revenue / spend : 0,
+        purchases,
+        addToCart: actionValue(actions, "offsite_conversion.fb_pixel_add_to_cart"),
+        clicks: parseInt(ins.clicks || "0"),
+        impressions: parseInt(ins.impressions || "0"),
+        ctr: parseFloat(ins.ctr || "0"),
+        cpm: parseFloat(ins.cpm || "0"),
+        cpa: purchases > 0 ? spend / purchases : 0,
+      });
+    }
+    const after = data.paging?.cursors?.after;
+    url = after && data.paging?.next
+      ? `/act_${adAccountId}/adsets?fields=${fields}&limit=50&after=${encodeURIComponent(after)}`
+      : "";
+  }
+
+  return adsets;
+}
+
+// ── Date presets ──────────────────────────────────────────────
 
 export type DatePreset =
   | "today" | "yesterday" | "last_7d" | "last_14d"
