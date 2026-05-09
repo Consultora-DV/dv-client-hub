@@ -294,7 +294,7 @@ export async function syncFacebookPosts(config: IgTokenConfig): Promise<MetaSync
   // Get a Page Access Token via /me/accounts (most reliable method)
   let pageToken = accessToken;
   try {
-    const accounts = await igGet(`/me/accounts?fields=id,name,access_token&limit=100`, accessToken);
+    const accounts = await igGet(`/me/accounts?fields=id,name,access_token&limit=200`, accessToken);
     const match = (accounts.data || []).find((p: any) => p.id === pageId);
     if (match?.access_token) pageToken = match.access_token;
   } catch {
