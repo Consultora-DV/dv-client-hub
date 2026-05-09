@@ -553,32 +553,27 @@ export default function VideosPage() {
     }
   };
 
-  // Auto-repair thumbnails on first load if there are broken ones
+  // Auto-repair thumbnails — only runs once per client selection, not on every videos update
   useEffect(() => {
-    if (repairAttempted.current || !selectedClienteId || videos.length === 0) return;
+    if (repairAttempted.current || !selectedClienteId) return;
+    // Only repair thumbnails that are completely missing (not just non-Supabase CDN URLs)
     const hasBroken = videos.some(
-      (v) => (v as any).igShortCode && (!v.thumbnail || !v.thumbnail.includes("supabase.co"))
+      (v) => (v as any).igShortCode && !v.thumbnail
     );
-    if (hasBroken) {
-      repairAttempted.current = true;
-      setRepairingThumbs(true);
-      import("@/services/supabaseDataService").then(({ repairThumbnails, fetchVideos }) => {
-        repairThumbnails(selectedClienteId)
-          .then(async (result) => {
-            if (result.repaired > 0) {
-              toast.success(`${result.repaired} miniaturas restauradas`);
-              // Refresh videos via state instead of page reload
-              const fresh = await fetchVideos();
-              setVideos(fresh);
-            } else if (result.failed > 0) {
-              toast.info("No se pudieron restaurar las miniaturas.");
-            }
-          })
-          .catch((err) => console.error("Thumbnail repair error:", err))
-          .finally(() => setRepairingThumbs(false));
-      });
-    }
-  }, [videos, selectedClienteId, setVideos]);
+    if (!hasBroken) return;
+
+    repairAttempted.current = true;
+    setRepairingThumbs(true);
+    import("@/services/supabaseDataService").then(({ repairThumbnails }) => {
+      repairThumbnails(selectedClienteId)
+        .then((result) => {
+          if (result.repaired > 0) toast.success(`${result.repaired} miniaturas restauradas`);
+        })
+        .catch((err) => console.error("Thumbnail repair error:", err))
+        .finally(() => setRepairingThumbs(false));
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedClienteId]); // intentionally exclude `videos` — we only want this once per client
 
   const [statusFilter, setStatusFilter] = useState<StatusFilter>(() => {
     return (sessionStorage.getItem("dv_video_filter") as StatusFilter) || "all";
