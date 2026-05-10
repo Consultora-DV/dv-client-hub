@@ -15,7 +15,7 @@ import { loadPlatformToken } from "@/services/metaIgService";
 import { SOURCE_CONFIG, CalendarEventSource } from "@/services/timelineService";
 import {
   fetchAccountInsights, fetchCampaigns, fetchAdSets, fetchDailyBreakdown,
-  fetchAdsWithCreatives,
+  fetchAdsWithCreatives, getApiUsage,
   AccountInsights, CampaignData, AdSetData, DailyMetric, DatePreset, DATE_PRESETS,
   AdCreative,
 } from "@/services/metaAdsService";
@@ -41,7 +41,55 @@ function fmtDate(d: string) {
 function statusColor(status: string) {
   if (status === "ACTIVE") return "bg-status-approved/20 text-status-approved border-status-approved/30";
   if (status === "PAUSED") return "bg-status-pending/20 text-status-pending border-status-pending/30";
+  if (status === "CAMPAIGN_PAUSED") return "bg-blue-500/20 text-blue-400 border-blue-500/30";
+  if (status === "ADSET_PAUSED") return "bg-purple-500/20 text-purple-400 border-purple-500/30";
+  if (status === "WITH_ISSUES") return "bg-destructive/20 text-destructive border-destructive/30";
   return "bg-secondary text-muted-foreground border-border/30";
+}
+
+function statusLabel(status: string) {
+  const MAP: Record<string, string> = {
+    ACTIVE: "Activo",
+    PAUSED: "Pausado",
+    CAMPAIGN_PAUSED: "Camp. pausada",
+    ADSET_PAUSED: "Conj. pausado",
+    WITH_ISSUES: "Con problemas",
+    DISAPPROVED: "Rechazado",
+    PENDING_REVIEW: "En revisión",
+  };
+  return MAP[status] || status;
+}
+
+function rankingColor(rank: string) {
+  if (!rank) return "text-muted-foreground";
+  if (rank.startsWith("ABOVE_AVERAGE")) return "text-status-approved";
+  if (rank === "AVERAGE") return "text-status-pending";
+  return "text-destructive";
+}
+
+function rankingEmoji(rank: string) {
+  if (!rank) return "—";
+  if (rank.startsWith("ABOVE_AVERAGE")) return "🟢";
+  if (rank === "AVERAGE") return "🟡";
+  return "🔴";
+}
+
+// ── Rate Limit Bar ────────────────────────────────────────────
+function RateLimitBar() {
+  const usage = getApiUsage();
+  const pct = usage.pct;
+  if (pct < 20) return null; // don't show if usage is low
+  const color = pct >= 90 ? "bg-destructive" : pct >= 70 ? "bg-status-pending" : "bg-status-approved";
+  const textColor = pct >= 90 ? "text-destructive" : pct >= 70 ? "text-status-pending" : "text-status-approved";
+  return (
+    <div className="flex items-center gap-2 text-xs">
+      <span className={`${textColor} font-medium`}>API {pct}%</span>
+      <div className="w-16 h-1.5 bg-secondary rounded-full overflow-hidden">
+        <div className={`h-full rounded-full transition-all ${color}`} style={{ width: `${pct}%` }} />
+      </div>
+      {pct >= 90 && <span className="text-destructive font-semibold animate-pulse">⚠️ Límite</span>}
+    </div>
+  );
 }
 
 function roasStatus(roas: number) {
@@ -394,6 +442,9 @@ function OverviewTab({
               ["Alcance único", `${fmt(ins.reach)} personas`],
               ["Impresiones totales", fmt(ins.impressions)],
               ["Clics totales", fmt(ins.clicks)],
+              ["Clics salientes", ins.outboundClicks > 0 ? fmt(ins.outboundClicks) : "—"],
+              ["CTR saliente", ins.outboundCtr > 0 ? pct(ins.outboundCtr) : "—"],
+              ["Landing page views", ins.landingPageViews > 0 ? fmt(ins.landingPageViews) : "—"],
               ["Compras totales", ins.purchases.toString()],
               ["ATC totales", ins.addToCart.toString()],
               ["Frecuencia", `${ins.frequency.toFixed(2)}x`],
@@ -447,9 +498,9 @@ function CampaignsTab({ adAccountId, token, datePreset, refreshKey }: {
 
   useEffect(() => { load(); }, [load]);
 
-  const visible = campaigns.filter((c) => showPaused || c.status === "ACTIVE");
-  const active = campaigns.filter((c) => c.status === "ACTIVE");
-  const paused = campaigns.filter((c) => c.status !== "ACTIVE");
+  const visible = campaigns.filter((c) => showPaused || c.effectiveStatus === "ACTIVE");
+  const active = campaigns.filter((c) => c.effectiveStatus === "ACTIVE");
+  const paused = campaigns.filter((c) => c.effectiveStatus !== "ACTIVE");
 
   const totalSpend = campaigns.reduce((s, c) => s + c.spend, 0);
 
@@ -484,6 +535,7 @@ function CampaignsTab({ adAccountId, token, datePreset, refreshKey }: {
                 <TableHead className="text-right">ATC</TableHead>
                 <TableHead className="text-right">CPA</TableHead>
                 <TableHead className="text-right">CTR</TableHead>
+                <TableHead className="text-right text-muted-foreground/70">CTR Out.</TableHead>
                 <TableHead className="text-right">CPM</TableHead>
                 <TableHead className="text-right">Presupuesto</TableHead>
               </TableRow>
@@ -501,7 +553,11 @@ function CampaignsTab({ adAccountId, token, datePreset, refreshKey }: {
                         <span className="text-[9px] text-muted-foreground/50">· {spendShare.toFixed(0)}% del gasto</span>
                       </div>
                     </TableCell>
-                    <TableCell><Badge variant="outline" className={`text-[10px] border ${statusColor(c.status)}`}>{c.status}</Badge></TableCell>
+                    <TableCell>
+                      <Badge variant="outline" className={`text-[10px] border ${statusColor(c.effectiveStatus)}`}>
+                        {statusLabel(c.effectiveStatus)}
+                      </Badge>
+                    </TableCell>
                     <TableCell className="text-right text-xs font-medium">{mxn(c.spend)}</TableCell>
                     <TableCell className="text-right text-xs">{c.revenue > 0 ? mxn(c.revenue) : "—"}</TableCell>
                     <TableCell className="text-right">
@@ -513,6 +569,9 @@ function CampaignsTab({ adAccountId, token, datePreset, refreshKey }: {
                     <TableCell className="text-right text-xs">{c.addToCart > 0 ? c.addToCart : "—"}</TableCell>
                     <TableCell className="text-right text-xs">{c.cpa > 0 ? mxn(c.cpa) : "—"}</TableCell>
                     <TableCell className="text-right text-xs">{pct(c.ctr)}</TableCell>
+                    <TableCell className="text-right text-xs text-muted-foreground">
+                      {c.outboundCtr > 0 ? pct(c.outboundCtr) : "—"}
+                    </TableCell>
                     <TableCell className="text-right text-xs">{mxn(c.cpm)}</TableCell>
                     <TableCell className="text-right text-xs">
                       {c.dailyBudget ? `${mxn(c.dailyBudget)}/día` : c.lifetimeBudget ? mxn(c.lifetimeBudget) : "CBO"}
@@ -551,11 +610,12 @@ function AdSetsTab({ adAccountId, token, datePreset, refreshKey }: {
   useEffect(() => { load(); }, [load]);
 
   const visible = adsets
-    .filter((a) => showPaused || a.status === "ACTIVE")
+    .filter((a) => showPaused || a.effectiveStatus === "ACTIVE")
     .sort((a, b) => sortBy === "roas" ? b.roas - a.roas : sortBy === "cpa" ? (b.cpa > 0 ? 1 : -1) : b.spend - a.spend);
 
-  const active = adsets.filter((a) => a.status === "ACTIVE");
-  const paused = adsets.filter((a) => a.status !== "ACTIVE");
+  const active = adsets.filter((a) => a.effectiveStatus === "ACTIVE");
+  const learning = adsets.filter((a) => a.learningStage === "LEARNING");
+  const paused = adsets.filter((a) => a.effectiveStatus !== "ACTIVE");
 
   if (loading) return <div className="flex items-center justify-center py-20 text-muted-foreground gap-3"><RefreshCw className="h-5 w-5 animate-spin" /> Cargando ad sets…</div>;
   if (error) return <div className="glass gold-border rounded-xl p-6 text-destructive text-sm">Error: {error}</div>;
@@ -565,6 +625,7 @@ function AdSetsTab({ adAccountId, token, datePreset, refreshKey }: {
       <div className="flex items-center justify-between flex-wrap gap-2">
         <div className="flex items-center gap-2">
           <Badge className="bg-status-approved/20 text-status-approved border-status-approved/30">{active.length} activos</Badge>
+          {learning.length > 0 && <Badge variant="outline" className="border-blue-500/30 text-blue-400">🧠 {learning.length} aprendiendo</Badge>}
           {paused.length > 0 && <Badge variant="outline" className="text-muted-foreground">{paused.length} pausados</Badge>}
         </div>
         <div className="flex items-center gap-2">
@@ -612,7 +673,19 @@ function AdSetsTab({ adAccountId, token, datePreset, refreshKey }: {
                       <p className="text-[10px] text-muted-foreground truncate">{a.campaignName}</p>
                     </TableCell>
                     <TableCell className="text-xs text-muted-foreground">{a.optimizationGoal || "—"}</TableCell>
-                    <TableCell><Badge variant="outline" className={`text-[10px] border ${statusColor(a.status)}`}>{a.status}</Badge></TableCell>
+                    <TableCell>
+                      <div className="flex flex-col gap-0.5">
+                        <Badge variant="outline" className={`text-[10px] border w-fit ${statusColor(a.effectiveStatus)}`}>
+                          {statusLabel(a.effectiveStatus)}
+                        </Badge>
+                        {a.learningStage === "LEARNING" && (
+                          <span className="text-[9px] text-blue-400">🧠 Aprendiendo ({a.learningConversions}/50)</span>
+                        )}
+                        {a.learningStage === "FAIL" && (
+                          <span className="text-[9px] text-destructive">⚠️ Aprendizaje limitado</span>
+                        )}
+                      </div>
+                    </TableCell>
                     <TableCell className="text-right text-xs font-medium">{a.spend > 0 ? mxn(a.spend) : "—"}</TableCell>
                     <TableCell className="text-right">
                       <span className={`text-xs font-bold flex items-center justify-end gap-1 ${a.spend > 0 ? rs.cls : "text-muted-foreground"}`}>
@@ -657,8 +730,8 @@ function CreativosTab({ adAccountId, token, datePreset, refreshKey }: {
 
   useEffect(() => { load(); }, [load]);
 
-  const visible = ads.filter(a => showPaused || a.status === "ACTIVE");
-  const active = ads.filter(a => a.status === "ACTIVE");
+  const visible = ads.filter(a => showPaused || a.effectiveStatus === "ACTIVE");
+  const active = ads.filter(a => a.effectiveStatus === "ACTIVE");
 
   if (loading) return <div className="flex items-center justify-center py-20 text-muted-foreground gap-3"><RefreshCw className="h-5 w-5 animate-spin" /> Cargando creativos…</div>;
   if (error) return <div className="glass gold-border rounded-xl p-6 text-destructive text-sm">Error: {error}</div>;
@@ -682,7 +755,7 @@ function CreativosTab({ adAccountId, token, datePreset, refreshKey }: {
           const isExpanded = expanded === ad.id;
           const thumb = ad.thumbnailUrl || ad.imageUrl;
           return (
-            <div key={ad.id} className={`glass gold-border rounded-xl overflow-hidden flex flex-col ${ad.status !== "ACTIVE" ? "opacity-60" : ""}`}>
+            <div key={ad.id} className={`glass gold-border rounded-xl overflow-hidden flex flex-col ${ad.effectiveStatus !== "ACTIVE" ? "opacity-60" : ""}`}>
               {/* Thumbnail */}
               <div className="aspect-video bg-secondary relative overflow-hidden cursor-pointer" onClick={() => setExpanded(isExpanded ? null : ad.id)}>
                 {thumb ? (
@@ -697,11 +770,13 @@ function CreativosTab({ adAccountId, token, datePreset, refreshKey }: {
                   {ad.title && <p className="text-xs font-semibold text-white line-clamp-1">{ad.title}</p>}
                 </div>
                 <div className="absolute top-2 right-2">
-                  <Badge variant="outline" className={`text-[10px] border ${statusColor(ad.status)}`}>{ad.status}</Badge>
+                  <Badge variant="outline" className={`text-[10px] border ${statusColor(ad.effectiveStatus)}`}>
+                    {statusLabel(ad.effectiveStatus)}
+                  </Badge>
                 </div>
               </div>
 
-              {/* Metrics row */}
+              {/* Primary metrics */}
               <div className="px-3 py-2 grid grid-cols-4 gap-1 border-b border-border/30">
                 <div className="text-center">
                   <p className="text-[9px] text-muted-foreground">Gasto</p>
@@ -712,8 +787,8 @@ function CreativosTab({ adAccountId, token, datePreset, refreshKey }: {
                   <p className={`text-xs font-bold ${rs.cls}`}>{ad.spend > 0 ? roasFmt(ad.roas) : "—"}</p>
                 </div>
                 <div className="text-center">
-                  <p className="text-[9px] text-muted-foreground">CTR</p>
-                  <p className="text-xs font-bold text-foreground">{pct(ad.ctr)}</p>
+                  <p className="text-[9px] text-muted-foreground">CTR Out.</p>
+                  <p className="text-xs font-bold text-foreground">{ad.outboundClicks > 0 ? pct(ad.outboundClicks / (ad.impressions || 1) * 100) : pct(ad.ctr)}</p>
                 </div>
                 <div className="text-center">
                   <p className="text-[9px] text-muted-foreground">CPM</p>
@@ -721,9 +796,30 @@ function CreativosTab({ adAccountId, token, datePreset, refreshKey }: {
                 </div>
               </div>
 
-              {/* Info */}
+              {/* Quality rankings */}
+              {(ad.qualityRanking || ad.engagementRateRanking || ad.conversionRateRanking) && (
+                <div className="px-3 py-1.5 flex gap-3 border-b border-border/20 bg-secondary/20">
+                  {ad.qualityRanking && (
+                    <span className={`text-[9px] font-medium ${rankingColor(ad.qualityRanking)}`}>
+                      {rankingEmoji(ad.qualityRanking)} Calidad
+                    </span>
+                  )}
+                  {ad.engagementRateRanking && (
+                    <span className={`text-[9px] font-medium ${rankingColor(ad.engagementRateRanking)}`}>
+                      {rankingEmoji(ad.engagementRateRanking)} Engagement
+                    </span>
+                  )}
+                  {ad.conversionRateRanking && (
+                    <span className={`text-[9px] font-medium ${rankingColor(ad.conversionRateRanking)}`}>
+                      {rankingEmoji(ad.conversionRateRanking)} Conversión
+                    </span>
+                  )}
+                </div>
+              )}
+
+              {/* Info + copy */}
               <div className="p-3 space-y-1.5 flex-1">
-                <p className="text-[10px] text-muted-foreground truncate">{ad.campaignName}</p>
+                <p className="text-[10px] text-muted-foreground truncate">{ad.campaignName} · {ad.adsetName}</p>
                 <p className="text-xs font-medium text-foreground truncate">{ad.name}</p>
                 {ad.body && (
                   <p className={`text-[11px] text-muted-foreground leading-relaxed ${isExpanded ? "" : "line-clamp-2"}`}>
@@ -737,21 +833,57 @@ function CreativosTab({ adAccountId, token, datePreset, refreshKey }: {
                 )}
               </div>
 
-              {/* Extra metrics when expanded */}
+              {/* Expanded: full metrics + video retention */}
               {isExpanded && (
-                <div className="px-3 pb-3 grid grid-cols-3 gap-2 border-t border-border/30 pt-2">
-                  <div className="text-center">
-                    <p className="text-[9px] text-muted-foreground">Impresiones</p>
-                    <p className="text-xs font-semibold">{fmt(ad.impressions)}</p>
+                <div className="px-3 pb-3 space-y-2 border-t border-border/30 pt-2">
+                  <div className="grid grid-cols-3 gap-2">
+                    <div className="text-center">
+                      <p className="text-[9px] text-muted-foreground">Impresiones</p>
+                      <p className="text-xs font-semibold">{fmt(ad.impressions)}</p>
+                    </div>
+                    <div className="text-center">
+                      <p className="text-[9px] text-muted-foreground">Compras</p>
+                      <p className="text-xs font-semibold">{ad.purchases > 0 ? ad.purchases : "—"}</p>
+                    </div>
+                    <div className="text-center">
+                      <p className="text-[9px] text-muted-foreground">CPA</p>
+                      <p className="text-xs font-semibold">{ad.cpa > 0 ? mxn(ad.cpa) : "—"}</p>
+                    </div>
+                    <div className="text-center">
+                      <p className="text-[9px] text-muted-foreground">LPV</p>
+                      <p className="text-xs font-semibold">{ad.landingPageViews > 0 ? fmt(ad.landingPageViews) : "—"}</p>
+                    </div>
+                    <div className="text-center">
+                      <p className="text-[9px] text-muted-foreground">Out. clicks</p>
+                      <p className="text-xs font-semibold">{ad.outboundClicks > 0 ? fmt(ad.outboundClicks) : "—"}</p>
+                    </div>
+                    <div className="text-center">
+                      <p className="text-[9px] text-muted-foreground">CTR</p>
+                      <p className="text-xs font-semibold">{pct(ad.ctr)}</p>
+                    </div>
                   </div>
-                  <div className="text-center">
-                    <p className="text-[9px] text-muted-foreground">Compras</p>
-                    <p className="text-xs font-semibold">{ad.purchases > 0 ? ad.purchases : "—"}</p>
-                  </div>
-                  <div className="text-center">
-                    <p className="text-[9px] text-muted-foreground">CPA</p>
-                    <p className="text-xs font-semibold">{ad.cpa > 0 ? mxn(ad.cpa) : "—"}</p>
-                  </div>
+                  {/* Video retention bar */}
+                  {ad.videoP25 > 0 && (
+                    <div className="space-y-1">
+                      <p className="text-[9px] text-muted-foreground">Retención de video</p>
+                      <div className="flex items-end gap-0.5 h-5">
+                        {[
+                          { label: "25%", val: ad.videoP25 },
+                          { label: "50%", val: ad.videoP50 },
+                          { label: "75%", val: ad.videoP75 },
+                          { label: "100%", val: ad.videoP100 },
+                        ].map(({ label, val }) => {
+                          const h = ad.videoP25 > 0 ? Math.max(15, (val / ad.videoP25) * 100) : 15;
+                          return (
+                            <div key={label} className="flex-1 flex flex-col items-center gap-0.5">
+                              <div className="w-full rounded-sm bg-primary/60" style={{ height: `${h}%`, minHeight: "3px" }} />
+                              <span className="text-[7px] text-muted-foreground/60">{label}</span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
@@ -1034,6 +1166,7 @@ export default function AdsPage() {
           </p>
         </div>
         <div className="flex items-center gap-2">
+          <RateLimitBar />
           <Button variant="ghost" size="sm" className="h-8 px-3 text-xs gap-1.5" onClick={handleManualRefresh}>
             <RefreshCw className="h-3.5 w-3.5" /> Actualizar
           </Button>

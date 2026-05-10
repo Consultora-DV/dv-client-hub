@@ -1,13 +1,95 @@
 // Meta Ads API — real-time campaign & account data
 // Uses the same access token stored in platform_tokens (ads_read scope)
+//
+// RATE LIMITS (Marketing API):
+//   Standard tier: 300 + (40 × active_ads) calls per rolling hour
+//   Tracked via x-business-use-case-usage header (call_count / total_cputime / total_time = % used)
+//   Error codes: 17, 80000, 80003, 80004 = rate limit hit
 
 const API = "https://graph.facebook.com/v21.0";
 
+// ── Rate limit tracking ───────────────────────────────────────
+
+interface UsageState {
+  callCount: number;     // % of limit used (0-100)
+  totalCputime: number;
+  totalTime: number;
+  blockedUntil: number;  // unix ms, 0 if not blocked
+  lastUpdated: number;
+}
+
+const _usage: UsageState = {
+  callCount: 0, totalCputime: 0, totalTime: 0, blockedUntil: 0, lastUpdated: 0,
+};
+
+export function getApiUsage(): UsageState & { pct: number } {
+  const pct = Math.max(_usage.callCount, _usage.totalCputime, _usage.totalTime);
+  return { ..._usage, pct };
+}
+
+function parseUsageHeader(headers: Headers) {
+  try {
+    // x-business-use-case-usage: {"<biz_id>":[{call_count,total_cputime,total_time,...}]}
+    const buc = headers.get("x-business-use-case-usage");
+    if (buc) {
+      const parsed = JSON.parse(buc);
+      const entries: any[] = Object.values(parsed).flat();
+      const ads = entries.find((e) => e.type === "ads_management" || e.type === "ads_insights") || entries[0];
+      if (ads) {
+        _usage.callCount = ads.call_count ?? _usage.callCount;
+        _usage.totalCputime = ads.total_cputime ?? _usage.totalCputime;
+        _usage.totalTime = ads.total_time ?? _usage.totalTime;
+        _usage.blockedUntil = ads.estimated_time_to_regain_access > 0
+          ? Date.now() + ads.estimated_time_to_regain_access * 60_000
+          : 0;
+        _usage.lastUpdated = Date.now();
+        return;
+      }
+    }
+    // Fallback: x-app-usage
+    const app = headers.get("x-app-usage");
+    if (app) {
+      const parsed = JSON.parse(app);
+      _usage.callCount = parsed.call_count ?? _usage.callCount;
+      _usage.totalCputime = parsed.total_cputime ?? _usage.totalCputime;
+      _usage.totalTime = parsed.total_time ?? _usage.totalTime;
+      _usage.lastUpdated = Date.now();
+    }
+  } catch {
+    // header absent or malformed — ignore
+  }
+}
+
+/** Throw if we're blocked; warn (log) if approaching limit */
+function checkRateLimit() {
+  if (_usage.blockedUntil > Date.now()) {
+    const mins = Math.ceil((_usage.blockedUntil - Date.now()) / 60_000);
+    throw new Error(`Meta API bloqueada por límite de llamadas. Intenta en ~${mins} min.`);
+  }
+  const pct = Math.max(_usage.callCount, _usage.totalCputime, _usage.totalTime);
+  if (pct >= 90) {
+    console.warn(`[MetaAds] Uso de API al ${pct}% — reduciendo llamadas`);
+  }
+}
+
+// ── Core HTTP helper ──────────────────────────────────────────
+
 async function adGet(path: string, token: string): Promise<any> {
+  checkRateLimit();
   const sep = path.includes("?") ? "&" : "?";
   const res = await fetch(`${API}${path}${sep}access_token=${token}`);
+  parseUsageHeader(res.headers);
   const data = await res.json();
-  if (data.error) throw new Error(`Meta Ads API: ${data.error.message}`);
+  if (data.error) {
+    const code = data.error.code;
+    // Rate limit error codes
+    if ([17, 32, 613, 80000, 80003, 80004, 80014].includes(code)) {
+      _usage.callCount = 100;
+      _usage.blockedUntil = Date.now() + 15 * 60_000; // assume 15 min block
+      throw new Error(`Meta API: límite de llamadas alcanzado. Espera ~15 min y vuelve a intentar.`);
+    }
+    throw new Error(`Meta Ads API: ${data.error.message}`);
+  }
   return data;
 }
 
@@ -34,6 +116,11 @@ export interface AccountInsights {
   initiateCheckout: number;
   viewContent: number;
   cpa: number;
+  landingPageViews: number;
+  outboundClicks: number;
+  outboundCtr: number;
+  uniqueClicks: number;
+  uniqueCtr: number;
   dateStart: string;
   dateStop: string;
 }
@@ -43,7 +130,13 @@ export async function fetchAccountInsights(
   token: string,
   datePreset = "last_30d"
 ): Promise<AccountInsights> {
-  const fields = "spend,impressions,clicks,ctr,cpm,cpc,reach,frequency,actions,action_values";
+  const fields = [
+    "spend", "impressions", "clicks", "ctr", "cpm", "cpc",
+    "reach", "frequency", "actions", "action_values",
+    "outbound_clicks", "outbound_clicks_ctr",
+    "unique_clicks", "unique_ctr",
+  ].join(",");
+
   const data = await adGet(
     `/act_${adAccountId}/insights?fields=${fields}&date_preset=${datePreset}&level=account`,
     token
@@ -56,6 +149,14 @@ export async function fetchAccountInsights(
   const purchases = actionValue(actions, "offsite_conversion.fb_pixel_purchase");
   const roas = spend > 0 ? revenue / spend : 0;
   const cpa = purchases > 0 ? spend / purchases : 0;
+
+  // outbound_clicks is an array [{action_type, value}]
+  const outboundClicks = Array.isArray(d.outbound_clicks)
+    ? parseFloat(d.outbound_clicks[0]?.value || "0")
+    : 0;
+  const outboundCtr = Array.isArray(d.outbound_clicks_ctr)
+    ? parseFloat(d.outbound_clicks_ctr[0]?.value || "0")
+    : 0;
 
   return {
     spend,
@@ -73,6 +174,11 @@ export async function fetchAccountInsights(
     initiateCheckout: actionValue(actions, "offsite_conversion.fb_pixel_initiate_checkout"),
     viewContent: actionValue(actions, "offsite_conversion.fb_pixel_view_content"),
     cpa,
+    landingPageViews: actionValue(actions, "landing_page_view"),
+    outboundClicks,
+    outboundCtr,
+    uniqueClicks: parseInt(d.unique_clicks || "0"),
+    uniqueCtr: parseFloat(d.unique_ctr || "0"),
     dateStart: d.date_start || "",
     dateStop: d.date_stop || "",
   };
@@ -81,7 +187,7 @@ export async function fetchAccountInsights(
 // ── Daily breakdown (time series) ─────────────────────────────
 
 export interface DailyMetric {
-  date: string;      // "YYYY-MM-DD"
+  date: string;
   spend: number;
   revenue: number;
   purchases: number;
@@ -123,12 +229,13 @@ export async function fetchDailyBreakdown(
     .sort((a, b) => a.date.localeCompare(b.date));
 }
 
-// ── Campaign list with per-campaign insights ──────────────────
+// ── Campaign list ─────────────────────────────────────────────
 
 export interface CampaignData {
   id: string;
   name: string;
   status: string;
+  effectiveStatus: string;
   objective: string;
   dailyBudget: number | null;
   lifetimeBudget: number | null;
@@ -142,6 +249,9 @@ export interface CampaignData {
   ctr: number;
   cpm: number;
   cpa: number;
+  outboundClicks: number;
+  outboundCtr: number;
+  landingPageViews: number;
 }
 
 export async function fetchCampaigns(
@@ -149,10 +259,14 @@ export async function fetchCampaigns(
   token: string,
   datePreset = "last_30d"
 ): Promise<CampaignData[]> {
-  const insightFields = "spend,impressions,clicks,ctr,cpm,actions,action_values";
-  const fields = `name,status,objective,daily_budget,lifetime_budget,insights.date_preset(${datePreset}){${insightFields}}`;
+  const insightFields = [
+    "spend", "impressions", "clicks", "ctr", "cpm",
+    "actions", "action_values",
+    "outbound_clicks", "outbound_clicks_ctr",
+  ].join(",");
+  const fields = `name,status,effective_status,objective,daily_budget,lifetime_budget,insights.date_preset(${datePreset}){${insightFields}}`;
 
-  let url = `/act_${adAccountId}/campaigns?fields=${fields}&limit=30`;
+  let url = `/act_${adAccountId}/campaigns?fields=${fields}&limit=30&effective_status=["ACTIVE","PAUSED","CAMPAIGN_PAUSED"]`;
   const campaigns: CampaignData[] = [];
 
   while (url) {
@@ -164,10 +278,15 @@ export async function fetchCampaigns(
       const spend = parseFloat(ins.spend || "0");
       const revenue = actionValue(actionValues, "offsite_conversion.fb_pixel_purchase");
       const purchases = actionValue(actions, "offsite_conversion.fb_pixel_purchase");
+      const outboundClicks = Array.isArray(ins.outbound_clicks)
+        ? parseFloat(ins.outbound_clicks[0]?.value || "0") : 0;
+      const outboundCtr = Array.isArray(ins.outbound_clicks_ctr)
+        ? parseFloat(ins.outbound_clicks_ctr[0]?.value || "0") : 0;
       campaigns.push({
         id: c.id,
         name: c.name,
         status: c.status,
+        effectiveStatus: c.effective_status || c.status,
         objective: c.objective || "",
         dailyBudget: c.daily_budget ? parseInt(c.daily_budget) / 100 : null,
         lifetimeBudget: c.lifetime_budget ? parseInt(c.lifetime_budget) / 100 : null,
@@ -181,25 +300,33 @@ export async function fetchCampaigns(
         ctr: parseFloat(ins.ctr || "0"),
         cpm: parseFloat(ins.cpm || "0"),
         cpa: purchases > 0 ? spend / purchases : 0,
+        outboundClicks,
+        outboundCtr,
+        landingPageViews: actionValue(actions, "landing_page_view"),
       });
     }
     const after = data.paging?.cursors?.after;
     url = after && data.paging?.next
-      ? `/act_${adAccountId}/campaigns?fields=${fields}&limit=30&after=${encodeURIComponent(after)}`
+      ? `/act_${adAccountId}/campaigns?fields=${fields}&limit=30&effective_status=["ACTIVE","PAUSED","CAMPAIGN_PAUSED"]&after=${encodeURIComponent(after)}`
       : "";
   }
 
   return campaigns;
 }
 
-// ── Ad Set level data ─────────────────────────────────────────
+// ── Ad Set level ──────────────────────────────────────────────
+
+export type LearningStageStatus = "LEARNING" | "SUCCESS" | "FAIL" | null;
 
 export interface AdSetData {
   id: string;
   name: string;
   status: string;
+  effectiveStatus: string;
   campaignName: string;
   optimizationGoal: string;
+  learningStage: LearningStageStatus;
+  learningConversions: number;
   spend: number;
   revenue: number;
   roas: number;
@@ -210,6 +337,8 @@ export interface AdSetData {
   ctr: number;
   cpm: number;
   cpa: number;
+  outboundClicks: number;
+  landingPageViews: number;
 }
 
 export async function fetchAdSets(
@@ -217,10 +346,13 @@ export async function fetchAdSets(
   token: string,
   datePreset = "last_30d"
 ): Promise<AdSetData[]> {
-  const insightFields = "spend,impressions,clicks,ctr,cpm,actions,action_values";
-  const fields = `name,status,campaign{name},optimization_goal,insights.date_preset(${datePreset}){${insightFields}}`;
+  const insightFields = [
+    "spend", "impressions", "clicks", "ctr", "cpm",
+    "actions", "action_values", "outbound_clicks",
+  ].join(",");
+  const fields = `name,status,effective_status,campaign{name},optimization_goal,learning_stage_info,insights.date_preset(${datePreset}){${insightFields}}`;
 
-  let url = `/act_${adAccountId}/adsets?fields=${fields}&limit=50`;
+  let url = `/act_${adAccountId}/adsets?fields=${fields}&limit=50&effective_status=["ACTIVE","PAUSED","CAMPAIGN_PAUSED"]`;
   const adsets: AdSetData[] = [];
 
   while (url) {
@@ -232,12 +364,18 @@ export async function fetchAdSets(
       const spend = parseFloat(ins.spend || "0");
       const revenue = actionValue(actionValues, "offsite_conversion.fb_pixel_purchase");
       const purchases = actionValue(actions, "offsite_conversion.fb_pixel_purchase");
+      const outboundClicks = Array.isArray(ins.outbound_clicks)
+        ? parseFloat(ins.outbound_clicks[0]?.value || "0") : 0;
+      const ls = a.learning_stage_info;
       adsets.push({
         id: a.id,
         name: a.name,
         status: a.status,
+        effectiveStatus: a.effective_status || a.status,
         campaignName: a.campaign?.name || "",
         optimizationGoal: a.optimization_goal || "",
+        learningStage: ls?.status ?? null,
+        learningConversions: ls?.conversions ?? 0,
         spend,
         revenue,
         roas: spend > 0 ? revenue / spend : 0,
@@ -248,23 +386,26 @@ export async function fetchAdSets(
         ctr: parseFloat(ins.ctr || "0"),
         cpm: parseFloat(ins.cpm || "0"),
         cpa: purchases > 0 ? spend / purchases : 0,
+        outboundClicks,
+        landingPageViews: actionValue(actions, "landing_page_view"),
       });
     }
     const after = data.paging?.cursors?.after;
     url = after && data.paging?.next
-      ? `/act_${adAccountId}/adsets?fields=${fields}&limit=50&after=${encodeURIComponent(after)}`
+      ? `/act_${adAccountId}/adsets?fields=${fields}&limit=50&effective_status=["ACTIVE","PAUSED","CAMPAIGN_PAUSED"]&after=${encodeURIComponent(after)}`
       : "";
   }
 
   return adsets;
 }
 
-// ── Ads with creative assets ──────────────────────────────────
+// ── Ads with creatives ────────────────────────────────────────
 
 export interface AdCreative {
   id: string;
   name: string;
   status: string;
+  effectiveStatus: string;
   campaignId: string;
   campaignName: string;
   adsetId: string;
@@ -282,6 +423,16 @@ export interface AdCreative {
   purchases: number;
   roas: number;
   cpa: number;
+  qualityRanking: string;
+  engagementRateRanking: string;
+  conversionRateRanking: string;
+  outboundClicks: number;
+  landingPageViews: number;
+  // video metrics
+  videoP25: number;
+  videoP50: number;
+  videoP75: number;
+  videoP100: number;
 }
 
 export async function fetchAdsWithCreatives(
@@ -289,11 +440,20 @@ export async function fetchAdsWithCreatives(
   token: string,
   datePreset = "last_30d"
 ): Promise<AdCreative[]> {
-  const insightFields = "spend,impressions,clicks,ctr,cpm,actions,action_values";
-  // URL-encode { } for the creative subfields
-  const fields = `name,status,adset_id,campaign_id,adset{name},campaign{name},creative%7Bthumbnail_url,image_url,body,title%7D,insights.date_preset(${datePreset})%7B${insightFields}%7D`;
+  const insightFields = [
+    "spend", "impressions", "clicks", "ctr", "cpm",
+    "actions", "action_values",
+    "quality_ranking", "engagement_rate_ranking", "conversion_rate_ranking",
+    "outbound_clicks",
+    "video_p25_watched_actions", "video_p50_watched_actions",
+    "video_p75_watched_actions", "video_p100_watched_actions",
+  ].join(",");
 
-  let url = `/act_${adAccountId}/ads?fields=${fields}&limit=30`;
+  // Only fetch ACTIVE and PAUSED ads (not DELETED/ARCHIVED)
+  const effectiveStatuses = encodeURIComponent(JSON.stringify(["ACTIVE", "PAUSED", "CAMPAIGN_PAUSED", "ADSET_PAUSED"]));
+  const fields = `name,status,effective_status,adset_id,campaign_id,adset%7Bname%7D,campaign%7Bname%7D,creative%7Bthumbnail_url,image_url,body,title%7D,insights.date_preset(${datePreset})%7B${encodeURIComponent(insightFields)}%7D`;
+
+  let url = `/act_${adAccountId}/ads?fields=${fields}&limit=30&effective_status=${effectiveStatuses}`;
   const ads: AdCreative[] = [];
 
   while (url) {
@@ -306,10 +466,23 @@ export async function fetchAdsWithCreatives(
       const revenue = actionValue(actionValues, "offsite_conversion.fb_pixel_purchase");
       const purchases = actionValue(actions, "offsite_conversion.fb_pixel_purchase");
       const c = a.creative || {};
+
+      const outboundClicks = Array.isArray(ins.outbound_clicks)
+        ? parseFloat(ins.outbound_clicks[0]?.value || "0") : 0;
+      const videoP25 = Array.isArray(ins.video_p25_watched_actions)
+        ? parseFloat(ins.video_p25_watched_actions[0]?.value || "0") : 0;
+      const videoP50 = Array.isArray(ins.video_p50_watched_actions)
+        ? parseFloat(ins.video_p50_watched_actions[0]?.value || "0") : 0;
+      const videoP75 = Array.isArray(ins.video_p75_watched_actions)
+        ? parseFloat(ins.video_p75_watched_actions[0]?.value || "0") : 0;
+      const videoP100 = Array.isArray(ins.video_p100_watched_actions)
+        ? parseFloat(ins.video_p100_watched_actions[0]?.value || "0") : 0;
+
       ads.push({
         id: a.id,
         name: a.name,
         status: a.status,
+        effectiveStatus: a.effective_status || a.status,
         campaignId: a.campaign_id || "",
         campaignName: a.campaign?.name || "",
         adsetId: a.adset_id || "",
@@ -326,11 +499,20 @@ export async function fetchAdsWithCreatives(
         purchases,
         roas: spend > 0 ? revenue / spend : 0,
         cpa: purchases > 0 ? spend / purchases : 0,
+        qualityRanking: ins.quality_ranking || "",
+        engagementRateRanking: ins.engagement_rate_ranking || "",
+        conversionRateRanking: ins.conversion_rate_ranking || "",
+        outboundClicks,
+        landingPageViews: actionValue(actions, "landing_page_view"),
+        videoP25,
+        videoP50,
+        videoP75,
+        videoP100,
       });
     }
     const after = data.paging?.cursors?.after;
     url = after && data.paging?.next
-      ? `/act_${adAccountId}/ads?fields=${fields}&limit=30&after=${encodeURIComponent(after)}`
+      ? `/act_${adAccountId}/ads?fields=${fields}&limit=30&effective_status=${effectiveStatuses}&after=${encodeURIComponent(after)}`
       : "";
   }
 
