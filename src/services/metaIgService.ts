@@ -1,4 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
+import { upsertTimelineEvents } from "@/services/timelineService";
 
 export interface MetaSyncResult {
   synced: number;
@@ -278,6 +279,25 @@ export async function syncInstagramPosts(config: IgTokenConfig): Promise<MetaSyn
     if (error) console.error("videos insert error:", error);
   }
 
+  // ── 7. Write timeline events for all IG posts ──
+  const timelineEvents = items.map((item) => ({
+    clienteId,
+    date: item.timestamp?.slice(0, 10) || new Date().toISOString().slice(0, 10),
+    title: safeTruncate(item.caption || item.shortcode || "Post de Instagram", 60),
+    platform: ["instagram"] as string[],
+    contentType: item.media_type?.toLowerCase() || "post",
+    eventSource: "ig_post" as const,
+    sourceId: item.id,
+    igShortCode: item.shortcode,
+    metadata: {
+      thumbnail: thumbnailMap.get(item.shortcode) || item.thumbnail_url || item.media_url || "",
+      likes: item.like_count || 0,
+      comments: item.comments_count || 0,
+      permalink: item.permalink,
+    },
+  }));
+  upsertTimelineEvents(timelineEvents).catch(console.error); // fire-and-forget
+
   const message = `${synced} nuevos posts · ${refreshed} actualizados · ${items.length} total`;
   return { synced, refreshed, errors, total: items.length, message };
 }
@@ -432,6 +452,28 @@ export async function syncFacebookPosts(config: IgTokenConfig): Promise<MetaSync
     }
     await supabase.from("videos").insert(newVideoRows);
   }
+
+  // Write timeline events for all FB posts
+  const fbTimelineEvents = allPosts.map((post) => {
+    const postUrl = post.permalink_url || `https://www.facebook.com/${post.id}`;
+    const caption = safeTruncate((post.message || "").replace(/\n/g, " "), 60);
+    return {
+      clienteId,
+      date: post.created_time?.slice(0, 10) || new Date().toISOString().slice(0, 10),
+      title: caption || "Post de Facebook",
+      platform: ["facebook"] as string[],
+      contentType: "post",
+      eventSource: "fb_post" as const,
+      sourceId: post.id,
+      metadata: {
+        thumbnail: post.full_picture || "",
+        likes: post.reactions?.summary?.total_count || 0,
+        comments: post.comments?.summary?.total_count || 0,
+        permalink: postUrl,
+      },
+    };
+  });
+  upsertTimelineEvents(fbTimelineEvents).catch(console.error); // fire-and-forget
 
   const message = `Facebook: ${synced} nuevos · ${refreshed} actualizados`;
   return { synced, refreshed, errors, total: allPosts.length, message };

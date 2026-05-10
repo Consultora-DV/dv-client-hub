@@ -69,6 +69,16 @@ export interface Document {
   isNew: boolean;
 }
 
+export type CalendarEventSource =
+  | "manual"
+  | "ig_post"
+  | "fb_post"
+  | "meta_ad"
+  | "video_aprobado"
+  | "video_en_corrección"
+  | "video_publicado"
+  | "video_entregado";
+
 export interface CalendarEvent {
   id: string;
   clienteId: string;
@@ -79,6 +89,10 @@ export interface CalendarEvent {
   time?: string;
   videoId?: string;
   igShortCode?: string;
+  // Unified timeline fields
+  eventSource?: CalendarEventSource;
+  sourceId?: string;
+  metadata?: Record<string, any>;
 }
 
 export interface MetricEntry {

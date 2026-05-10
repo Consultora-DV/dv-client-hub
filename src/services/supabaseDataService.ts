@@ -62,6 +62,9 @@ function eventFromRow(row: any): CalendarEvent {
     time: row.time || "00:00",
     videoId: row.video_id || undefined,
     igShortCode: row.ig_short_code || undefined,
+    eventSource: row.event_source || "manual",
+    sourceId: row.source_id || undefined,
+    metadata: row.metadata || {},
   };
 }
 

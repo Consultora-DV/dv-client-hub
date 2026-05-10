@@ -20,9 +20,12 @@ export type Database = {
           content_type: string | null
           created_at: string
           date: string
+          event_source: string
           id: string
           ig_short_code: string | null
+          metadata: Record<string, any> | null
           platform: string[]
+          source_id: string | null
           time: string | null
           title: string
           updated_at: string
@@ -33,9 +36,12 @@ export type Database = {
           content_type?: string | null
           created_at?: string
           date: string
+          event_source?: string
           id?: string
           ig_short_code?: string | null
+          metadata?: Record<string, any> | null
           platform?: string[]
+          source_id?: string | null
           time?: string | null
           title: string
           updated_at?: string
@@ -46,9 +52,12 @@ export type Database = {
           content_type?: string | null
           created_at?: string
           date?: string
+          event_source?: string
           id?: string
           ig_short_code?: string | null
+          metadata?: Record<string, any> | null
           platform?: string[]
+          source_id?: string | null
           time?: string | null
           title?: string
           updated_at?: string

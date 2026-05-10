@@ -21,6 +21,7 @@ import {
   deleteDocument, deleteScript, insertScriptComment,
 } from "@/services/sharedContentService";
 import { syncInstagramPosts, syncFacebookPosts, loadPlatformToken, fetchUserPages, MetaSyncResult } from "@/services/metaIgService";
+import { upsertTimelineEvents, videoStatusToTimeline } from "@/services/timelineService";
 
 export interface ImportResult {
   videosAdded: number;
@@ -538,6 +539,9 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
     const newHistory = [...video.statusHistory, { status: "Aprobado", date: now.split("T")[0], by: user?.name || "Cliente" }];
     try {
       await updateVideoStatus(videoId, "approved", newHistory);
+      // Write to unified timeline
+      const ev = videoStatusToTimeline(videoId, video.title, video.clienteId, "aprobado", video.thumbnail || undefined);
+      if (ev) upsertTimelineEvents([ev]).catch(console.error);
       addNotification({
         type: "video_aprobado",
         message: `${user?.name || "Cliente"} aprobó '${video.title}'`,
@@ -557,6 +561,9 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
     try {
       await updateVideoStatus(videoId, "changes", newHistory);
       await insertComment(videoId, user?.name || "Cliente", comment, user?.role === "cliente", user?.id || "");
+      // Write to unified timeline
+      const ev = videoStatusToTimeline(videoId, video.title, video.clienteId, "en corrección", video.thumbnail || undefined);
+      if (ev) upsertTimelineEvents([ev]).catch(console.error);
       addNotification({
         type: "video_cambios",
         message: `${user?.name || "Cliente"} solicitó cambios en '${video.title}'`,

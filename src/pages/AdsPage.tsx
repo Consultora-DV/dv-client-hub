@@ -12,6 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useAppState } from "@/contexts/AppStateContext";
 import { loadPlatformToken } from "@/services/metaIgService";
+import { SOURCE_CONFIG, CalendarEventSource } from "@/services/timelineService";
 import {
   fetchAccountInsights, fetchCampaigns, fetchAdSets, fetchDailyBreakdown,
   fetchAdsWithCreatives,
@@ -99,17 +100,18 @@ function FunnelBar({ label, value, max, color, rate }: {
 }
 
 // ── SVG Area Chart ────────────────────────────────────────────
-function TrendChart({ data, metrics }: {
+function TrendChart({ data, metrics, contentDates }: {
   data: DailyMetric[];
   metrics: { key: keyof DailyMetric; color: string; label: string }[];
+  contentDates?: { date: string; emoji: string; color: string; title: string }[];
 }) {
   if (!data.length) return (
     <div className="flex items-center justify-center h-24 text-muted-foreground/40 text-xs">Sin datos de tendencia</div>
   );
 
   const W = 600;
-  const H = 90;
-  const PAD = { top: 6, bottom: 20, left: 4, right: 4 };
+  const H = 100;
+  const PAD = { top: 16, bottom: 20, left: 4, right: 4 };
   const iW = W - PAD.left - PAD.right;
   const iH = H - PAD.top - PAD.bottom;
 
@@ -134,6 +136,16 @@ function TrendChart({ data, metrics }: {
     .map((d, i) => ({ date: d.date, i }))
     .filter((_, i) => i % step === 0 || i === data.length - 1);
 
+  // Map content events to x positions
+  const dateIndex = new Map(data.map((d, i) => [d.date, i]));
+  const contentMarkers = (contentDates || [])
+    .filter((cd) => dateIndex.has(cd.date))
+    .map((cd) => {
+      const i = dateIndex.get(cd.date)!;
+      const x = PAD.left + (i / Math.max(data.length - 1, 1)) * iW;
+      return { ...cd, x };
+    });
+
   return (
     <svg viewBox={`0 0 ${W} ${H}`} className="w-full" preserveAspectRatio="none">
       <defs>
@@ -144,6 +156,18 @@ function TrendChart({ data, metrics }: {
           </linearGradient>
         ))}
       </defs>
+
+      {/* Content event vertical lines — behind chart lines */}
+      {contentMarkers.map((m, idx) => (
+        <g key={`cm-${idx}`}>
+          <line
+            x1={m.x} x2={m.x}
+            y1={PAD.top} y2={PAD.top + iH}
+            stroke={m.color} strokeOpacity="0.35" strokeWidth="0.8"
+            strokeDasharray="3 2"
+          />
+        </g>
+      ))}
 
       {/* grid lines */}
       {[0.25, 0.5, 0.75].map((f) => (
@@ -158,6 +182,16 @@ function TrendChart({ data, metrics }: {
           <path d={areaD} fill={`url(#grad-${label})`} />
           <path d={pathD} fill="none" stroke={color} strokeWidth="1.5" strokeLinejoin="round" />
         </g>
+      ))}
+
+      {/* Content event top markers */}
+      {contentMarkers.map((m, idx) => (
+        <text key={`ce-${idx}`}
+          x={m.x} y={PAD.top - 3}
+          textAnchor="middle" fontSize="9"
+        >
+          {m.emoji}
+        </text>
       ))}
 
       {/* x-axis date labels */}
@@ -196,6 +230,7 @@ function ConvBar({ label, rate, color }: { label: string; rate: number; color: s
 function OverviewTab({
   adAccountId, token, datePreset, refreshKey,
 }: { adAccountId: string; token: string; datePreset: DatePreset; refreshKey: number }) {
+  const { calendarEvents } = useAppState();
   const [ins, setIns] = useState<AccountInsights | null>(null);
   const [daily, setDaily] = useState<DailyMetric[]>([]);
   const [loading, setLoading] = useState(true);
@@ -225,6 +260,14 @@ function OverviewTab({
     <div className="glass gold-border rounded-xl p-6 text-destructive text-sm">Error al conectar con Meta Ads: {error}</div>
   );
   if (!ins) return null;
+
+  // Build content event markers from calendar for chart overlay
+  const contentDates = calendarEvents
+    .filter((ev) => ev.eventSource && ev.eventSource !== "manual")
+    .map((ev) => {
+      const cfg = SOURCE_CONFIG[ev.eventSource as CalendarEventSource];
+      return { date: ev.date, emoji: cfg?.emoji ?? "📌", color: cfg?.color ?? "#888", title: ev.title };
+    });
 
   const roasAlert: "red" | "yellow" | "green" = ins.roas >= 2.5 ? "green" : ins.roas >= 1 ? "yellow" : "red";
   const cpaAlert: "red" | "yellow" | "green" = ins.cpa < 700 ? "green" : ins.cpa < 1500 ? "yellow" : "red";
@@ -284,6 +327,7 @@ function OverviewTab({
               { key: "spend", color: "hsl(42,52%,54%)", label: "spend" },
               { key: "revenue", color: "hsl(160,60%,45%)", label: "revenue" },
             ]}
+            contentDates={contentDates}
           />
           {/* Daily summary row */}
           <div className="grid grid-cols-3 gap-3 pt-2 border-t border-border/30">
@@ -372,6 +416,7 @@ function OverviewTab({
           <TrendChart
             data={daily}
             metrics={[{ key: "roas", color: ins.roas >= 2.5 ? "hsl(130,60%,45%)" : ins.roas >= 1 ? "hsl(35,90%,55%)" : "hsl(0,72%,51%)", label: "roas" }]}
+            contentDates={contentDates}
           />
           <div className="flex justify-between text-xs text-muted-foreground">
             <span>ROAS mín: <strong className="text-foreground">{roasFmt(Math.min(...daily.map(d => d.roas)))}</strong></span>
