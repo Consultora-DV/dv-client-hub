@@ -22,6 +22,7 @@ import {
 } from "@/services/sharedContentService";
 import { syncInstagramPosts, syncFacebookPosts, loadPlatformToken, fetchUserPages, MetaSyncResult } from "@/services/metaIgService";
 import { upsertTimelineEvents, videoStatusToTimeline } from "@/services/timelineService";
+import { fetchDailyBreakdown } from "@/services/metaAdsService";
 
 export interface ImportResult {
   videosAdded: number;
@@ -786,6 +787,33 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
           ? (fbResult.total > 0 ? ` · FB: ${fbResult.total} posts OK` : ` · FB: ${fbResult.message}`)
           : " · FB: Page ID no configurado";
         toast.info("Todo al día — sin posts nuevos desde la última sync", { description: `IG OK${fbStatus}` });
+      }
+
+      // ── Sync Meta Ads spend days → calendar (fire-and-forget) ──
+      if (tokenConfig.adAccountId) {
+        fetchDailyBreakdown(tokenConfig.adAccountId, tokenConfig.accessToken, "last_30d")
+          .then((days) => {
+            const adEvents = days
+              .filter((d) => d.spend > 0)
+              .map((d) => ({
+                clienteId,
+                date: d.date,
+                title: `🎯 Pauta activa`,
+                platform: ["facebook", "instagram"] as string[],
+                contentType: "ad",
+                eventSource: "meta_ad" as const,
+                sourceId: `${clienteId}_ad_${d.date}`,
+                metadata: {
+                  spend: d.spend,
+                  roas: d.roas,
+                  purchases: d.purchases,
+                  clicks: d.clicks,
+                  revenue: d.revenue,
+                },
+              }));
+            return upsertTimelineEvents(adEvents);
+          })
+          .catch(console.error);
       }
 
       return { synced: igResult.synced + fbResult.synced, refreshed: igResult.refreshed + fbResult.refreshed, errors: igResult.errors + fbResult.errors, total: igResult.total + fbResult.total, message: igResult.message };
