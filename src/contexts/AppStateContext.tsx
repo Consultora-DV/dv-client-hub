@@ -791,7 +791,7 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
 
       // ── Sync Meta Ads spend days → calendar (fire-and-forget) ──
       if (tokenConfig.adAccountId) {
-        fetchDailyBreakdown(tokenConfig.adAccountId, tokenConfig.accessToken, "last_30d")
+        fetchDailyBreakdown(tokenConfig.adAccountId, tokenConfig.accessToken, "last_30d", clienteId, false)
           .then((days) => {
             const adEvents = days
               .filter((d) => d.spend > 0)

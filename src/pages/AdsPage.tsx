@@ -19,6 +19,7 @@ import {
   AccountInsights, CampaignData, AdSetData, AdDetail, DailyMetric, DatePreset, DATE_PRESETS,
   AdCreative,
 } from "@/services/metaAdsService";
+import { clearCache, getCacheAge, fmtCacheAge } from "@/services/metaAdsCacheService";
 
 // ── Constants ─────────────────────────────────────────────────
 const AUTO_REFRESH_MS = 30 * 60 * 1000; // 30 min
@@ -276,8 +277,8 @@ function ConvBar({ label, rate, color }: { label: string; rate: number; color: s
 
 // ── Overview Tab ──────────────────────────────────────────────
 function OverviewTab({
-  adAccountId, token, datePreset, refreshKey,
-}: { adAccountId: string; token: string; datePreset: DatePreset; refreshKey: number }) {
+  adAccountId, token, datePreset, refreshKey, clienteId, forceRefresh,
+}: { adAccountId: string; token: string; datePreset: DatePreset; refreshKey: number; clienteId: string; forceRefresh: boolean }) {
   const { calendarEvents } = useAppState();
   const [ins, setIns] = useState<AccountInsights | null>(null);
   const [daily, setDaily] = useState<DailyMetric[]>([]);
@@ -288,8 +289,8 @@ function OverviewTab({
     setLoading(true); setError(null);
     try {
       const [insData, dailyData] = await Promise.all([
-        fetchAccountInsights(adAccountId, token, datePreset),
-        fetchDailyBreakdown(adAccountId, token, datePreset),
+        fetchAccountInsights(adAccountId, token, datePreset, clienteId, forceRefresh),
+        fetchDailyBreakdown(adAccountId, token, datePreset, clienteId, forceRefresh),
       ]);
       setIns(insData);
       setDaily(dailyData);
@@ -481,8 +482,8 @@ function OverviewTab({
 }
 
 // ── Campaigns Tab ─────────────────────────────────────────────
-function CampaignsTab({ adAccountId, token, datePreset, refreshKey }: {
-  adAccountId: string; token: string; datePreset: DatePreset; refreshKey: number;
+function CampaignsTab({ adAccountId, token, datePreset, refreshKey, clienteId, forceRefresh }: {
+  adAccountId: string; token: string; datePreset: DatePreset; refreshKey: number; clienteId: string; forceRefresh: boolean;
 }) {
   const [campaigns, setCampaigns] = useState<CampaignData[]>([]);
   const [loading, setLoading] = useState(true);
@@ -491,7 +492,7 @@ function CampaignsTab({ adAccountId, token, datePreset, refreshKey }: {
 
   const load = useCallback(async () => {
     setLoading(true); setError(null);
-    try { setCampaigns(await fetchCampaigns(adAccountId, token, datePreset)); }
+    try { setCampaigns(await fetchCampaigns(adAccountId, token, datePreset, clienteId, forceRefresh)); }
     catch (e: any) { setError(e.message); }
     finally { setLoading(false); }
   }, [adAccountId, token, datePreset, refreshKey]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -591,8 +592,8 @@ function CampaignsTab({ adAccountId, token, datePreset, refreshKey }: {
 }
 
 // ── Ad Sets Tab ───────────────────────────────────────────────
-function AdSetsTab({ adAccountId, token, datePreset, refreshKey }: {
-  adAccountId: string; token: string; datePreset: DatePreset; refreshKey: number;
+function AdSetsTab({ adAccountId, token, datePreset, refreshKey, clienteId, forceRefresh }: {
+  adAccountId: string; token: string; datePreset: DatePreset; refreshKey: number; clienteId: string; forceRefresh: boolean;
 }) {
   const [adsets, setAdsets] = useState<AdSetData[]>([]);
   const [loading, setLoading] = useState(true);
@@ -602,7 +603,7 @@ function AdSetsTab({ adAccountId, token, datePreset, refreshKey }: {
 
   const load = useCallback(async () => {
     setLoading(true); setError(null);
-    try { setAdsets(await fetchAdSets(adAccountId, token, datePreset)); }
+    try { setAdsets(await fetchAdSets(adAccountId, token, datePreset, clienteId, forceRefresh)); }
     catch (e: any) { setError(e.message); }
     finally { setLoading(false); }
   }, [adAccountId, token, datePreset, refreshKey]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -712,8 +713,8 @@ function AdSetsTab({ adAccountId, token, datePreset, refreshKey }: {
 }
 
 // ── Creativos Tab ─────────────────────────────────────────────
-function CreativosTab({ adAccountId, token, datePreset, refreshKey }: {
-  adAccountId: string; token: string; datePreset: DatePreset; refreshKey: number;
+function CreativosTab({ adAccountId, token, datePreset, refreshKey, clienteId, forceRefresh }: {
+  adAccountId: string; token: string; datePreset: DatePreset; refreshKey: number; clienteId: string; forceRefresh: boolean;
 }) {
   const [ads, setAds] = useState<AdCreative[]>([]);
   const [loading, setLoading] = useState(true);
@@ -725,7 +726,7 @@ function CreativosTab({ adAccountId, token, datePreset, refreshKey }: {
 
   const load = useCallback(async () => {
     setLoading(true); setError(null);
-    try { setAds(await fetchAdsWithCreatives(adAccountId, token, datePreset)); }
+    try { setAds(await fetchAdsWithCreatives(adAccountId, token, datePreset, clienteId, forceRefresh)); }
     catch (e: any) { setError(e.message); }
     finally { setLoading(false); }
   }, [adAccountId, token, datePreset, refreshKey]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -738,11 +739,11 @@ function CreativosTab({ adAccountId, token, datePreset, refreshKey }: {
     if (details[adId]) return; // already loaded
     setLoadingDetail(adId);
     try {
-      const d = await fetchAdDetail(adId, token, datePreset);
+      const d = await fetchAdDetail(adId, token, datePreset, clienteId, false);
       setDetails((prev) => ({ ...prev, [adId]: d }));
     } catch { /* detail load failed — show empty */ }
     finally { setLoadingDetail(null); }
-  }, [expanded, details, token, datePreset]);
+  }, [expanded, details, token, datePreset, clienteId]);
 
   const visible = ads.filter(a => showPaused || a.effectiveStatus === "ACTIVE");
   const active = ads.filter(a => a.effectiveStatus === "ACTIVE");
@@ -1115,8 +1116,10 @@ export default function AdsPage() {
   const [loadingToken, setLoadingToken] = useState(true);
   const [activeTab, setActiveTab] = useState("overview");
   const [refreshKey, setRefreshKey] = useState(0);
+  const [forceRefresh, setForceRefresh] = useState(false);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const [nextRefreshIn, setNextRefreshIn] = useState(AUTO_REFRESH_MS / 1000);
+  const [cacheAgeMin, setCacheAgeMin] = useState<number | null>(null);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   // Load token whenever selected client changes
@@ -1134,19 +1137,25 @@ export default function AdsPage() {
     }).finally(() => setLoadingToken(false));
   }, [selectedClienteId]);
 
-  // Auto-refresh every 30 min
+  // Load cache age on mount / client change
+  useEffect(() => {
+    if (!selectedClienteId) return;
+    getCacheAge(selectedClienteId).then(setCacheAgeMin);
+  }, [selectedClienteId, refreshKey]);
+
+  // Auto-refresh every 30 min (uses cache — NOT a force refresh)
   useEffect(() => {
     if (!token || !adAccountId) return;
     setLastUpdated(new Date());
     setNextRefreshIn(AUTO_REFRESH_MS / 1000);
+    setForceRefresh(false);
 
-    // countdown
     const countdown = setInterval(() => {
       setNextRefreshIn((n) => Math.max(0, n - 1));
     }, 1000);
 
-    // auto refresh
     const refresh = setInterval(() => {
+      setForceRefresh(false); // auto-refresh uses cache
       setRefreshKey((k) => k + 1);
       setLastUpdated(new Date());
       setNextRefreshIn(AUTO_REFRESH_MS / 1000);
@@ -1156,13 +1165,20 @@ export default function AdsPage() {
     return () => { clearInterval(countdown); clearInterval(refresh); };
   }, [token, adAccountId]);
 
-  // Also reset timer on manual refresh
-  const handleManualRefresh = useCallback(() => {
+  // Manual refresh: clear cache + force fresh Meta API call
+  const handleManualRefresh = useCallback(async () => {
+    if (selectedClienteId) {
+      await clearCache(selectedClienteId);
+      setCacheAgeMin(null);
+    }
+    setForceRefresh(true);
     setRefreshKey((k) => k + 1);
     setLastUpdated(new Date());
     setNextRefreshIn(AUTO_REFRESH_MS / 1000);
     if (timerRef.current) clearInterval(timerRef.current);
-  }, []);
+    // After the forced load completes, subsequent renders use cache again
+    setTimeout(() => setForceRefresh(false), 2000);
+  }, [selectedClienteId]);
 
   const selectedClient = clients.find((c) => c.id === selectedClienteId);
   const clientName = selectedClient?.nombre || selectedClient?.empresa || "Cliente";
@@ -1180,12 +1196,17 @@ export default function AdsPage() {
               <Badge className="gold-gradient text-primary-foreground text-xs ml-1">{clientName}</Badge>
             )}
           </h1>
-          <p className="text-sm text-muted-foreground mt-1 flex items-center gap-2">
-            Datos en tiempo real · Diagnóstico · Plan de rescate
+          <p className="text-sm text-muted-foreground mt-1 flex items-center gap-2 flex-wrap">
+            Diagnóstico · Plan de rescate
+            {cacheAgeMin !== null && (
+              <span className="text-xs bg-secondary/60 border border-border/40 rounded-full px-2 py-0.5 text-muted-foreground/70">
+                🗄️ {fmtCacheAge(cacheAgeMin)}
+              </span>
+            )}
             {lastUpdated && (
-              <span className="text-xs text-muted-foreground/60">
-                · Actualizado {lastUpdated.toLocaleTimeString("es-MX", { hour: "2-digit", minute: "2-digit" })}
-                · próxima en {nextRefreshMinutes} min
+              <span className="text-xs text-muted-foreground/50">
+                · Cargado {lastUpdated.toLocaleTimeString("es-MX", { hour: "2-digit", minute: "2-digit" })}
+                · auto en {nextRefreshMinutes} min
               </span>
             )}
           </p>
@@ -1244,16 +1265,16 @@ export default function AdsPage() {
           </TabsList>
 
           <TabsContent value="overview" className="mt-4">
-            <OverviewTab adAccountId={adAccountId} token={token} datePreset={datePreset} refreshKey={refreshKey} />
+            <OverviewTab adAccountId={adAccountId} token={token} datePreset={datePreset} refreshKey={refreshKey} clienteId={selectedClienteId!} forceRefresh={forceRefresh} />
           </TabsContent>
           <TabsContent value="campaigns" className="mt-4">
-            <CampaignsTab adAccountId={adAccountId} token={token} datePreset={datePreset} refreshKey={refreshKey} />
+            <CampaignsTab adAccountId={adAccountId} token={token} datePreset={datePreset} refreshKey={refreshKey} clienteId={selectedClienteId!} forceRefresh={forceRefresh} />
           </TabsContent>
           <TabsContent value="adsets" className="mt-4">
-            <AdSetsTab adAccountId={adAccountId} token={token} datePreset={datePreset} refreshKey={refreshKey} />
+            <AdSetsTab adAccountId={adAccountId} token={token} datePreset={datePreset} refreshKey={refreshKey} clienteId={selectedClienteId!} forceRefresh={forceRefresh} />
           </TabsContent>
           <TabsContent value="creatives" className="mt-4">
-            <CreativosTab adAccountId={adAccountId} token={token} datePreset={datePreset} refreshKey={refreshKey} />
+            <CreativosTab adAccountId={adAccountId} token={token} datePreset={datePreset} refreshKey={refreshKey} clienteId={selectedClienteId!} forceRefresh={forceRefresh} />
           </TabsContent>
           <TabsContent value="analysis" className="mt-4">
             <AnalysisTab />

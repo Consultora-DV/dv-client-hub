@@ -14,6 +14,33 @@ export type Database = {
   }
   public: {
     Tables: {
+      meta_ads_cache: {
+        Row: {
+          id: string
+          cliente_id: string
+          cache_key: string
+          date_preset: string
+          data: Record<string, any>
+          fetched_at: string
+        }
+        Insert: {
+          id?: string
+          cliente_id: string
+          cache_key: string
+          date_preset: string
+          data: Record<string, any>
+          fetched_at?: string
+        }
+        Update: {
+          id?: string
+          cliente_id?: string
+          cache_key?: string
+          date_preset?: string
+          data?: Record<string, any>
+          fetched_at?: string
+        }
+        Relationships: []
+      }
       calendar_events: {
         Row: {
           cliente_id: string

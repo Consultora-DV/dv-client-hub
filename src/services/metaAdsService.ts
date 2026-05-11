@@ -5,6 +5,14 @@
 //   Standard tier: 300 + (40 × active_ads) calls per rolling hour
 //   Tracked via x-business-use-case-usage header (call_count / total_cputime / total_time = % used)
 //   Error codes: 17, 80000, 80003, 80004 = rate limit hit
+//
+// CACHING:
+//   All fetch functions check Supabase cache first.
+//   Pass forceRefresh=true to bypass cache and write fresh data back.
+
+import {
+  getCached, setCached, cacheKey, CACHE_TTL,
+} from "@/services/metaAdsCacheService";
 
 const API = "https://graph.facebook.com/v21.0";
 
@@ -126,10 +134,10 @@ export interface AccountInsights {
   dateStop: string;
 }
 
-export async function fetchAccountInsights(
+async function _fetchAccountInsightsRaw(
   adAccountId: string,
   token: string,
-  datePreset = "last_30d"
+  datePreset: string
 ): Promise<AccountInsights> {
   const fields = [
     "spend", "impressions", "clicks", "ctr", "cpm", "cpc",
@@ -151,18 +159,13 @@ export async function fetchAccountInsights(
   const roas = spend > 0 ? revenue / spend : 0;
   const cpa = purchases > 0 ? spend / purchases : 0;
 
-  // outbound_clicks is an array [{action_type, value}]
   const outboundClicks = Array.isArray(d.outbound_clicks)
-    ? parseFloat(d.outbound_clicks[0]?.value || "0")
-    : 0;
+    ? parseFloat(d.outbound_clicks[0]?.value || "0") : 0;
   const outboundCtr = Array.isArray(d.outbound_clicks_ctr)
-    ? parseFloat(d.outbound_clicks_ctr[0]?.value || "0")
-    : 0;
+    ? parseFloat(d.outbound_clicks_ctr[0]?.value || "0") : 0;
 
   return {
-    spend,
-    revenue,
-    roas,
+    spend, revenue, roas,
     impressions: parseInt(d.impressions || "0"),
     clicks: parseInt(d.clicks || "0"),
     ctr: parseFloat(d.ctr || "0"),
@@ -176,13 +179,32 @@ export async function fetchAccountInsights(
     viewContent: actionValue(actions, "offsite_conversion.fb_pixel_view_content"),
     cpa,
     landingPageViews: actionValue(actions, "landing_page_view"),
-    outboundClicks,
-    outboundCtr,
+    outboundClicks, outboundCtr,
     uniqueClicks: parseInt(d.unique_clicks || "0"),
     uniqueCtr: parseFloat(d.unique_ctr || "0"),
     dateStart: d.date_start || "",
     dateStop: d.date_stop || "",
   };
+}
+
+export async function fetchAccountInsights(
+  adAccountId: string,
+  token: string,
+  datePreset = "last_30d",
+  clienteId?: string,
+  forceRefresh = false
+): Promise<AccountInsights> {
+  const key = cacheKey("insights", datePreset);
+  if (clienteId && !forceRefresh) {
+    const cached = await getCached<AccountInsights>(clienteId, key, CACHE_TTL.insights);
+    if (cached && !cached.stale) {
+      console.log(`[MetaCache] insights hit (${Math.round(cached.ageMin)}min old)`);
+      return cached.data;
+    }
+  }
+  const result = await _fetchAccountInsightsRaw(adAccountId, token, datePreset);
+  if (clienteId) await setCached(clienteId, key, datePreset, result);
+  return result;
 }
 
 // ── Daily breakdown (time series) ─────────────────────────────
@@ -198,17 +220,16 @@ export interface DailyMetric {
   addToCart: number;
 }
 
-export async function fetchDailyBreakdown(
+async function _fetchDailyBreakdownRaw(
   adAccountId: string,
   token: string,
-  datePreset = "last_30d"
+  datePreset: string
 ): Promise<DailyMetric[]> {
   const fields = "spend,impressions,clicks,actions,action_values";
   const data = await adGet(
     `/act_${adAccountId}/insights?fields=${fields}&date_preset=${datePreset}&time_increment=1&level=account`,
     token
   );
-
   return ((data.data || []) as any[])
     .map((d) => {
       const actions = d.actions || [];
@@ -218,9 +239,7 @@ export async function fetchDailyBreakdown(
       const purchases = actionValue(actions, "offsite_conversion.fb_pixel_purchase");
       return {
         date: d.date_start as string,
-        spend,
-        revenue,
-        purchases,
+        spend, revenue, purchases,
         clicks: parseInt(d.clicks || "0"),
         impressions: parseInt(d.impressions || "0"),
         roas: spend > 0 ? revenue / spend : 0,
@@ -228,6 +247,26 @@ export async function fetchDailyBreakdown(
       };
     })
     .sort((a, b) => a.date.localeCompare(b.date));
+}
+
+export async function fetchDailyBreakdown(
+  adAccountId: string,
+  token: string,
+  datePreset = "last_30d",
+  clienteId?: string,
+  forceRefresh = false
+): Promise<DailyMetric[]> {
+  const key = cacheKey("daily", datePreset);
+  if (clienteId && !forceRefresh) {
+    const cached = await getCached<DailyMetric[]>(clienteId, key, CACHE_TTL.daily);
+    if (cached && !cached.stale) {
+      console.log(`[MetaCache] daily hit (${Math.round(cached.ageMin)}min old)`);
+      return cached.data;
+    }
+  }
+  const result = await _fetchDailyBreakdownRaw(adAccountId, token, datePreset);
+  if (clienteId) await setCached(clienteId, key, datePreset, result);
+  return result;
 }
 
 // ── Campaign list ─────────────────────────────────────────────
@@ -255,10 +294,10 @@ export interface CampaignData {
   landingPageViews: number;
 }
 
-export async function fetchCampaigns(
+async function _fetchCampaignsRaw(
   adAccountId: string,
   token: string,
-  datePreset = "last_30d"
+  datePreset: string
 ): Promise<CampaignData[]> {
   const insightFields = [
     "spend", "impressions", "clicks", "ctr", "cpm",
@@ -266,7 +305,6 @@ export async function fetchCampaigns(
     "outbound_clicks", "outbound_clicks_ctr",
   ].join(",");
   const fields = `name,status,effective_status,objective,daily_budget,lifetime_budget,insights.date_preset(${datePreset}){${insightFields}}`;
-
   let url = `/act_${adAccountId}/campaigns?fields=${fields}&limit=30&effective_status=["ACTIVE","PAUSED","CAMPAIGN_PAUSED"]`;
   const campaigns: CampaignData[] = [];
 
@@ -284,25 +322,18 @@ export async function fetchCampaigns(
       const outboundCtr = Array.isArray(ins.outbound_clicks_ctr)
         ? parseFloat(ins.outbound_clicks_ctr[0]?.value || "0") : 0;
       campaigns.push({
-        id: c.id,
-        name: c.name,
-        status: c.status,
+        id: c.id, name: c.name, status: c.status,
         effectiveStatus: c.effective_status || c.status,
         objective: c.objective || "",
         dailyBudget: c.daily_budget ? parseInt(c.daily_budget) / 100 : null,
         lifetimeBudget: c.lifetime_budget ? parseInt(c.lifetime_budget) / 100 : null,
-        spend,
-        revenue,
-        roas: spend > 0 ? revenue / spend : 0,
-        purchases,
-        addToCart: actionValue(actions, "offsite_conversion.fb_pixel_add_to_cart"),
+        spend, revenue, roas: spend > 0 ? revenue / spend : 0,
+        purchases, addToCart: actionValue(actions, "offsite_conversion.fb_pixel_add_to_cart"),
         clicks: parseInt(ins.clicks || "0"),
         impressions: parseInt(ins.impressions || "0"),
-        ctr: parseFloat(ins.ctr || "0"),
-        cpm: parseFloat(ins.cpm || "0"),
+        ctr: parseFloat(ins.ctr || "0"), cpm: parseFloat(ins.cpm || "0"),
         cpa: purchases > 0 ? spend / purchases : 0,
-        outboundClicks,
-        outboundCtr,
+        outboundClicks, outboundCtr,
         landingPageViews: actionValue(actions, "landing_page_view"),
       });
     }
@@ -311,8 +342,27 @@ export async function fetchCampaigns(
       ? `/act_${adAccountId}/campaigns?fields=${fields}&limit=30&effective_status=["ACTIVE","PAUSED","CAMPAIGN_PAUSED"]&after=${encodeURIComponent(after)}`
       : "";
   }
-
   return campaigns;
+}
+
+export async function fetchCampaigns(
+  adAccountId: string,
+  token: string,
+  datePreset = "last_30d",
+  clienteId?: string,
+  forceRefresh = false
+): Promise<CampaignData[]> {
+  const key = cacheKey("campaigns", datePreset);
+  if (clienteId && !forceRefresh) {
+    const cached = await getCached<CampaignData[]>(clienteId, key, CACHE_TTL.campaigns);
+    if (cached && !cached.stale) {
+      console.log(`[MetaCache] campaigns hit (${Math.round(cached.ageMin)}min old)`);
+      return cached.data;
+    }
+  }
+  const result = await _fetchCampaignsRaw(adAccountId, token, datePreset);
+  if (clienteId) await setCached(clienteId, key, datePreset, result);
+  return result;
 }
 
 // ── Ad Set level ──────────────────────────────────────────────
@@ -342,17 +392,16 @@ export interface AdSetData {
   landingPageViews: number;
 }
 
-export async function fetchAdSets(
+async function _fetchAdSetsRaw(
   adAccountId: string,
   token: string,
-  datePreset = "last_30d"
+  datePreset: string
 ): Promise<AdSetData[]> {
   const insightFields = [
     "spend", "impressions", "clicks", "ctr", "cpm",
     "actions", "action_values", "outbound_clicks",
   ].join(",");
   const fields = `name,status,effective_status,campaign{name},optimization_goal,learning_stage_info,insights.date_preset(${datePreset}){${insightFields}}`;
-
   let url = `/act_${adAccountId}/adsets?fields=${fields}&limit=50&effective_status=["ACTIVE","PAUSED","CAMPAIGN_PAUSED"]`;
   const adsets: AdSetData[] = [];
 
@@ -369,26 +418,19 @@ export async function fetchAdSets(
         ? parseFloat(ins.outbound_clicks[0]?.value || "0") : 0;
       const ls = a.learning_stage_info;
       adsets.push({
-        id: a.id,
-        name: a.name,
-        status: a.status,
+        id: a.id, name: a.name, status: a.status,
         effectiveStatus: a.effective_status || a.status,
         campaignName: a.campaign?.name || "",
         optimizationGoal: a.optimization_goal || "",
         learningStage: ls?.status ?? null,
         learningConversions: ls?.conversions ?? 0,
-        spend,
-        revenue,
-        roas: spend > 0 ? revenue / spend : 0,
-        purchases,
-        addToCart: actionValue(actions, "offsite_conversion.fb_pixel_add_to_cart"),
+        spend, revenue, roas: spend > 0 ? revenue / spend : 0,
+        purchases, addToCart: actionValue(actions, "offsite_conversion.fb_pixel_add_to_cart"),
         clicks: parseInt(ins.clicks || "0"),
         impressions: parseInt(ins.impressions || "0"),
-        ctr: parseFloat(ins.ctr || "0"),
-        cpm: parseFloat(ins.cpm || "0"),
+        ctr: parseFloat(ins.ctr || "0"), cpm: parseFloat(ins.cpm || "0"),
         cpa: purchases > 0 ? spend / purchases : 0,
-        outboundClicks,
-        landingPageViews: actionValue(actions, "landing_page_view"),
+        outboundClicks, landingPageViews: actionValue(actions, "landing_page_view"),
       });
     }
     const after = data.paging?.cursors?.after;
@@ -396,8 +438,27 @@ export async function fetchAdSets(
       ? `/act_${adAccountId}/adsets?fields=${fields}&limit=50&effective_status=["ACTIVE","PAUSED","CAMPAIGN_PAUSED"]&after=${encodeURIComponent(after)}`
       : "";
   }
-
   return adsets;
+}
+
+export async function fetchAdSets(
+  adAccountId: string,
+  token: string,
+  datePreset = "last_30d",
+  clienteId?: string,
+  forceRefresh = false
+): Promise<AdSetData[]> {
+  const key = cacheKey("adsets", datePreset);
+  if (clienteId && !forceRefresh) {
+    const cached = await getCached<AdSetData[]>(clienteId, key, CACHE_TTL.adsets);
+    if (cached && !cached.stale) {
+      console.log(`[MetaCache] adsets hit (${Math.round(cached.ageMin)}min old)`);
+      return cached.data;
+    }
+  }
+  const result = await _fetchAdSetsRaw(adAccountId, token, datePreset);
+  if (clienteId) await setCached(clienteId, key, datePreset, result);
+  return result;
 }
 
 // ── Ads with creatives ────────────────────────────────────────
@@ -449,10 +510,10 @@ export interface AdDetail {
   videoP100: number;
 }
 
-export async function fetchAdDetail(
+async function _fetchAdDetailRaw(
   adId: string,
   token: string,
-  datePreset = "last_30d"
+  datePreset: string
 ): Promise<AdDetail> {
   const insightFields = [
     "quality_ranking", "engagement_rate_ranking", "conversion_rate_ranking",
@@ -482,10 +543,30 @@ export async function fetchAdDetail(
   };
 }
 
-export async function fetchAdsWithCreatives(
+export async function fetchAdDetail(
+  adId: string,
+  token: string,
+  datePreset = "last_30d",
+  clienteId?: string,
+  forceRefresh = false
+): Promise<AdDetail> {
+  const key = cacheKey("ad_detail", datePreset, adId);
+  if (clienteId && !forceRefresh) {
+    const cached = await getCached<AdDetail>(clienteId, key, CACHE_TTL.ad_detail);
+    if (cached && !cached.stale) {
+      console.log(`[MetaCache] ad_detail hit for ${adId} (${Math.round(cached.ageMin)}min old)`);
+      return cached.data;
+    }
+  }
+  const result = await _fetchAdDetailRaw(adId, token, datePreset);
+  if (clienteId) await setCached(clienteId, key, datePreset, result);
+  return result;
+}
+
+async function _fetchAdsWithCreativesRaw(
   adAccountId: string,
   token: string,
-  datePreset = "last_30d"
+  datePreset: string
 ): Promise<AdCreative[]> {
   // Lean fields only — heavy metrics (quality_ranking, video_*) loaded on-demand per ad
   const insightFields = [
@@ -551,6 +632,26 @@ export async function fetchAdsWithCreatives(
   }
 
   return ads;
+}
+
+export async function fetchAdsWithCreatives(
+  adAccountId: string,
+  token: string,
+  datePreset = "last_30d",
+  clienteId?: string,
+  forceRefresh = false
+): Promise<AdCreative[]> {
+  const key = cacheKey("creatives", datePreset);
+  if (clienteId && !forceRefresh) {
+    const cached = await getCached<AdCreative[]>(clienteId, key, CACHE_TTL.creatives);
+    if (cached && !cached.stale) {
+      console.log(`[MetaCache] creatives hit (${Math.round(cached.ageMin)}min old)`);
+      return cached.data;
+    }
+  }
+  const result = await _fetchAdsWithCreativesRaw(adAccountId, token, datePreset);
+  if (clienteId) await setCached(clienteId, key, datePreset, result);
+  return result;
 }
 
 // ── Date presets ──────────────────────────────────────────────
