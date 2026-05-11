@@ -82,11 +82,12 @@ async function adGet(path: string, token: string): Promise<any> {
   const data = await res.json();
   if (data.error) {
     const code = data.error.code;
-    // Rate limit error codes
-    if ([17, 32, 613, 80000, 80003, 80004, 80014].includes(code)) {
+    // Rate limit error codes (4 = app-level, 17 = user-level, 80xxx = ad account BUC)
+    if ([4, 17, 32, 613, 80000, 80003, 80004, 80014].includes(code)) {
       _usage.callCount = 100;
-      _usage.blockedUntil = Date.now() + 15 * 60_000; // assume 15 min block
-      throw new Error(`Meta API: límite de llamadas alcanzado. Espera ~15 min y vuelve a intentar.`);
+      _usage.blockedUntil = Date.now() + 60 * 60_000; // app-level block = 1h
+      const mins = code === 4 ? "60" : "15";
+      throw new Error(`Meta API: límite de llamadas alcanzado (código ${code}). Espera ~${mins} min y vuelve a intentar.`);
     }
     throw new Error(`Meta Ads API: ${data.error.message}`);
   }
@@ -435,18 +436,61 @@ export interface AdCreative {
   videoP100: number;
 }
 
+// ── On-demand detail for a single ad (called when user expands a card) ──
+export interface AdDetail {
+  qualityRanking: string;
+  engagementRateRanking: string;
+  conversionRateRanking: string;
+  outboundClicks: number;
+  landingPageViews: number;
+  videoP25: number;
+  videoP50: number;
+  videoP75: number;
+  videoP100: number;
+}
+
+export async function fetchAdDetail(
+  adId: string,
+  token: string,
+  datePreset = "last_30d"
+): Promise<AdDetail> {
+  const insightFields = [
+    "quality_ranking", "engagement_rate_ranking", "conversion_rate_ranking",
+    "outbound_clicks", "actions",
+    "video_p25_watched_actions", "video_p50_watched_actions",
+    "video_p75_watched_actions", "video_p100_watched_actions",
+  ].join(",");
+  const fields = `insights.date_preset(${datePreset}){${encodeURIComponent(insightFields)}}`;
+  const data = await adGet(`/${adId}?fields=${fields}`, token);
+  const ins = data.insights?.data?.[0] || {};
+  const actions = ins.actions || [];
+  return {
+    qualityRanking: ins.quality_ranking || "",
+    engagementRateRanking: ins.engagement_rate_ranking || "",
+    conversionRateRanking: ins.conversion_rate_ranking || "",
+    outboundClicks: Array.isArray(ins.outbound_clicks)
+      ? parseFloat(ins.outbound_clicks[0]?.value || "0") : 0,
+    landingPageViews: actionValue(actions, "landing_page_view"),
+    videoP25: Array.isArray(ins.video_p25_watched_actions)
+      ? parseFloat(ins.video_p25_watched_actions[0]?.value || "0") : 0,
+    videoP50: Array.isArray(ins.video_p50_watched_actions)
+      ? parseFloat(ins.video_p50_watched_actions[0]?.value || "0") : 0,
+    videoP75: Array.isArray(ins.video_p75_watched_actions)
+      ? parseFloat(ins.video_p75_watched_actions[0]?.value || "0") : 0,
+    videoP100: Array.isArray(ins.video_p100_watched_actions)
+      ? parseFloat(ins.video_p100_watched_actions[0]?.value || "0") : 0,
+  };
+}
+
 export async function fetchAdsWithCreatives(
   adAccountId: string,
   token: string,
   datePreset = "last_30d"
 ): Promise<AdCreative[]> {
+  // Lean fields only — heavy metrics (quality_ranking, video_*) loaded on-demand per ad
   const insightFields = [
     "spend", "impressions", "clicks", "ctr", "cpm",
     "actions", "action_values",
-    "quality_ranking", "engagement_rate_ranking", "conversion_rate_ranking",
-    "outbound_clicks",
-    "video_p25_watched_actions", "video_p50_watched_actions",
-    "video_p75_watched_actions", "video_p100_watched_actions",
   ].join(",");
 
   // Only fetch ACTIVE and PAUSED ads (not DELETED/ARCHIVED)
@@ -466,17 +510,6 @@ export async function fetchAdsWithCreatives(
       const revenue = actionValue(actionValues, "offsite_conversion.fb_pixel_purchase");
       const purchases = actionValue(actions, "offsite_conversion.fb_pixel_purchase");
       const c = a.creative || {};
-
-      const outboundClicks = Array.isArray(ins.outbound_clicks)
-        ? parseFloat(ins.outbound_clicks[0]?.value || "0") : 0;
-      const videoP25 = Array.isArray(ins.video_p25_watched_actions)
-        ? parseFloat(ins.video_p25_watched_actions[0]?.value || "0") : 0;
-      const videoP50 = Array.isArray(ins.video_p50_watched_actions)
-        ? parseFloat(ins.video_p50_watched_actions[0]?.value || "0") : 0;
-      const videoP75 = Array.isArray(ins.video_p75_watched_actions)
-        ? parseFloat(ins.video_p75_watched_actions[0]?.value || "0") : 0;
-      const videoP100 = Array.isArray(ins.video_p100_watched_actions)
-        ? parseFloat(ins.video_p100_watched_actions[0]?.value || "0") : 0;
 
       ads.push({
         id: a.id,
@@ -499,15 +532,16 @@ export async function fetchAdsWithCreatives(
         purchases,
         roas: spend > 0 ? revenue / spend : 0,
         cpa: purchases > 0 ? spend / purchases : 0,
-        qualityRanking: ins.quality_ranking || "",
-        engagementRateRanking: ins.engagement_rate_ranking || "",
-        conversionRateRanking: ins.conversion_rate_ranking || "",
-        outboundClicks,
-        landingPageViews: actionValue(actions, "landing_page_view"),
-        videoP25,
-        videoP50,
-        videoP75,
-        videoP100,
+        // Detail fields — loaded on-demand via fetchAdDetail() when user expands
+        qualityRanking: "",
+        engagementRateRanking: "",
+        conversionRateRanking: "",
+        outboundClicks: 0,
+        landingPageViews: 0,
+        videoP25: 0,
+        videoP50: 0,
+        videoP75: 0,
+        videoP100: 0,
       });
     }
     const after = data.paging?.cursors?.after;

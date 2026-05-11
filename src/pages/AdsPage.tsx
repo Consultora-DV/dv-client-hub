@@ -15,8 +15,8 @@ import { loadPlatformToken } from "@/services/metaIgService";
 import { SOURCE_CONFIG, CalendarEventSource } from "@/services/timelineService";
 import {
   fetchAccountInsights, fetchCampaigns, fetchAdSets, fetchDailyBreakdown,
-  fetchAdsWithCreatives, getApiUsage,
-  AccountInsights, CampaignData, AdSetData, DailyMetric, DatePreset, DATE_PRESETS,
+  fetchAdsWithCreatives, fetchAdDetail, getApiUsage,
+  AccountInsights, CampaignData, AdSetData, AdDetail, DailyMetric, DatePreset, DATE_PRESETS,
   AdCreative,
 } from "@/services/metaAdsService";
 
@@ -720,6 +720,8 @@ function CreativosTab({ adAccountId, token, datePreset, refreshKey }: {
   const [error, setError] = useState<string | null>(null);
   const [showPaused, setShowPaused] = useState(false);
   const [expanded, setExpanded] = useState<string | null>(null);
+  const [details, setDetails] = useState<Record<string, AdDetail>>({});
+  const [loadingDetail, setLoadingDetail] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true); setError(null);
@@ -729,6 +731,18 @@ function CreativosTab({ adAccountId, token, datePreset, refreshKey }: {
   }, [adAccountId, token, datePreset, refreshKey]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => { load(); }, [load]);
+
+  const handleExpand = useCallback(async (adId: string) => {
+    if (expanded === adId) { setExpanded(null); return; }
+    setExpanded(adId);
+    if (details[adId]) return; // already loaded
+    setLoadingDetail(adId);
+    try {
+      const d = await fetchAdDetail(adId, token, datePreset);
+      setDetails((prev) => ({ ...prev, [adId]: d }));
+    } catch { /* detail load failed — show empty */ }
+    finally { setLoadingDetail(null); }
+  }, [expanded, details, token, datePreset]);
 
   const visible = ads.filter(a => showPaused || a.effectiveStatus === "ACTIVE");
   const active = ads.filter(a => a.effectiveStatus === "ACTIVE");
@@ -754,10 +768,12 @@ function CreativosTab({ adAccountId, token, datePreset, refreshKey }: {
           const rs = roasStatus(ad.roas);
           const isExpanded = expanded === ad.id;
           const thumb = ad.thumbnailUrl || ad.imageUrl;
+          const detail = details[ad.id];
+          const isLoadingDetail = loadingDetail === ad.id;
           return (
             <div key={ad.id} className={`glass gold-border rounded-xl overflow-hidden flex flex-col ${ad.effectiveStatus !== "ACTIVE" ? "opacity-60" : ""}`}>
               {/* Thumbnail */}
-              <div className="aspect-video bg-secondary relative overflow-hidden cursor-pointer" onClick={() => setExpanded(isExpanded ? null : ad.id)}>
+              <div className="aspect-video bg-secondary relative overflow-hidden cursor-pointer" onClick={() => handleExpand(ad.id)}>
                 {thumb ? (
                   <img src={thumb} alt={ad.title} className="w-full h-full object-cover" onError={e => (e.target as HTMLImageElement).style.display = "none"} />
                 ) : (
@@ -787,8 +803,8 @@ function CreativosTab({ adAccountId, token, datePreset, refreshKey }: {
                   <p className={`text-xs font-bold ${rs.cls}`}>{ad.spend > 0 ? roasFmt(ad.roas) : "—"}</p>
                 </div>
                 <div className="text-center">
-                  <p className="text-[9px] text-muted-foreground">CTR Out.</p>
-                  <p className="text-xs font-bold text-foreground">{ad.outboundClicks > 0 ? pct(ad.outboundClicks / (ad.impressions || 1) * 100) : pct(ad.ctr)}</p>
+                  <p className="text-[9px] text-muted-foreground">CTR</p>
+                  <p className="text-xs font-bold text-foreground">{pct(ad.ctr)}</p>
                 </div>
                 <div className="text-center">
                   <p className="text-[9px] text-muted-foreground">CPM</p>
@@ -796,22 +812,22 @@ function CreativosTab({ adAccountId, token, datePreset, refreshKey }: {
                 </div>
               </div>
 
-              {/* Quality rankings */}
-              {(ad.qualityRanking || ad.engagementRateRanking || ad.conversionRateRanking) && (
+              {/* Quality rankings — shown once detail loads */}
+              {detail && (detail.qualityRanking || detail.engagementRateRanking || detail.conversionRateRanking) && (
                 <div className="px-3 py-1.5 flex gap-3 border-b border-border/20 bg-secondary/20">
-                  {ad.qualityRanking && (
-                    <span className={`text-[9px] font-medium ${rankingColor(ad.qualityRanking)}`}>
-                      {rankingEmoji(ad.qualityRanking)} Calidad
+                  {detail.qualityRanking && (
+                    <span className={`text-[9px] font-medium ${rankingColor(detail.qualityRanking)}`}>
+                      {rankingEmoji(detail.qualityRanking)} Calidad
                     </span>
                   )}
-                  {ad.engagementRateRanking && (
-                    <span className={`text-[9px] font-medium ${rankingColor(ad.engagementRateRanking)}`}>
-                      {rankingEmoji(ad.engagementRateRanking)} Engagement
+                  {detail.engagementRateRanking && (
+                    <span className={`text-[9px] font-medium ${rankingColor(detail.engagementRateRanking)}`}>
+                      {rankingEmoji(detail.engagementRateRanking)} Engagement
                     </span>
                   )}
-                  {ad.conversionRateRanking && (
-                    <span className={`text-[9px] font-medium ${rankingColor(ad.conversionRateRanking)}`}>
-                      {rankingEmoji(ad.conversionRateRanking)} Conversión
+                  {detail.conversionRateRanking && (
+                    <span className={`text-[9px] font-medium ${rankingColor(detail.conversionRateRanking)}`}>
+                      {rankingEmoji(detail.conversionRateRanking)} Conversión
                     </span>
                   )}
                 </div>
@@ -827,15 +843,20 @@ function CreativosTab({ adAccountId, token, datePreset, refreshKey }: {
                   </p>
                 )}
                 {ad.body && ad.body.length > 80 && (
-                  <button onClick={() => setExpanded(isExpanded ? null : ad.id)} className="text-[10px] text-primary hover:underline">
+                  <button onClick={() => handleExpand(ad.id)} className="text-[10px] text-primary hover:underline">
                     {isExpanded ? "Ver menos" : "Ver copy completo"}
                   </button>
                 )}
               </div>
 
-              {/* Expanded: full metrics + video retention */}
+              {/* Expanded: full metrics + video retention (loaded on-demand) */}
               {isExpanded && (
                 <div className="px-3 pb-3 space-y-2 border-t border-border/30 pt-2">
+                  {isLoadingDetail && (
+                    <div className="flex items-center gap-2 text-[10px] text-muted-foreground py-1">
+                      <RefreshCw className="h-3 w-3 animate-spin" /> Cargando métricas detalladas…
+                    </div>
+                  )}
                   <div className="grid grid-cols-3 gap-2">
                     <div className="text-center">
                       <p className="text-[9px] text-muted-foreground">Impresiones</p>
@@ -849,31 +870,35 @@ function CreativosTab({ adAccountId, token, datePreset, refreshKey }: {
                       <p className="text-[9px] text-muted-foreground">CPA</p>
                       <p className="text-xs font-semibold">{ad.cpa > 0 ? mxn(ad.cpa) : "—"}</p>
                     </div>
-                    <div className="text-center">
-                      <p className="text-[9px] text-muted-foreground">LPV</p>
-                      <p className="text-xs font-semibold">{ad.landingPageViews > 0 ? fmt(ad.landingPageViews) : "—"}</p>
-                    </div>
-                    <div className="text-center">
-                      <p className="text-[9px] text-muted-foreground">Out. clicks</p>
-                      <p className="text-xs font-semibold">{ad.outboundClicks > 0 ? fmt(ad.outboundClicks) : "—"}</p>
-                    </div>
-                    <div className="text-center">
-                      <p className="text-[9px] text-muted-foreground">CTR</p>
-                      <p className="text-xs font-semibold">{pct(ad.ctr)}</p>
-                    </div>
+                    {detail && (
+                      <>
+                        <div className="text-center">
+                          <p className="text-[9px] text-muted-foreground">LPV</p>
+                          <p className="text-xs font-semibold">{detail.landingPageViews > 0 ? fmt(detail.landingPageViews) : "—"}</p>
+                        </div>
+                        <div className="text-center">
+                          <p className="text-[9px] text-muted-foreground">Out. clicks</p>
+                          <p className="text-xs font-semibold">{detail.outboundClicks > 0 ? fmt(detail.outboundClicks) : "—"}</p>
+                        </div>
+                        <div className="text-center">
+                          <p className="text-[9px] text-muted-foreground">CTR</p>
+                          <p className="text-xs font-semibold">{pct(ad.ctr)}</p>
+                        </div>
+                      </>
+                    )}
                   </div>
-                  {/* Video retention bar */}
-                  {ad.videoP25 > 0 && (
+                  {/* Video retention bar — only if data exists */}
+                  {detail && detail.videoP25 > 0 && (
                     <div className="space-y-1">
                       <p className="text-[9px] text-muted-foreground">Retención de video</p>
                       <div className="flex items-end gap-0.5 h-5">
                         {[
-                          { label: "25%", val: ad.videoP25 },
-                          { label: "50%", val: ad.videoP50 },
-                          { label: "75%", val: ad.videoP75 },
-                          { label: "100%", val: ad.videoP100 },
+                          { label: "25%", val: detail.videoP25 },
+                          { label: "50%", val: detail.videoP50 },
+                          { label: "75%", val: detail.videoP75 },
+                          { label: "100%", val: detail.videoP100 },
                         ].map(({ label, val }) => {
-                          const h = ad.videoP25 > 0 ? Math.max(15, (val / ad.videoP25) * 100) : 15;
+                          const h = detail.videoP25 > 0 ? Math.max(15, (val / detail.videoP25) * 100) : 15;
                           return (
                             <div key={label} className="flex-1 flex flex-col items-center gap-0.5">
                               <div className="w-full rounded-sm bg-primary/60" style={{ height: `${h}%`, minHeight: "3px" }} />
