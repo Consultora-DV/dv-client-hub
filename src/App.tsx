@@ -51,6 +51,14 @@ function EditorRoute({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
+// Bounces editors out of the client/admin shell to their own portal.
+// Admins, designers, and clients pass through unchanged.
+function NotEditorRoute({ children }: { children: React.ReactNode }) {
+  const { user } = useAuth();
+  if (user?.role === "editor") return <Navigate to="/editor/dashboard" replace />;
+  return <>{children}</>;
+}
+
 function RoleBasedHome() {
   const { user } = useAuth();
   if (user?.role === "editor") return <Navigate to="/editor/dashboard" replace />;
@@ -91,8 +99,8 @@ function AppRoutes() {
                   <Route path="/editor/nueva" element={<NuevaEntregaPage />} />
                 </Route>
 
-                {/* Client / admin portal */}
-                <Route element={<ApprovalGuard><AppLayout /></ApprovalGuard>}>
+                {/* Client / admin portal — editors are bounced to /editor/dashboard */}
+                <Route element={<ApprovalGuard><NotEditorRoute><AppLayout /></NotEditorRoute></ApprovalGuard>}>
                   <Route path="/dashboard" element={<DashboardPage />} />
                   <Route path="/videos" element={<VideosPage />} />
                   <Route path="/documentos" element={<DocumentsPage />} />

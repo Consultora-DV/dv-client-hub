@@ -2,7 +2,7 @@ import { useEffect, useState, useMemo } from "react";
 import { motion } from "framer-motion";
 import {
   RefreshCw, Video as VideoIcon, ExternalLink, Trash2, Check, X,
-  Edit3, DollarSign,
+  Edit3, DollarSign, SlidersHorizontal, ChevronDown, ChevronUp,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -33,8 +33,13 @@ export default function AdminEntregasPage() {
   const [filterClient, setFilterClient] = useState<string>("all");
   const [filterStatus, setFilterStatus] = useState<string>("all");
   const [filterPaid, setFilterPaid]     = useState<"all" | "yes" | "no">("all");
+  const [filterRec, setFilterRec]       = useState<string>("all");
+  const [filterEditor, setFilterEditor] = useState<string>("all");
+  const [filterMonth, setFilterMonth]   = useState<string>("all"); // "YYYY-MM"
+  const [sortBy, setSortBy] = useState<"rec_desc" | "rec_asc" | "date_desc" | "date_asc">("rec_desc");
   const [editingId, setEditingId] = useState<string | null>(null);
   const [showImport, setShowImport] = useState(false);
+  const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
 
   const load = async () => {
     setLoading(true);
@@ -43,11 +48,60 @@ export default function AdminEntregasPage() {
   };
   useEffect(() => { load(); }, []);
 
-  const visible = useMemo(() => videos.filter((v) =>
-    (filterClient === "all" || v.clienteId === filterClient) &&
-    (filterStatus === "all" || v.status === filterStatus) &&
-    (filterPaid   === "all" || (filterPaid === "yes" ? v.pagado : !v.pagado))
-  ), [videos, filterClient, filterStatus, filterPaid]);
+  // Derived: available filter options from current data
+  const availableRecs = useMemo(() => {
+    const s = new Set<number>();
+    videos.forEach((v) => v.recNumber != null && s.add(v.recNumber));
+    return Array.from(s).sort((a, b) => b - a);
+  }, [videos]);
+
+  const availableEditors = useMemo(() => {
+    const s = new Set<string>();
+    videos.forEach((v) => v.editorName && s.add(v.editorName));
+    return Array.from(s).sort();
+  }, [videos]);
+
+  const availableMonths = useMemo(() => {
+    const s = new Set<string>();
+    videos.forEach((v) => {
+      const d = v.createdAt;
+      if (d) s.add(d.slice(0, 7)); // YYYY-MM
+    });
+    return Array.from(s).sort().reverse();
+  }, [videos]);
+
+  const monthLabel = (ym: string) => {
+    const [y, m] = ym.split("-");
+    const names = ["Ene","Feb","Mar","Abr","May","Jun","Jul","Ago","Sep","Oct","Nov","Dic"];
+    return `${names[parseInt(m) - 1]} ${y}`;
+  };
+
+  // Count active advanced filters
+  const activeAdvanced = [
+    filterRec !== "all", filterEditor !== "all", filterMonth !== "all"
+  ].filter(Boolean).length;
+
+  const visible = useMemo(() => {
+    let list = videos.filter((v) =>
+      (filterClient === "all" || v.clienteId === filterClient) &&
+      (filterStatus === "all" || v.status === filterStatus) &&
+      (filterPaid   === "all" || (filterPaid === "yes" ? v.pagado : !v.pagado)) &&
+      (filterRec    === "all" || v.recNumber === parseInt(filterRec)) &&
+      (filterEditor === "all" || v.editorName === filterEditor) &&
+      (filterMonth  === "all" || (v.createdAt || "").startsWith(filterMonth))
+    );
+    list = list.sort((a, b) => {
+      if (sortBy === "rec_desc") return (b.recNumber || 0) - (a.recNumber || 0) || (b.recOrder || 0) - (a.recOrder || 0);
+      if (sortBy === "rec_asc")  return (a.recNumber || 0) - (b.recNumber || 0) || (a.recOrder || 0) - (b.recOrder || 0);
+      if (sortBy === "date_desc") return (b.createdAt || "").localeCompare(a.createdAt || "");
+      return (a.createdAt || "").localeCompare(b.createdAt || "");
+    });
+    return list;
+  }, [videos, filterClient, filterStatus, filterPaid, filterRec, filterEditor, filterMonth, sortBy]);
+
+  const clearAdvancedFilters = () => {
+    setFilterRec("all"); setFilterEditor("all"); setFilterMonth("all");
+  };
 
   const totals = useMemo(() => {
     const t = { usd: 0, mxn: 0, usdPagado: 0, mxnPagado: 0 };
@@ -129,40 +183,131 @@ export default function AdminEntregasPage() {
         </div>
       </div>
 
-      {/* Filters */}
-      <div className="flex flex-wrap items-center gap-2 text-sm">
-        <span className="text-xs text-muted-foreground">Cliente:</span>
-        <button onClick={() => setFilterClient("all")}
-          className={`px-3 py-1 rounded-full text-xs border transition-colors ${
-            filterClient === "all" ? "border-primary bg-primary/10 text-primary" : "border-border/40 text-muted-foreground hover:text-foreground"
-          }`}>Todos</button>
-        {clients.map((c) => (
-          <button key={c.id} onClick={() => setFilterClient(c.id)}
-            className={`px-3 py-1 rounded-full text-xs border transition-colors ${
-              filterClient === c.id ? "border-primary bg-primary/10 text-primary" : "border-border/40 text-muted-foreground hover:text-foreground"
-            }`}>{c.nombre}</button>
-        ))}
-        <span className="text-xs text-muted-foreground ml-3">Estado:</span>
-        <button onClick={() => setFilterStatus("all")}
-          className={`px-3 py-1 rounded-full text-xs border transition-colors ${
-            filterStatus === "all" ? "border-primary bg-primary/10 text-primary" : "border-border/40 text-muted-foreground hover:text-foreground"
-          }`}>Todos</button>
-        {STATUS_OPTIONS.map((s) => (
-          <button key={s.value} onClick={() => setFilterStatus(s.value)}
-            className={`px-3 py-1 rounded-full text-xs border transition-colors ${
-              filterStatus === s.value ? "border-primary bg-primary/10 text-primary" : "border-border/40 text-muted-foreground hover:text-foreground"
-            }`}>{s.label}</button>
-        ))}
-        <span className="text-xs text-muted-foreground ml-3">Pago:</span>
-        {[{k:"all",l:"Todos"},{k:"yes",l:"Pagado"},{k:"no",l:"Pendiente"}].map((p) => (
-          <button key={p.k} onClick={() => setFilterPaid(p.k as any)}
-            className={`px-3 py-1 rounded-full text-xs border transition-colors ${
-              filterPaid === p.k ? "border-primary bg-primary/10 text-primary" : "border-border/40 text-muted-foreground hover:text-foreground"
-            }`}>{p.l}</button>
-        ))}
-        <Button variant="ghost" size="sm" onClick={load} className="ml-auto">
-          <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
-        </Button>
+      {/* Primary filters (inline) */}
+      <div className="glass gold-border rounded-xl p-3 space-y-2">
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-2 text-sm">
+          {/* Cliente */}
+          <div className="flex flex-wrap items-center gap-1.5">
+            <span className="text-xs text-muted-foreground">Cliente:</span>
+            <button onClick={() => setFilterClient("all")}
+              className={`px-2.5 py-1 rounded-full text-xs border transition-colors ${
+                filterClient === "all" ? "border-primary bg-primary/10 text-primary" : "border-border/40 text-muted-foreground hover:text-foreground"
+              }`}>Todos</button>
+            {clients.map((c) => (
+              <button key={c.id} onClick={() => setFilterClient(c.id)}
+                className={`px-2.5 py-1 rounded-full text-xs border transition-colors ${
+                  filterClient === c.id ? "border-primary bg-primary/10 text-primary" : "border-border/40 text-muted-foreground hover:text-foreground"
+                }`}>{c.nombre}</button>
+            ))}
+          </div>
+
+          <div className="flex-1" />
+
+          <Button variant="ghost" size="sm" onClick={load}>
+            <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
+          </Button>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-2 text-sm">
+          <div className="flex flex-wrap items-center gap-1.5">
+            <span className="text-xs text-muted-foreground">Estado:</span>
+            <button onClick={() => setFilterStatus("all")}
+              className={`px-2.5 py-1 rounded-full text-xs border transition-colors ${
+                filterStatus === "all" ? "border-primary bg-primary/10 text-primary" : "border-border/40 text-muted-foreground hover:text-foreground"
+              }`}>Todos</button>
+            {STATUS_OPTIONS.map((s) => (
+              <button key={s.value} onClick={() => setFilterStatus(s.value)}
+                className={`px-2.5 py-1 rounded-full text-xs border transition-colors ${
+                  filterStatus === s.value ? "border-primary bg-primary/10 text-primary" : "border-border/40 text-muted-foreground hover:text-foreground"
+                }`}>{s.label}</button>
+            ))}
+          </div>
+
+          <div className="flex flex-wrap items-center gap-1.5">
+            <span className="text-xs text-muted-foreground">Pago:</span>
+            {[{k:"all",l:"Todos"},{k:"yes",l:"Pagado"},{k:"no",l:"Pendiente"}].map((p) => (
+              <button key={p.k} onClick={() => setFilterPaid(p.k as any)}
+                className={`px-2.5 py-1 rounded-full text-xs border transition-colors ${
+                  filterPaid === p.k ? "border-primary bg-primary/10 text-primary" : "border-border/40 text-muted-foreground hover:text-foreground"
+                }`}>{p.l}</button>
+            ))}
+          </div>
+
+          <div className="flex-1" />
+
+          {/* Sort */}
+          <div className="flex items-center gap-1.5">
+            <span className="text-xs text-muted-foreground">Ordenar:</span>
+            <select value={sortBy} onChange={(e) => setSortBy(e.target.value as any)}
+              className="text-xs px-2 py-1 rounded-lg border border-border/40 bg-transparent">
+              <option value="rec_desc" className="bg-background">REC ↓ (nuevo)</option>
+              <option value="rec_asc" className="bg-background">REC ↑ (viejo)</option>
+              <option value="date_desc" className="bg-background">Fecha ↓</option>
+              <option value="date_asc" className="bg-background">Fecha ↑</option>
+            </select>
+          </div>
+
+          <button onClick={() => setShowAdvancedFilters((s) => !s)}
+            className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs border transition-colors ${
+              activeAdvanced > 0
+                ? "border-primary bg-primary/10 text-primary"
+                : "border-border/40 text-muted-foreground hover:text-foreground"
+            }`}>
+            <SlidersHorizontal className="h-3 w-3" />
+            Más filtros{activeAdvanced > 0 && ` (${activeAdvanced})`}
+            {showAdvancedFilters ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
+          </button>
+        </div>
+
+        {/* Advanced filters (collapsible) */}
+        {showAdvancedFilters && (
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-3 border-t border-border/30">
+            <div className="space-y-1">
+              <label className="text-[10px] text-muted-foreground uppercase tracking-wide">REC #</label>
+              <select value={filterRec} onChange={(e) => setFilterRec(e.target.value)}
+                className="w-full text-xs px-2 py-1.5 rounded-lg border border-border/40 bg-transparent">
+                <option value="all" className="bg-background">Todos los REC</option>
+                {availableRecs.map((r) => (
+                  <option key={r} value={r} className="bg-background">R{r}</option>
+                ))}
+              </select>
+            </div>
+
+            <div className="space-y-1">
+              <label className="text-[10px] text-muted-foreground uppercase tracking-wide">Editor</label>
+              <select value={filterEditor} onChange={(e) => setFilterEditor(e.target.value)}
+                className="w-full text-xs px-2 py-1.5 rounded-lg border border-border/40 bg-transparent">
+                <option value="all" className="bg-background">Todos los editores</option>
+                {availableEditors.map((ed) => (
+                  <option key={ed} value={ed} className="bg-background">{ed}</option>
+                ))}
+              </select>
+            </div>
+
+            <div className="space-y-1">
+              <label className="text-[10px] text-muted-foreground uppercase tracking-wide">Mes de entrega</label>
+              <select value={filterMonth} onChange={(e) => setFilterMonth(e.target.value)}
+                className="w-full text-xs px-2 py-1.5 rounded-lg border border-border/40 bg-transparent">
+                <option value="all" className="bg-background">Todos los meses</option>
+                {availableMonths.map((m) => (
+                  <option key={m} value={m} className="bg-background">{monthLabel(m)}</option>
+                ))}
+              </select>
+            </div>
+
+            {activeAdvanced > 0 && (
+              <button onClick={clearAdvancedFilters}
+                className="text-xs text-muted-foreground hover:text-foreground underline col-span-full justify-self-end">
+                Limpiar filtros avanzados
+              </button>
+            )}
+          </div>
+        )}
+
+        {/* Result counter */}
+        <div className="text-[11px] text-muted-foreground pt-1">
+          {visible.length} de {videos.length} entregas
+        </div>
       </div>
 
       {/* Table */}
