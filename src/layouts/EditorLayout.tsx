@@ -38,14 +38,15 @@ export function EditorLayout() {
       </header>
 
       {/* Nav tabs */}
-      <nav className="border-b border-border/40 px-4 flex gap-1 shrink-0 overflow-x-auto">
+      <nav className="border-b border-border/40 px-4 flex gap-2 shrink-0 overflow-x-auto bg-secondary/20">
         <NavLink
           to="/editor/dashboard"
+          end
           className={({ isActive }) =>
-            `flex items-center gap-2 px-3 py-2.5 text-sm border-b-2 transition-colors whitespace-nowrap ${
+            `flex items-center gap-2 px-4 py-3 text-sm font-medium border-b-2 transition-all whitespace-nowrap ${
               isActive
-                ? "border-primary text-primary"
-                : "border-transparent text-muted-foreground hover:text-foreground"
+                ? "border-primary text-primary bg-primary/5"
+                : "border-transparent text-muted-foreground hover:text-foreground hover:bg-secondary/40"
             }`
           }
         >
@@ -54,10 +55,10 @@ export function EditorLayout() {
         <NavLink
           to="/editor/nueva"
           className={({ isActive }) =>
-            `flex items-center gap-2 px-3 py-2.5 text-sm border-b-2 transition-colors whitespace-nowrap ${
+            `flex items-center gap-2 px-4 py-3 text-sm font-medium border-b-2 transition-all whitespace-nowrap ${
               isActive
-                ? "border-primary text-primary"
-                : "border-transparent text-muted-foreground hover:text-foreground"
+                ? "border-primary text-primary bg-primary/5"
+                : "border-transparent text-muted-foreground hover:text-foreground hover:bg-secondary/40"
             }`
           }
         >

@@ -71,13 +71,14 @@ export default function EditorDashboardPage() {
           </h1>
           <p className="text-sm text-muted-foreground mt-1">
             {clients.length === 0
-              ? "Aún no tienes clientes asignados — contacta al admin."
+              ? "Aún no tienes clientes asignados."
               : `Trabajando con ${clients.length} cliente${clients.length === 1 ? "" : "s"}: ${clients.map((c) => c.nombre).join(", ")}`}
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <Button variant="ghost" size="sm" onClick={load}>
+          <Button variant="outline" size="sm" onClick={load} className="gap-1.5">
             <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
+            Refrescar
           </Button>
           <Link to="/editor/nueva">
             <Button size="sm" className="gold-gradient text-primary-foreground gap-1.5">
@@ -86,6 +87,32 @@ export default function EditorDashboardPage() {
           </Link>
         </div>
       </div>
+
+      {/* Banner cuando no hay clientes — guía clara para el editor */}
+      {!loading && clients.length === 0 && (
+        <div className="glass border border-status-pending/30 rounded-xl p-5 space-y-3">
+          <div className="flex items-start gap-3">
+            <div className="text-2xl">⏳</div>
+            <div className="flex-1">
+              <p className="font-medium text-foreground">Esperando asignación de clientes</p>
+              <p className="text-sm text-muted-foreground mt-1">
+                Para que puedas subir entregas, el administrador debe asignarte al menos un cliente.
+              </p>
+              <div className="mt-3 text-xs text-muted-foreground bg-secondary/30 rounded-lg p-2 border border-border/30">
+                <p className="mb-1">Si crees que ya te asignaron clientes:</p>
+                <ul className="list-disc list-inside space-y-0.5 opacity-80">
+                  <li>Dale click a "Refrescar" arriba</li>
+                  <li>Si sigue vacío, cierra sesión y vuelve a entrar</li>
+                  <li>Si persiste, contacta al admin con tu email para verificar</li>
+                </ul>
+              </div>
+              <p className="text-[10px] text-muted-foreground/60 mt-2">
+                ID de usuario: <span className="font-mono">{user?.id || "?"}</span>
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Counters */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
