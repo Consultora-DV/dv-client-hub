@@ -1,6 +1,6 @@
 import { useState, useRef } from "react";
 import { motion } from "framer-motion";
-import { X, Lock, Eye, EyeOff, Camera } from "lucide-react";
+import { X, Lock, Eye, EyeOff, Camera, Instagram, Music2, Facebook, Twitter, Globe, Phone, ChevronDown, ChevronUp } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -19,6 +19,14 @@ export function ProfileModal({ onClose }: { onClose: () => void }) {
   const { user, updateProfile } = useAuth();
   const [name, setName] = useState(user?.name || "");
   const [email, setEmail] = useState(user?.email || "");
+  const [phone, setPhone] = useState(user?.phone || "");
+  const [bio, setBio] = useState(user?.bio || "");
+  const [instagram, setInstagram] = useState(user?.socialLinks?.instagram || "");
+  const [tiktok, setTiktok]       = useState(user?.socialLinks?.tiktok || "");
+  const [facebook, setFacebook]   = useState(user?.socialLinks?.facebook || "");
+  const [twitter, setTwitter]     = useState(user?.socialLinks?.twitter || "");
+  const [website, setWebsite]     = useState(user?.socialLinks?.website || "");
+  const [showSocial, setShowSocial] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
 
   // Photo — URL for preview (from Storage or local blob), file for pending upload
@@ -101,7 +109,21 @@ export function ProfileModal({ onClose }: { onClose: () => void }) {
       avatarUrl = urlData.publicUrl;
     }
 
-    await updateProfile({ name, email, ...(avatarUrl !== undefined ? { customAvatar: avatarUrl } : {}) });
+    const socialLinks = {
+      ...(instagram.trim() && { instagram: instagram.trim() }),
+      ...(tiktok.trim()    && { tiktok:    tiktok.trim() }),
+      ...(facebook.trim()  && { facebook:  facebook.trim() }),
+      ...(twitter.trim()   && { twitter:   twitter.trim() }),
+      ...(website.trim()   && { website:   website.trim() }),
+    };
+
+    await updateProfile({
+      name, email,
+      phone: phone.trim() || undefined,
+      bio:   bio.trim() || undefined,
+      socialLinks,
+      ...(avatarUrl !== undefined ? { customAvatar: avatarUrl } : {}),
+    });
     setSaving(false);
     onClose();
   };
@@ -158,6 +180,44 @@ export function ProfileModal({ onClose }: { onClose: () => void }) {
             <Input value={email} onChange={(e) => setEmail(e.target.value)} className="bg-secondary border-border/50 rounded-xl" />
           </div>
 
+          <div>
+            <label className="text-xs text-muted-foreground mb-1.5 block flex items-center gap-1">
+              <Phone className="h-3 w-3" /> Teléfono / WhatsApp <span className="text-[10px] opacity-60">(opcional)</span>
+            </label>
+            <Input value={phone} onChange={(e) => setPhone(e.target.value)}
+              placeholder="+52 1 555 123 4567"
+              className="bg-secondary border-border/50 rounded-xl" />
+          </div>
+
+          <div>
+            <label className="text-xs text-muted-foreground mb-1.5 block">
+              Bio / Descripción <span className="text-[10px] opacity-60">(opcional)</span>
+            </label>
+            <textarea value={bio} onChange={(e) => setBio(e.target.value)}
+              rows={2} maxLength={200}
+              placeholder="Editora de video especializada en…"
+              className="w-full px-3 py-2 bg-secondary border border-border/50 rounded-xl text-sm focus:outline-none focus:border-primary/50 resize-none" />
+            <p className="text-[10px] text-muted-foreground/60 mt-1 text-right">{bio.length}/200</p>
+          </div>
+
+          {/* Redes sociales (colapsable) */}
+          <div className="border-t border-border/30 pt-4">
+            <button type="button" onClick={() => setShowSocial((s) => !s)}
+              className="w-full flex items-center justify-between text-xs font-medium text-muted-foreground hover:text-foreground transition-colors">
+              <span>Redes sociales (opcional)</span>
+              {showSocial ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+            </button>
+            {showSocial && (
+              <div className="space-y-2 mt-3">
+                <SocialField icon={<Instagram className="h-3.5 w-3.5" />} placeholder="@usuario" value={instagram} onChange={setInstagram} label="Instagram" />
+                <SocialField icon={<Music2 className="h-3.5 w-3.5" />}    placeholder="@usuario" value={tiktok}    onChange={setTiktok}    label="TikTok" />
+                <SocialField icon={<Facebook className="h-3.5 w-3.5" />}  placeholder="usuario o URL" value={facebook} onChange={setFacebook} label="Facebook" />
+                <SocialField icon={<Twitter className="h-3.5 w-3.5" />}   placeholder="@usuario" value={twitter}   onChange={setTwitter}   label="Twitter / X" />
+                <SocialField icon={<Globe className="h-3.5 w-3.5" />}     placeholder="https://…" value={website}   onChange={setWebsite}   label="Sitio web" />
+              </div>
+            )}
+          </div>
+
           {/* Change password section */}
           <div className="border-t border-border/50 pt-4">
             <label className="text-xs text-muted-foreground mb-3 block font-medium">Cambiar contraseña</label>
@@ -186,6 +246,22 @@ export function ProfileModal({ onClose }: { onClose: () => void }) {
         </div>
       </motion.div>
     </motion.div>
+  );
+}
+
+function SocialField({ icon, label, placeholder, value, onChange }: {
+  icon: React.ReactNode; label: string; placeholder: string;
+  value: string; onChange: (v: string) => void;
+}) {
+  return (
+    <div className="flex items-center gap-2">
+      <div className="w-8 h-8 flex items-center justify-center rounded-lg bg-secondary text-muted-foreground shrink-0" title={label}>
+        {icon}
+      </div>
+      <Input value={value} onChange={(e) => onChange(e.target.value)}
+        placeholder={placeholder}
+        className="bg-secondary border-border/50 rounded-xl h-9 text-sm" />
+    </div>
   );
 }
 

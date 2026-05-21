@@ -359,33 +359,42 @@ export type Database = {
         Row: {
           approval_status: Database["public"]["Enums"]["approval_status"]
           avatar_url: string | null
+          bio: string | null
           business: string | null
           created_at: string
           display_name: string | null
           email: string | null
           id: string
+          phone: string | null
+          social_links: Record<string, any>
           updated_at: string
           user_id: string
         }
         Insert: {
           approval_status?: Database["public"]["Enums"]["approval_status"]
           avatar_url?: string | null
+          bio?: string | null
           business?: string | null
           created_at?: string
           display_name?: string | null
           email?: string | null
           id?: string
+          phone?: string | null
+          social_links?: Record<string, any>
           updated_at?: string
           user_id: string
         }
         Update: {
           approval_status?: Database["public"]["Enums"]["approval_status"]
           avatar_url?: string | null
+          bio?: string | null
           business?: string | null
           created_at?: string
           display_name?: string | null
           email?: string | null
           id?: string
+          phone?: string | null
+          social_links?: Record<string, any>
           updated_at?: string
           user_id?: string
         }

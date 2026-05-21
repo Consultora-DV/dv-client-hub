@@ -6,6 +6,14 @@ import type { User, Session } from "@supabase/supabase-js";
 export type UserRole = "admin" | "editor" | "diseñador" | "cliente";
 export type ApprovalStatus = "pending" | "approved" | "rejected";
 
+export interface SocialLinks {
+  instagram?: string;
+  tiktok?: string;
+  facebook?: string;
+  twitter?: string;
+  website?: string;
+}
+
 export interface AppUser {
   id: string;
   name: string;
@@ -16,6 +24,9 @@ export interface AppUser {
   approvalStatus: ApprovalStatus;
   clienteId?: string;
   customAvatar?: string;
+  phone?: string;
+  bio?: string;
+  socialLinks?: SocialLinks;
 }
 
 interface AuthContextType {
@@ -40,13 +51,20 @@ async function fetchUserRole(userId: string): Promise<UserRole> {
   return (data?.role as UserRole) ?? "cliente";
 }
 
-async function fetchProfile(userId: string): Promise<{ display_name: string | null; email: string | null; avatar_url: string | null; business: string | null; approval_status: ApprovalStatus | null }> {
+async function fetchProfile(userId: string): Promise<{
+  display_name: string | null; email: string | null; avatar_url: string | null;
+  business: string | null; approval_status: ApprovalStatus | null;
+  phone: string | null; bio: string | null; social_links: any;
+}> {
   const { data } = await supabase
     .from("profiles")
-    .select("display_name, email, avatar_url, business, approval_status")
+    .select("display_name, email, avatar_url, business, approval_status, phone, bio, social_links")
     .eq("user_id", userId)
     .maybeSingle();
-  return data ?? { display_name: null, email: null, avatar_url: null, business: null, approval_status: null };
+  return data ?? {
+    display_name: null, email: null, avatar_url: null, business: null, approval_status: null,
+    phone: null, bio: null, social_links: {},
+  };
 }
 
 function buildAppUser(authUser: User, profile: Awaited<ReturnType<typeof fetchProfile>>, role: UserRole): AppUser {
@@ -61,6 +79,9 @@ function buildAppUser(authUser: User, profile: Awaited<ReturnType<typeof fetchPr
     approvalStatus: (profile.approval_status as ApprovalStatus) ?? "pending",
     clienteId: role === "cliente" ? authUser.id : undefined,
     customAvatar: profile.avatar_url || undefined,
+    phone: profile.phone || undefined,
+    bio: profile.bio || undefined,
+    socialLinks: (profile.social_links as SocialLinks) || {},
   };
 }
 
@@ -148,11 +169,14 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const updateProfile = useCallback(async (updates: Partial<AppUser>) => {
     setUser((prev) => prev ? { ...prev, ...updates } : prev);
     if (session?.user) {
-      const dbUpdates: { display_name?: string; email?: string; business?: string; avatar_url?: string } = {};
-      if (updates.name) dbUpdates.display_name = updates.name;
-      if (updates.email) dbUpdates.email = updates.email;
-      if (updates.business) dbUpdates.business = updates.business;
-      if (updates.customAvatar !== undefined) dbUpdates.avatar_url = updates.customAvatar;
+      const dbUpdates: Record<string, any> = {};
+      if (updates.name !== undefined)         dbUpdates.display_name = updates.name;
+      if (updates.email !== undefined)        dbUpdates.email        = updates.email;
+      if (updates.business !== undefined)     dbUpdates.business     = updates.business;
+      if (updates.customAvatar !== undefined) dbUpdates.avatar_url   = updates.customAvatar;
+      if (updates.phone !== undefined)        dbUpdates.phone        = updates.phone || null;
+      if (updates.bio !== undefined)          dbUpdates.bio          = updates.bio || null;
+      if (updates.socialLinks !== undefined)  dbUpdates.social_links = updates.socialLinks || {};
       if (Object.keys(dbUpdates).length > 0) {
         try {
           const { error } = await supabase.from("profiles").update(dbUpdates).eq("user_id", session.user.id);

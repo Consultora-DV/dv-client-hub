@@ -1,11 +1,15 @@
+import { useState } from "react";
 import { Outlet, NavLink, useNavigate } from "react-router-dom";
+import { AnimatePresence } from "framer-motion";
 import { LayoutDashboard, FilePlus, LogOut, Video as VideoIcon } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { ThemeToggle } from "@/components/ThemeToggle";
+import { ProfileModal } from "@/components/ProfileModal";
 
 export function EditorLayout() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
+  const [showProfile, setShowProfile] = useState(false);
 
   const handleLogout = async () => {
     await logout();
@@ -25,7 +29,22 @@ export function EditorLayout() {
             <p className="text-[10px] text-muted-foreground -mt-0.5">{user?.name}</p>
           </div>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1">
+          {/* Profile avatar/button */}
+          <button
+            onClick={() => setShowProfile(true)}
+            className="flex items-center gap-2 p-1 pl-2 rounded-lg hover:bg-secondary transition-colors"
+            title="Mi perfil"
+          >
+            <span className="text-xs text-muted-foreground hidden sm:inline">Mi perfil</span>
+            <div className="w-8 h-8 rounded-full overflow-hidden bg-secondary flex items-center justify-center">
+              {user?.customAvatar ? (
+                <img src={user.customAvatar} alt={user.name} className="w-full h-full object-cover" />
+              ) : (
+                <span className="text-xs font-semibold text-foreground">{user?.avatar}</span>
+              )}
+            </div>
+          </button>
           <ThemeToggle />
           <button
             onClick={handleLogout}
@@ -70,6 +89,10 @@ export function EditorLayout() {
       <main className="flex-1 overflow-y-auto p-4 md:p-6 lg:p-8 max-w-6xl w-full mx-auto">
         <Outlet />
       </main>
+
+      <AnimatePresence>
+        {showProfile && <ProfileModal onClose={() => setShowProfile(false)} />}
+      </AnimatePresence>
     </div>
   );
 }
