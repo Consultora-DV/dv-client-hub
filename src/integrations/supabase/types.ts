@@ -491,10 +491,12 @@ export type Database = {
       videos: {
         Row: {
           cliente_id: string
+          costo: number | null
           created_at: string
           delivery_date: string | null
           drive_link: string | null
           editor_id: string | null
+          editor_name: string | null
           embed_url: string | null
           id: string
           ig_caption: string | null
@@ -503,10 +505,15 @@ export type Database = {
           ig_likes: number | null
           ig_short_code: string | null
           ig_views: number | null
+          link_publicado: string | null
+          moneda: string | null
+          pagado: boolean | null
           platform: string[]
           priority: string | null
+          published_at: string | null
           rec_number: number | null
           rec_order: number | null
+          referencia_guion: string | null
           status: string
           status_history: Json
           thumbnail: string | null
@@ -515,10 +522,12 @@ export type Database = {
         }
         Insert: {
           cliente_id: string
+          costo?: number | null
           created_at?: string
           delivery_date?: string | null
           drive_link?: string | null
           editor_id?: string | null
+          editor_name?: string | null
           embed_url?: string | null
           id?: string
           ig_caption?: string | null
@@ -527,10 +536,15 @@ export type Database = {
           ig_likes?: number | null
           ig_short_code?: string | null
           ig_views?: number | null
+          link_publicado?: string | null
+          moneda?: string | null
+          pagado?: boolean | null
           platform?: string[]
           priority?: string | null
+          published_at?: string | null
           rec_number?: number | null
           rec_order?: number | null
+          referencia_guion?: string | null
           status?: string
           status_history?: Json
           thumbnail?: string | null
@@ -539,10 +553,12 @@ export type Database = {
         }
         Update: {
           cliente_id?: string
+          costo?: number | null
           created_at?: string
           delivery_date?: string | null
           drive_link?: string | null
           editor_id?: string | null
+          editor_name?: string | null
           embed_url?: string | null
           id?: string
           ig_caption?: string | null
@@ -551,10 +567,15 @@ export type Database = {
           ig_likes?: number | null
           ig_short_code?: string | null
           ig_views?: number | null
+          link_publicado?: string | null
+          moneda?: string | null
+          pagado?: boolean | null
           platform?: string[]
           priority?: string | null
+          published_at?: string | null
           rec_number?: number | null
           rec_order?: number | null
+          referencia_guion?: string | null
           status?: string
           status_history?: Json
           thumbnail?: string | null

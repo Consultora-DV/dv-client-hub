@@ -188,12 +188,29 @@ export default function EditorDashboardPage() {
                       <span className={`text-[10px] ${pb.cls}`}>{pb.label}</span>
                     </div>
                   </div>
-                  <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                  <div className="flex items-center gap-3 text-xs text-muted-foreground flex-wrap">
                     <span>📅 {v.deliveryDate ? new Date(v.deliveryDate).toLocaleDateString("es-MX") : "—"}</span>
+                    {v.costo != null && (
+                      <span className={v.pagado ? "text-status-approved" : "text-status-pending"}>
+                        💰 {v.moneda || ""} {v.costo.toFixed(2)} · {v.pagado ? "Pagado" : "Pendiente"}
+                      </span>
+                    )}
                     {v.driveLink && (
                       <a href={v.driveLink} target="_blank" rel="noreferrer"
                         className="flex items-center gap-1 hover:text-primary transition-colors">
-                        <ExternalLink className="h-3 w-3" /> Ver en Drive
+                        <ExternalLink className="h-3 w-3" /> Drive
+                      </a>
+                    )}
+                    {v.referenciaGuion && (
+                      <a href={v.referenciaGuion} target="_blank" rel="noreferrer"
+                        className="flex items-center gap-1 hover:text-primary transition-colors">
+                        📄 Guion
+                      </a>
+                    )}
+                    {v.linkPublicado && (
+                      <a href={v.linkPublicado} target="_blank" rel="noreferrer"
+                        className="flex items-center gap-1 hover:text-teal-400 transition-colors">
+                        🌐 Publicado
                       </a>
                     )}
                   </div>

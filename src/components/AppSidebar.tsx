@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { LayoutDashboard, Video, FileText, Calendar, BarChart3, Target, MessageCircle, Users, Settings, Cog, User, LogOut } from "lucide-react";
+import { LayoutDashboard, Video, FileText, Calendar, BarChart3, Target, MessageCircle, Users, Settings, Cog, User, LogOut, Film } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useAuth } from "@/contexts/AuthContext";
 import { useAppState } from "@/contexts/AppStateContext";
@@ -39,7 +39,10 @@ export function AppSidebar() {
     { title: "Métricas", url: "/metricas", icon: BarChart3 },
     { title: "Ads", url: "/ads", icon: Target },
     { title: isClient ? "Mi Perfil" : "Perfil del cliente", url: "/perfil", icon: User },
-    ...(isAdmin ? [{ title: "Usuarios", url: "/usuarios", icon: Users }] : []),
+    ...(isAdmin ? [
+      { title: "Entregas", url: "/admin/entregas", icon: Film },
+      { title: "Usuarios", url: "/usuarios", icon: Users },
+    ] : []),
   ];
 
   const badge = roleBadges[role];
