@@ -308,6 +308,116 @@ export async function unassignEditorClient(assignmentId: string): Promise<{ ok: 
   return { ok: true };
 }
 
+// ── Editor preferences (payment scheme + field visibility) ─────
+export type PaymentScheme = "per_video" | "fixed_monthly" | "fixed_weekly" | "fixed_biweekly" | "none";
+
+export interface EditorPreferences {
+  editorId: string;
+  paymentScheme: PaymentScheme;
+  fixedAmount: number | null;
+  fixedCurrency: "USD" | "MXN" | null;
+  showCosto: boolean;
+  showReferencia: boolean;
+  showPublicado: boolean;
+  showThumbnail: boolean;
+  showEmbed: boolean;
+  notes: string | null;
+}
+
+export const DEFAULT_EDITOR_PREFS: Omit<EditorPreferences, "editorId"> = {
+  paymentScheme: "per_video",
+  fixedAmount:   null,
+  fixedCurrency: null,
+  showCosto:     true,
+  showReferencia: false,
+  showPublicado: false,
+  showThumbnail: true,
+  showEmbed:     false,
+  notes:         null,
+};
+
+function mapPrefs(row: any): EditorPreferences {
+  return {
+    editorId:      row.editor_id,
+    paymentScheme: row.payment_scheme,
+    fixedAmount:   row.fixed_amount != null ? Number(row.fixed_amount) : null,
+    fixedCurrency: row.fixed_currency,
+    showCosto:     !!row.show_costo,
+    showReferencia: !!row.show_referencia,
+    showPublicado: !!row.show_publicado,
+    showThumbnail: !!row.show_thumbnail,
+    showEmbed:     !!row.show_embed,
+    notes:         row.notes,
+  };
+}
+
+export async function fetchEditorPreferences(editorId: string): Promise<EditorPreferences> {
+  const { data, error } = await supabase
+    .from("editor_preferences")
+    .select("*")
+    .eq("editor_id", editorId)
+    .maybeSingle();
+  if (error || !data) {
+    return { editorId, ...DEFAULT_EDITOR_PREFS };
+  }
+  return mapPrefs(data);
+}
+
+export async function upsertEditorPreferences(
+  prefs: EditorPreferences,
+  updatedBy: string
+): Promise<{ ok: boolean; error?: string }> {
+  const row = {
+    editor_id:       prefs.editorId,
+    payment_scheme:  prefs.paymentScheme,
+    fixed_amount:    prefs.fixedAmount,
+    fixed_currency:  prefs.fixedCurrency,
+    show_costo:      prefs.showCosto,
+    show_referencia: prefs.showReferencia,
+    show_publicado:  prefs.showPublicado,
+    show_thumbnail:  prefs.showThumbnail,
+    show_embed:      prefs.showEmbed,
+    notes:           prefs.notes,
+    updated_by:      updatedBy,
+  };
+  const { error } = await supabase
+    .from("editor_preferences")
+    .upsert(row, { onConflict: "editor_id" });
+  if (error) return { ok: false, error: error.message };
+  return { ok: true };
+}
+
+// Fetch the editor's assigned clients (used in admin assignment panel)
+export async function fetchEditorAssignedClientIds(editorId: string): Promise<Set<string>> {
+  const { data } = await supabase
+    .from("editor_clients")
+    .select("cliente_id")
+    .eq("editor_id", editorId);
+  return new Set((data || []).map((r: any) => r.cliente_id));
+}
+
+export async function setEditorAssignment(
+  editorId: string,
+  clienteId: string,
+  shouldAssign: boolean,
+  assignedBy: string
+): Promise<{ ok: boolean; error?: string }> {
+  if (shouldAssign) {
+    const { error } = await supabase
+      .from("editor_clients")
+      .insert({ editor_id: editorId, cliente_id: clienteId, assigned_by: assignedBy });
+    if (error && !error.message.includes("duplicate")) return { ok: false, error: error.message };
+    return { ok: true };
+  }
+  const { error } = await supabase
+    .from("editor_clients")
+    .delete()
+    .eq("editor_id", editorId)
+    .eq("cliente_id", clienteId);
+  if (error) return { ok: false, error: error.message };
+  return { ok: true };
+}
+
 // ── Bulk import (used by admin to seed historical data) ─────────
 import type { FedraSeedVideo } from "@/data/fedraSeedData";
 

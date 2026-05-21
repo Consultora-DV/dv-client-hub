@@ -65,6 +65,51 @@ export type Database = {
         }
         Relationships: []
       }
+      editor_preferences: {
+        Row: {
+          editor_id: string
+          payment_scheme: string
+          fixed_amount: number | null
+          fixed_currency: string | null
+          show_costo: boolean
+          show_referencia: boolean
+          show_publicado: boolean
+          show_thumbnail: boolean
+          show_embed: boolean
+          notes: string | null
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          editor_id: string
+          payment_scheme?: string
+          fixed_amount?: number | null
+          fixed_currency?: string | null
+          show_costo?: boolean
+          show_referencia?: boolean
+          show_publicado?: boolean
+          show_thumbnail?: boolean
+          show_embed?: boolean
+          notes?: string | null
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          editor_id?: string
+          payment_scheme?: string
+          fixed_amount?: number | null
+          fixed_currency?: string | null
+          show_costo?: boolean
+          show_referencia?: boolean
+          show_publicado?: boolean
+          show_thumbnail?: boolean
+          show_embed?: boolean
+          notes?: string | null
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: []
+      }
       calendar_events: {
         Row: {
           cliente_id: string

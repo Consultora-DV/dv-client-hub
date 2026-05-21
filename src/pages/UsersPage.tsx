@@ -6,8 +6,9 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { UserCog, UserPlus, X, Mail, Copy, Check, Clock, ShieldCheck, Ban, Trash2, AlertTriangle } from "lucide-react";
+import { UserCog, UserPlus, X, Mail, Copy, Check, Clock, ShieldCheck, Ban, Trash2, AlertTriangle, Settings as SettingsIcon } from "lucide-react";
 import { toast } from "sonner";
+import { EditorConfigPanel } from "@/components/EditorConfigPanel";
 
 interface ManagedUser {
   id: string;
@@ -212,6 +213,7 @@ export default function UsersPage() {
   const [users, setUsers] = useState<ManagedUser[]>([]);
   const [editingUser, setEditingUser] = useState<ManagedUser | null>(null);
   const [deletingUser, setDeletingUser] = useState<ManagedUser | null>(null);
+  const [configEditor, setConfigEditor] = useState<ManagedUser | null>(null);
   const [deleteLoading, setDeleteLoading] = useState(false);
   const [showInvite, setShowInvite] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -404,6 +406,15 @@ export default function UsersPage() {
                       Reactivar
                     </Button>
                   )}
+                  {u.role === "editor" && u.approvalStatus === "approved" && (
+                    <button
+                      onClick={() => setConfigEditor(u)}
+                      className="p-2 rounded-lg hover:bg-primary/10 text-primary hover:text-primary transition-colors"
+                      title="Configurar editor (clientes asignados, esquema de pago, visibilidad de campos)"
+                    >
+                      <SettingsIcon className="h-4 w-4" />
+                    </button>
+                  )}
                   <button
                     onClick={() => setEditingUser(u)}
                     className="p-2 rounded-lg hover:bg-secondary text-muted-foreground hover:text-foreground transition-colors"
@@ -508,6 +519,13 @@ export default function UsersPage() {
             user={editingUser}
             onClose={() => setEditingUser(null)}
             onSave={handleSaveRole}
+          />
+        )}
+        {configEditor && (
+          <EditorConfigPanel
+            editorId={configEditor.user_id}
+            editorName={configEditor.name}
+            onClose={() => setConfigEditor(null)}
           />
         )}
         {showInvite && (

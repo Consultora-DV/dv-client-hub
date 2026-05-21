@@ -9,13 +9,15 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
   fetchEditorClients, suggestNextRec, submitVideoDelivery,
-  recDisplay, EditorClient, Priority, Moneda,
+  fetchEditorPreferences, recDisplay,
+  EditorClient, Priority, Moneda, EditorPreferences, DEFAULT_EDITOR_PREFS,
 } from "@/services/editorPortalService";
 
 export default function NuevaEntregaPage() {
   const { user } = useAuth();
   const navigate = useNavigate();
   const [clients, setClients] = useState<EditorClient[]>([]);
+  const [prefs, setPrefs] = useState<EditorPreferences>({ editorId: "", ...DEFAULT_EDITOR_PREFS });
   const [loadingClients, setLoadingClients] = useState(true);
   const [showAdvanced, setShowAdvanced] = useState(false);
 
@@ -25,7 +27,6 @@ export default function NuevaEntregaPage() {
   const [recNumber, setRecNumber] = useState<number>(1);
   const [recOrder,  setRecOrder]  = useState<number>(1);
   const [driveLink, setDriveLink] = useState("");
-  const [referenciaGuion, setReferenciaGuion] = useState("");
   const [thumbnail, setThumbnail] = useState("");
   const [embedUrl,  setEmbedUrl]  = useState("");
   const [priority,  setPriority]  = useState<Priority>("normal");
@@ -35,9 +36,15 @@ export default function NuevaEntregaPage() {
 
   useEffect(() => {
     if (!user) return;
-    fetchEditorClients(user.id).then((cls) => {
+    Promise.all([
+      fetchEditorClients(user.id),
+      fetchEditorPreferences(user.id),
+    ]).then(([cls, p]) => {
       setClients(cls);
+      setPrefs(p);
       if (cls.length === 1) setClienteId(cls[0].clienteId);
+      // If editor scheme is fixed/none, force costo blank
+      if (p.paymentScheme !== "per_video") setCosto("");
       setLoadingClients(false);
     });
   }, [user?.id]);
@@ -73,10 +80,10 @@ export default function NuevaEntregaPage() {
       driveLink: driveLink.trim(),
       thumbnail: thumbnail.trim() || null,
       embedUrl:  embedUrl.trim() || null,
-      referenciaGuion: referenciaGuion.trim() || null,
+      referenciaGuion: null,  // editors don't set this — admin does
       priority,
-      costo: costo.trim() ? parseFloat(costo) : null,
-      moneda,
+      costo: prefs.paymentScheme === "per_video" && costo.trim() ? parseFloat(costo) : null,
+      moneda: prefs.paymentScheme === "per_video" ? moneda : null,
     });
     setSubmitting(false);
 
@@ -173,20 +180,15 @@ export default function NuevaEntregaPage() {
             placeholder="ej. PIZARRON, COMPARATIVA ALIMENTOS, LICUADO…" required />
         </div>
 
-        {/* Drive link */}
+        {/* Drive link — el campo principal del editor */}
         <div className="space-y-2">
-          <Label htmlFor="drive">Link del video editado (Drive) <span className="text-destructive">*</span></Label>
+          <Label htmlFor="drive">Link del material entregado <span className="text-destructive">*</span></Label>
           <Input id="drive" type="url" value={driveLink}
             onChange={(e) => setDriveLink(e.target.value)}
-            placeholder="https://drive.google.com/..." required />
-        </div>
-
-        {/* Referencia guion */}
-        <div className="space-y-2">
-          <Label htmlFor="guion">Referencia / Guion (opcional)</Label>
-          <Input id="guion" type="url" value={referenciaGuion}
-            onChange={(e) => setReferenciaGuion(e.target.value)}
-            placeholder="Link al Google Doc del guion" />
+            placeholder="https://drive.google.com/... (donde alojaste el video editado)" required />
+          <p className="text-[11px] text-muted-foreground">
+            Pega el link de Drive, WeTransfer, Dropbox o donde hayas subido el material final.
+          </p>
         </div>
 
         {/* Prioridad */}
@@ -206,58 +208,75 @@ export default function NuevaEntregaPage() {
           </div>
         </div>
 
-        {/* Advanced section toggle */}
-        <button
-          type="button"
-          onClick={() => setShowAdvanced((s) => !s)}
-          className="w-full flex items-center justify-between py-2 text-sm text-muted-foreground hover:text-foreground transition-colors border-t border-border/30 pt-4"
-        >
-          <span>Opcional: miniatura, costo, embed</span>
-          {showAdvanced ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
-        </button>
+        {(prefs.showThumbnail || (prefs.showCosto && prefs.paymentScheme === "per_video") || prefs.showEmbed) && (
+          <>
+            <button
+              type="button"
+              onClick={() => setShowAdvanced((s) => !s)}
+              className="w-full flex items-center justify-between py-2 text-sm text-muted-foreground hover:text-foreground transition-colors border-t border-border/30 pt-4"
+            >
+              <span>Opcional</span>
+              {showAdvanced ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+            </button>
 
-        {showAdvanced && (
-          <div className="space-y-4 pt-2">
-            {/* Miniatura */}
-            <div className="space-y-2">
-              <Label htmlFor="thumb">Miniatura (URL)</Label>
-              <Input id="thumb" type="url" value={thumbnail}
-                onChange={(e) => setThumbnail(e.target.value)}
-                placeholder="https://… (si no hay miniatura, déjalo vacío)" />
-            </div>
+            {showAdvanced && (
+              <div className="space-y-4 pt-2">
+                {prefs.showThumbnail && (
+                  <div className="space-y-2">
+                    <Label htmlFor="thumb">Miniatura (URL)</Label>
+                    <Input id="thumb" type="url" value={thumbnail}
+                      onChange={(e) => setThumbnail(e.target.value)}
+                      placeholder="https://… (si no hay miniatura, déjalo vacío)" />
+                  </div>
+                )}
 
-            {/* Costo + Moneda */}
-            <div className="grid grid-cols-3 gap-2">
-              <div className="col-span-2 space-y-2">
-                <Label htmlFor="costo">Costo de edición</Label>
-                <Input id="costo" type="number" min={0} step="0.01" value={costo}
-                  onChange={(e) => setCosto(e.target.value)}
-                  placeholder="ej. 26" />
+                {prefs.showCosto && prefs.paymentScheme === "per_video" && (
+                  <div className="grid grid-cols-3 gap-2">
+                    <div className="col-span-2 space-y-2">
+                      <Label htmlFor="costo">Costo de edición</Label>
+                      <Input id="costo" type="number" min={0} step="0.01" value={costo}
+                        onChange={(e) => setCosto(e.target.value)}
+                        placeholder="ej. 26" />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Moneda</Label>
+                      <div className="flex gap-1">
+                        {(["USD", "MXN"] as const).map((m) => (
+                          <button key={m} type="button" onClick={() => setMoneda(m)}
+                            className={`flex-1 px-2 py-2 rounded-lg border text-xs transition-colors ${
+                              moneda === m
+                                ? "border-primary bg-primary/10 text-primary"
+                                : "border-border/40 text-foreground hover:border-primary/50"
+                            }`}>
+                            {m}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {prefs.showEmbed && (
+                  <div className="space-y-2">
+                    <Label htmlFor="embed">Embed URL</Label>
+                    <Input id="embed" type="url" value={embedUrl}
+                      onChange={(e) => setEmbedUrl(e.target.value)}
+                      placeholder="Para reproducir directo en el panel del cliente" />
+                  </div>
+                )}
               </div>
-              <div className="space-y-2">
-                <Label>Moneda</Label>
-                <div className="flex gap-1">
-                  {(["USD", "MXN"] as const).map((m) => (
-                    <button key={m} type="button" onClick={() => setMoneda(m)}
-                      className={`flex-1 px-2 py-2 rounded-lg border text-xs transition-colors ${
-                        moneda === m
-                          ? "border-primary bg-primary/10 text-primary"
-                          : "border-border/40 text-foreground hover:border-primary/50"
-                      }`}>
-                      {m}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            </div>
+            )}
+          </>
+        )}
 
-            {/* Embed URL */}
-            <div className="space-y-2">
-              <Label htmlFor="embed">Embed URL</Label>
-              <Input id="embed" type="url" value={embedUrl}
-                onChange={(e) => setEmbedUrl(e.target.value)}
-                placeholder="Para reproducir directo en el panel del cliente" />
-            </div>
+        {/* Si paga fijo, mostrar info al editor */}
+        {prefs.paymentScheme !== "per_video" && prefs.paymentScheme !== "none" && (
+          <div className="text-xs text-muted-foreground bg-secondary/30 border border-border/30 rounded-lg p-3">
+            💼 Tu esquema de pago es <strong className="text-foreground">{
+              prefs.paymentScheme === "fixed_monthly" ? "mensual fijo"
+              : prefs.paymentScheme === "fixed_weekly" ? "semanal fijo"
+              : "quincenal fijo"
+            }</strong>. No necesitas registrar costo por video.
           </div>
         )}
 
