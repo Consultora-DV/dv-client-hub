@@ -1,20 +1,29 @@
 -- ╔══════════════════════════════════════════════════════════════╗
--- ║  Seed: videos históricos de Dra. Fedra Aldama (T1–T6)        ║
+-- ║  Seed: videos históricos de Dra. Fedra Aldama (R1–R6)        ║
 -- ║  Fuente: Notion "Dra Fedra WorkFlow Edición"                 ║
 -- ║                                                              ║
--- ║  INSTRUCCIONES:                                              ║
--- ║  1. Crea a Fedra como usuario CLIENTE en /usuarios           ║
--- ║  2. Obtén su user_id:                                        ║
--- ║       SELECT user_id, display_name, email FROM profiles      ║
--- ║       WHERE display_name ILIKE '%fedra%';                    ║
--- ║  3. Reemplaza '<FEDRA_UUID>' abajo por ese UUID              ║
--- ║  4. Ejecuta este bloque                                      ║
+-- ║  Auto-resuelve el UUID por email — solo copy/paste y Run.    ║
 -- ╚══════════════════════════════════════════════════════════════╝
 
 DO $$
 DECLARE
-  fedra_id uuid := '<FEDRA_UUID>'::uuid;  -- ← REEMPLAZAR
+  fedra_id uuid;
 BEGIN
+  -- Resolver UUID por email (cámbialo si el email es otro)
+  SELECT user_id INTO fedra_id
+    FROM profiles
+   WHERE email = 'consultoriodrafedraaldama@gmail.com'
+   LIMIT 1;
+
+  IF fedra_id IS NULL THEN
+    RAISE EXCEPTION 'No se encontró a Fedra. Verifica que el email sea correcto.';
+  END IF;
+
+  -- Evita duplicar si ya se corrió antes
+  IF EXISTS (SELECT 1 FROM videos WHERE cliente_id = fedra_id AND rec_number IS NOT NULL) THEN
+    RAISE NOTICE 'Fedra ya tiene videos con REC. Saltando inserción.';
+    RETURN;
+  END IF;
 
 INSERT INTO videos (
   cliente_id, rec_number, rec_order, title, status, priority,
