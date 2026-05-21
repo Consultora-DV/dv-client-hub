@@ -184,63 +184,55 @@ export default function AdminEntregasPage() {
         </div>
       </div>
 
-      {/* Primary filters (inline) */}
-      <div className="glass gold-border rounded-xl p-3 space-y-2">
-        <div className="flex flex-wrap items-center gap-x-3 gap-y-2 text-sm">
+      {/* Filters — all as dropdowns for clean alignment */}
+      <div className="glass gold-border rounded-xl p-3 space-y-3">
+        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-3">
           {/* Cliente */}
-          <div className="flex flex-wrap items-center gap-1.5">
-            <span className="text-xs text-muted-foreground">Cliente:</span>
-            <button onClick={() => setFilterClient("all")}
-              className={`px-2.5 py-1 rounded-full text-xs border transition-colors ${
-                filterClient === "all" ? "border-primary bg-primary/10 text-primary" : "border-border/40 text-muted-foreground hover:text-foreground"
-              }`}>Todos</button>
-            {clients.map((c) => (
-              <button key={c.id} onClick={() => setFilterClient(c.id)}
-                className={`px-2.5 py-1 rounded-full text-xs border transition-colors ${
-                  filterClient === c.id ? "border-primary bg-primary/10 text-primary" : "border-border/40 text-muted-foreground hover:text-foreground"
-                }`}>{c.nombre}</button>
-            ))}
+          <div className="space-y-1">
+            <label className="text-[10px] text-muted-foreground uppercase tracking-wide">Cliente</label>
+            <select value={filterClient} onChange={(e) => setFilterClient(e.target.value)}
+              className={`w-full text-xs px-2 py-1.5 rounded-lg border bg-transparent ${
+                filterClient !== "all" ? "border-primary text-primary" : "border-border/40 text-foreground"
+              }`}>
+              <option value="all" className="bg-background">Todos los clientes</option>
+              {clients.map((c) => (
+                <option key={c.id} value={c.id} className="bg-background">{c.nombre}</option>
+              ))}
+            </select>
           </div>
 
-          <div className="flex-1" />
-
-          <Button variant="ghost" size="sm" onClick={load}>
-            <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
-          </Button>
-        </div>
-
-        <div className="flex flex-wrap items-center gap-x-3 gap-y-2 text-sm">
-          <div className="flex flex-wrap items-center gap-1.5">
-            <span className="text-xs text-muted-foreground">Estado:</span>
-            <button onClick={() => setFilterStatus("all")}
-              className={`px-2.5 py-1 rounded-full text-xs border transition-colors ${
-                filterStatus === "all" ? "border-primary bg-primary/10 text-primary" : "border-border/40 text-muted-foreground hover:text-foreground"
-              }`}>Todos</button>
-            {STATUS_OPTIONS.map((s) => (
-              <button key={s.value} onClick={() => setFilterStatus(s.value)}
-                className={`px-2.5 py-1 rounded-full text-xs border transition-colors ${
-                  filterStatus === s.value ? "border-primary bg-primary/10 text-primary" : "border-border/40 text-muted-foreground hover:text-foreground"
-                }`}>{s.label}</button>
-            ))}
+          {/* Estado */}
+          <div className="space-y-1">
+            <label className="text-[10px] text-muted-foreground uppercase tracking-wide">Estado</label>
+            <select value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)}
+              className={`w-full text-xs px-2 py-1.5 rounded-lg border bg-transparent ${
+                filterStatus !== "all" ? "border-primary text-primary" : "border-border/40 text-foreground"
+              }`}>
+              <option value="all" className="bg-background">Todos los estados</option>
+              {STATUS_OPTIONS.map((s) => (
+                <option key={s.value} value={s.value} className="bg-background">{s.label}</option>
+              ))}
+            </select>
           </div>
 
-          <div className="flex flex-wrap items-center gap-1.5">
-            <span className="text-xs text-muted-foreground">Pago:</span>
-            {[{k:"all",l:"Todos"},{k:"yes",l:"Pagado"},{k:"no",l:"Pendiente"}].map((p) => (
-              <button key={p.k} onClick={() => setFilterPaid(p.k as any)}
-                className={`px-2.5 py-1 rounded-full text-xs border transition-colors ${
-                  filterPaid === p.k ? "border-primary bg-primary/10 text-primary" : "border-border/40 text-muted-foreground hover:text-foreground"
-                }`}>{p.l}</button>
-            ))}
+          {/* Pago */}
+          <div className="space-y-1">
+            <label className="text-[10px] text-muted-foreground uppercase tracking-wide">Pago</label>
+            <select value={filterPaid} onChange={(e) => setFilterPaid(e.target.value as any)}
+              className={`w-full text-xs px-2 py-1.5 rounded-lg border bg-transparent ${
+                filterPaid !== "all" ? "border-primary text-primary" : "border-border/40 text-foreground"
+              }`}>
+              <option value="all" className="bg-background">Todos</option>
+              <option value="yes" className="bg-background">Pagado</option>
+              <option value="no"  className="bg-background">Pendiente</option>
+            </select>
           </div>
 
-          <div className="flex-1" />
-
-          {/* Sort */}
-          <div className="flex items-center gap-1.5">
-            <span className="text-xs text-muted-foreground">Ordenar:</span>
+          {/* Ordenar */}
+          <div className="space-y-1">
+            <label className="text-[10px] text-muted-foreground uppercase tracking-wide">Ordenar</label>
             <select value={sortBy} onChange={(e) => setSortBy(e.target.value as any)}
-              className="text-xs px-2 py-1 rounded-lg border border-border/40 bg-transparent">
+              className="w-full text-xs px-2 py-1.5 rounded-lg border border-border/40 bg-transparent text-foreground">
               <option value="rec_desc" className="bg-background">REC ↓ (nuevo)</option>
               <option value="rec_asc" className="bg-background">REC ↑ (viejo)</option>
               <option value="date_desc" className="bg-background">Fecha ↓</option>
@@ -248,16 +240,27 @@ export default function AdminEntregasPage() {
             </select>
           </div>
 
-          <button onClick={() => setShowAdvancedFilters((s) => !s)}
-            className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs border transition-colors ${
-              activeAdvanced > 0
-                ? "border-primary bg-primary/10 text-primary"
-                : "border-border/40 text-muted-foreground hover:text-foreground"
-            }`}>
-            <SlidersHorizontal className="h-3 w-3" />
-            Más filtros{activeAdvanced > 0 && ` (${activeAdvanced})`}
-            {showAdvancedFilters ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
-          </button>
+          {/* Acciones */}
+          <div className="space-y-1 flex flex-col">
+            <label className="text-[10px] text-muted-foreground uppercase tracking-wide">Acciones</label>
+            <div className="flex gap-1.5">
+              <button onClick={() => setShowAdvancedFilters((s) => !s)}
+                className={`flex-1 flex items-center justify-center gap-1.5 px-2 py-1.5 rounded-lg text-xs border transition-colors ${
+                  activeAdvanced > 0
+                    ? "border-primary bg-primary/10 text-primary"
+                    : "border-border/40 text-muted-foreground hover:text-foreground"
+                }`}>
+                <SlidersHorizontal className="h-3 w-3" />
+                Más{activeAdvanced > 0 && ` (${activeAdvanced})`}
+                {showAdvancedFilters ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
+              </button>
+              <button onClick={load}
+                className="px-2 py-1.5 rounded-lg text-xs border border-border/40 text-muted-foreground hover:text-foreground transition-colors"
+                title="Refrescar">
+                <RefreshCw className={`h-3.5 w-3.5 ${loading ? "animate-spin" : ""}`} />
+              </button>
+            </div>
+          </div>
         </div>
 
         {/* Advanced filters (collapsible) */}
