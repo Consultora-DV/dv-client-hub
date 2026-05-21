@@ -147,7 +147,7 @@ export default function NuevaEntregaPage() {
   }
 
   return (
-    <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="max-w-2xl mx-auto">
+    <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="max-w-2xl mx-auto w-full">
       <div className="mb-6">
         <h1 className="text-2xl font-display font-bold text-foreground flex items-center gap-2">
           <FilePlus className="h-6 w-6 text-primary" /> Nueva entrega
@@ -157,23 +157,33 @@ export default function NuevaEntregaPage() {
         </p>
       </div>
 
-      <form onSubmit={handleSubmit} className="space-y-5 glass gold-border rounded-xl p-6">
-        {/* Cliente */}
+      <form onSubmit={handleSubmit} className="space-y-5 glass gold-border rounded-xl p-4 sm:p-6">
+        {/* Cliente — pills si pocos, dropdown si muchos */}
         <div className="space-y-2">
-          <Label>Cliente <span className="text-destructive">*</span></Label>
-          <div className="flex flex-wrap gap-2">
-            {clients.map((c) => (
-              <button key={c.clienteId} type="button"
-                onClick={() => setClienteId(c.clienteId)}
-                className={`px-4 py-2 rounded-lg border text-sm transition-colors ${
-                  clienteId === c.clienteId
-                    ? "border-primary bg-primary/10 text-primary"
-                    : "border-border/40 text-foreground hover:border-primary/50"
-                }`}>
-                {c.nombre}
-              </button>
-            ))}
-          </div>
+          <Label htmlFor="cliente-select">Cliente <span className="text-destructive">*</span></Label>
+          {clients.length <= 4 ? (
+            <div className="flex flex-wrap gap-2">
+              {clients.map((c) => (
+                <button key={c.clienteId} type="button"
+                  onClick={() => setClienteId(c.clienteId)}
+                  className={`px-4 py-2 rounded-lg border text-sm transition-colors ${
+                    clienteId === c.clienteId
+                      ? "border-primary bg-primary/10 text-primary"
+                      : "border-border/40 text-foreground hover:border-primary/50"
+                  }`}>
+                  {c.nombre}
+                </button>
+              ))}
+            </div>
+          ) : (
+            <select id="cliente-select" value={clienteId} onChange={(e) => setClienteId(e.target.value)}
+              className="w-full px-3 py-2 bg-secondary/30 border border-border/40 rounded-lg text-sm focus:outline-none focus:border-primary/50">
+              <option value="" className="bg-background">— Selecciona un cliente —</option>
+              {clients.map((c) => (
+                <option key={c.clienteId} value={c.clienteId} className="bg-background">{c.nombre}</option>
+              ))}
+            </select>
+          )}
         </div>
 
         {/* REC — single text input */}
@@ -187,8 +197,8 @@ export default function NuevaEntregaPage() {
               </button>
             )}
           </div>
-          <div className="flex items-center gap-2">
-            <div className="relative flex-1">
+          <div className="flex items-center gap-1.5 flex-wrap sm:flex-nowrap">
+            <div className="relative flex-1 min-w-[140px]">
               <Hash className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input id="rec" value={recInput}
                 onChange={(e) => setRecInput(e.target.value)}
@@ -196,20 +206,22 @@ export default function NuevaEntregaPage() {
                 className="pl-9 font-mono text-base"
                 autoComplete="off" />
             </div>
-            <button type="button" onClick={() => bumpOrder(-1)}
-              className="px-2 py-2 rounded-lg border border-border/40 text-muted-foreground hover:text-foreground hover:border-primary/50 transition-colors text-xs"
-              title="Restar 1 al orden">−</button>
-            <button type="button" onClick={() => bumpOrder(1)}
-              className="px-2 py-2 rounded-lg border border-border/40 text-muted-foreground hover:text-foreground hover:border-primary/50 transition-colors text-xs"
-              title="Sumar 1 al orden">+</button>
-            <button type="button" onClick={() => bumpRec(1)}
-              className="px-2 py-2 rounded-lg border border-border/40 text-muted-foreground hover:text-primary hover:border-primary/50 transition-colors text-xs whitespace-nowrap"
-              title="Nuevo REC (siguiente sesión)">+REC</button>
-            <button type="button" onClick={refreshRec}
-              className="px-2 py-2 rounded-lg border border-border/40 text-muted-foreground hover:text-foreground hover:border-primary/50 transition-colors"
-              title="Recalcular sugerencia">
-              <RefreshCw className="h-3.5 w-3.5" />
-            </button>
+            <div className="flex items-center gap-1">
+              <button type="button" onClick={() => bumpOrder(-1)}
+                className="w-9 h-9 rounded-lg border border-border/40 text-muted-foreground hover:text-foreground hover:border-primary/50 transition-colors text-sm font-semibold"
+                title="Restar 1 al orden">−</button>
+              <button type="button" onClick={() => bumpOrder(1)}
+                className="w-9 h-9 rounded-lg border border-border/40 text-muted-foreground hover:text-foreground hover:border-primary/50 transition-colors text-sm font-semibold"
+                title="Sumar 1 al orden">+</button>
+              <button type="button" onClick={() => bumpRec(1)}
+                className="h-9 px-2 rounded-lg border border-border/40 text-muted-foreground hover:text-primary hover:border-primary/50 transition-colors text-xs whitespace-nowrap font-medium"
+                title="Nuevo REC (siguiente sesión)">+REC</button>
+              <button type="button" onClick={refreshRec}
+                className="w-9 h-9 flex items-center justify-center rounded-lg border border-border/40 text-muted-foreground hover:text-foreground hover:border-primary/50 transition-colors"
+                title="Recalcular sugerencia">
+                <RefreshCw className="h-3.5 w-3.5" />
+              </button>
+            </div>
           </div>
           <p className="text-[11px] text-muted-foreground">
             {parsedRec

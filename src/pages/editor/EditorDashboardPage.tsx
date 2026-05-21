@@ -1,13 +1,13 @@
 import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import { Link } from "react-router-dom";
-import { FilePlus, RefreshCw, Video as VideoIcon, ExternalLink } from "lucide-react";
+import { FilePlus, RefreshCw, Video as VideoIcon, ExternalLink, Eye, CheckCircle2, Globe, ListChecks } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
-  fetchEditorVideos, fetchEditorClients,
-  EditorVideo, EditorClient,
+  fetchEditorVideos, fetchEditorClients, fetchEditorPreferences,
+  EditorVideo, EditorClient, EditorPreferences, DEFAULT_EDITOR_PREFS,
 } from "@/services/editorPortalService";
 
 function statusBadge(status: string) {
@@ -32,6 +32,7 @@ export default function EditorDashboardPage() {
   const { user } = useAuth();
   const [videos, setVideos]   = useState<EditorVideo[]>([]);
   const [clients, setClients] = useState<EditorClient[]>([]);
+  const [prefs, setPrefs] = useState<EditorPreferences>({ editorId: "", ...DEFAULT_EDITOR_PREFS });
   const [loading, setLoading] = useState(true);
   const [filterClient, setFilterClient] = useState<string>("all");
   const [filterStatus, setFilterStatus] = useState<string>("all");
@@ -39,12 +40,14 @@ export default function EditorDashboardPage() {
   const load = async () => {
     if (!user) return;
     setLoading(true);
-    const [vids, cls] = await Promise.all([
+    const [vids, cls, p] = await Promise.all([
       fetchEditorVideos(user.id),
       fetchEditorClients(user.id),
+      fetchEditorPreferences(user.id),
     ]);
     setVideos(vids);
     setClients(cls);
+    setPrefs(p);
     setLoading(false);
   };
 
@@ -115,56 +118,86 @@ export default function EditorDashboardPage() {
         </div>
       )}
 
-      {/* Counters */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        {[
-          { label: "Total",       value: counters.total },
-          { label: "En revisión", value: counters.enRevision },
-          { label: "Aprobados",   value: counters.aprobados },
-          { label: "Publicados",  value: counters.publicados },
-        ].map((k) => (
-          <div key={k.label} className="glass gold-border rounded-xl p-4">
-            <p className="text-xs text-muted-foreground">{k.label}</p>
-            <p className="text-2xl font-bold text-primary mt-1">{k.value}</p>
+      {/* Mi info — payment scheme summary */}
+      {!loading && clients.length > 0 && (
+        <div className="glass gold-border rounded-xl px-4 py-3 flex items-center justify-between flex-wrap gap-2 text-sm">
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-muted-foreground">Tu esquema:</span>
+            <span className="text-foreground font-medium">
+              {prefs.paymentScheme === "per_video"      && "💰 Pago por video"}
+              {prefs.paymentScheme === "fixed_monthly"  && `💼 Fijo mensual${prefs.fixedAmount ? ` · ${prefs.fixedCurrency} ${prefs.fixedAmount}` : ""}`}
+              {prefs.paymentScheme === "fixed_biweekly" && `💼 Fijo quincenal${prefs.fixedAmount ? ` · ${prefs.fixedCurrency} ${prefs.fixedAmount}` : ""}`}
+              {prefs.paymentScheme === "fixed_weekly"   && `💼 Fijo semanal${prefs.fixedAmount ? ` · ${prefs.fixedCurrency} ${prefs.fixedAmount}` : ""}`}
+              {prefs.paymentScheme === "none"           && "Sin pago configurado"}
+            </span>
           </div>
-        ))}
+          <span className="text-[11px] text-muted-foreground">Si necesitas cambiar algo, contacta al admin.</span>
+        </div>
+      )}
+
+      {/* Counters — colored by status */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <div className="glass gold-border rounded-xl p-4">
+          <div className="flex items-center justify-between">
+            <p className="text-xs text-muted-foreground">Total</p>
+            <ListChecks className="h-3.5 w-3.5 text-muted-foreground/60" />
+          </div>
+          <p className="text-2xl font-bold text-primary mt-1">{counters.total}</p>
+        </div>
+        <div className="glass rounded-xl p-4 border border-status-pending/30">
+          <div className="flex items-center justify-between">
+            <p className="text-xs text-status-pending">En revisión</p>
+            <Eye className="h-3.5 w-3.5 text-status-pending/60" />
+          </div>
+          <p className="text-2xl font-bold text-status-pending mt-1">{counters.enRevision}</p>
+        </div>
+        <div className="glass rounded-xl p-4 border border-status-approved/30">
+          <div className="flex items-center justify-between">
+            <p className="text-xs text-status-approved">Aprobados</p>
+            <CheckCircle2 className="h-3.5 w-3.5 text-status-approved/60" />
+          </div>
+          <p className="text-2xl font-bold text-status-approved mt-1">{counters.aprobados}</p>
+        </div>
+        <div className="glass rounded-xl p-4 border border-teal-500/30">
+          <div className="flex items-center justify-between">
+            <p className="text-xs text-teal-400">Publicados</p>
+            <Globe className="h-3.5 w-3.5 text-teal-400/60" />
+          </div>
+          <p className="text-2xl font-bold text-teal-400 mt-1">{counters.publicados}</p>
+        </div>
       </div>
 
-      {/* Filters */}
+      {/* Filters — dropdowns, consistent with admin */}
       {videos.length > 0 && (
-        <div className="flex flex-wrap items-center gap-2 text-sm">
-          <span className="text-xs text-muted-foreground">Cliente:</span>
-          <button
-            onClick={() => setFilterClient("all")}
-            className={`px-3 py-1 rounded-full text-xs border transition-colors ${
-              filterClient === "all" ? "border-primary bg-primary/10 text-primary" : "border-border/40 text-muted-foreground hover:text-foreground"
-            }`}
-          >Todos</button>
-          {clients.map((c) => (
-            <button
-              key={c.clienteId}
-              onClick={() => setFilterClient(c.clienteId)}
-              className={`px-3 py-1 rounded-full text-xs border transition-colors ${
-                filterClient === c.clienteId ? "border-primary bg-primary/10 text-primary" : "border-border/40 text-muted-foreground hover:text-foreground"
-              }`}
-            >{c.nombre}</button>
-          ))}
-          <span className="text-xs text-muted-foreground ml-3">Estado:</span>
-          {[
-            { k: "all",       l: "Todos" },
-            { k: "in_review", l: "En revisión" },
-            { k: "approved",  l: "Aprobados" },
-            { k: "changes",   l: "Cambios" },
-            { k: "published", l: "Publicados" },
-          ].map((s) => (
-            <button
-              key={s.k}
-              onClick={() => setFilterStatus(s.k)}
-              className={`px-3 py-1 rounded-full text-xs border transition-colors ${
-                filterStatus === s.k ? "border-primary bg-primary/10 text-primary" : "border-border/40 text-muted-foreground hover:text-foreground"
-              }`}
-            >{s.l}</button>
-          ))}
+        <div className="glass gold-border rounded-xl p-3 grid grid-cols-2 sm:grid-cols-3 gap-3">
+          <div className="space-y-1">
+            <label className="text-[10px] text-muted-foreground uppercase tracking-wide">Cliente</label>
+            <select value={filterClient} onChange={(e) => setFilterClient(e.target.value)}
+              className={`w-full text-xs px-2 py-1.5 rounded-lg border bg-transparent ${
+                filterClient !== "all" ? "border-primary text-primary" : "border-border/40 text-foreground"
+              }`}>
+              <option value="all" className="bg-background">Todos los clientes</option>
+              {clients.map((c) => (
+                <option key={c.clienteId} value={c.clienteId} className="bg-background">{c.nombre}</option>
+              ))}
+            </select>
+          </div>
+          <div className="space-y-1">
+            <label className="text-[10px] text-muted-foreground uppercase tracking-wide">Estado</label>
+            <select value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)}
+              className={`w-full text-xs px-2 py-1.5 rounded-lg border bg-transparent ${
+                filterStatus !== "all" ? "border-primary text-primary" : "border-border/40 text-foreground"
+              }`}>
+              <option value="all" className="bg-background">Todos los estados</option>
+              <option value="in_review" className="bg-background">En revisión</option>
+              <option value="approved" className="bg-background">Aprobados</option>
+              <option value="changes" className="bg-background">Cambios</option>
+              <option value="published" className="bg-background">Publicados</option>
+            </select>
+          </div>
+          <div className="space-y-1 col-span-2 sm:col-span-1 text-xs text-muted-foreground self-end pb-1">
+            Mostrando <span className="text-foreground font-semibold">{visible.length}</span> de {videos.length}
+          </div>
         </div>
       )}
 
