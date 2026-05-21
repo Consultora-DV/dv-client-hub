@@ -1,12 +1,13 @@
 import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import { Link } from "react-router-dom";
-import { FilePlus, RefreshCw, Video as VideoIcon, ExternalLink, Eye, CheckCircle2, Globe, ListChecks } from "lucide-react";
+import { FilePlus, RefreshCw, Video as VideoIcon, ExternalLink, Eye, CheckCircle2, Globe, ListChecks, Edit3, Trash2 } from "lucide-react";
+import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
-  fetchEditorVideos, fetchEditorClients, fetchEditorPreferences,
+  fetchEditorVideos, fetchEditorClients, fetchEditorPreferences, deleteVideo,
   EditorVideo, EditorClient, EditorPreferences, DEFAULT_EDITOR_PREFS,
 } from "@/services/editorPortalService";
 
@@ -52,6 +53,17 @@ export default function EditorDashboardPage() {
   };
 
   useEffect(() => { load(); /* eslint-disable-next-line */ }, [user?.id]);
+
+  const handleDelete = async (videoId: string, recDisplay: string) => {
+    if (!confirm(`¿Eliminar la entrega ${recDisplay}? Solo puedes borrar entregas que estén en revisión. Esta acción no se puede deshacer.`)) return;
+    const result = await deleteVideo(videoId);
+    if (result.ok) {
+      toast.success("Entrega eliminada");
+      setVideos((prev) => prev.filter((v) => v.id !== videoId));
+    } else {
+      toast.error(result.error || "Error al eliminar");
+    }
+  };
 
   const visible = videos.filter((v) =>
     (filterClient === "all" || v.clienteId === filterClient) &&
@@ -239,6 +251,11 @@ export default function EditorDashboardPage() {
                     <div className="min-w-0">
                       <div className="flex items-center gap-2 flex-wrap">
                         <span className="font-mono text-xs text-primary font-semibold">{v.recDisplay}</span>
+                        {v.categoria !== null && (
+                          <span className="text-[10px] px-1.5 py-0.5 rounded bg-secondary border border-border/40 text-foreground font-semibold">
+                            Cat. {v.categoria}
+                          </span>
+                        )}
                         <span className="text-xs text-muted-foreground">·</span>
                         <span className="text-xs text-muted-foreground">{v.clienteName}</span>
                       </div>
@@ -273,6 +290,19 @@ export default function EditorDashboardPage() {
                         className="flex items-center gap-1 hover:text-teal-400 transition-colors">
                         🌐 Publicado
                       </a>
+                    )}
+                    {/* Acciones del editor cuando está en revisión */}
+                    {v.status === "in_review" && (
+                      <div className="ml-auto flex items-center gap-1">
+                        <Link to={`/editor/nueva?id=${v.id}`}
+                          className="flex items-center gap-1 px-2 py-1 rounded border border-border/40 hover:border-primary/50 hover:text-primary transition-colors">
+                          <Edit3 className="h-3 w-3" /> Editar
+                        </Link>
+                        <button onClick={() => handleDelete(v.id, v.recDisplay)}
+                          className="flex items-center gap-1 px-2 py-1 rounded border border-border/40 hover:border-destructive/50 hover:text-destructive transition-colors">
+                          <Trash2 className="h-3 w-3" /> Eliminar
+                        </button>
+                      </div>
                     )}
                   </div>
                 </div>

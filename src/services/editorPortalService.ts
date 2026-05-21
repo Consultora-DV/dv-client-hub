@@ -13,6 +13,7 @@ export interface EditorClient {
 
 export type Priority = "alta" | "normal" | "baja";
 export type Moneda   = "USD" | "MXN";
+export type Categoria = 0 | 1 | 2 | 3 | 4;
 
 export interface EditorVideo {
   id: string;
@@ -21,6 +22,7 @@ export interface EditorVideo {
   title: string;
   status: string;
   priority: Priority;
+  categoria: Categoria | null;
   recNumber: number | null;
   recOrder: number | null;
   recDisplay: string;
@@ -45,6 +47,7 @@ export interface NewVideoDelivery {
   title: string;
   recNumber: number;
   recOrder: number;
+  categoria: Categoria;
   driveLink: string;
   thumbnail?: string | null;
   embedUrl?: string | null;
@@ -58,6 +61,7 @@ export interface UpdateVideoFields {
   title?: string;
   status?: string;
   priority?: Priority;
+  categoria?: Categoria | null;
   recNumber?: number;
   recOrder?: number;
   driveLink?: string | null;
@@ -87,6 +91,7 @@ function mapVideo(v: any, clienteName: string): EditorVideo {
     title: v.title,
     status: v.status,
     priority: (v.priority as Priority) || "normal",
+    categoria: v.categoria != null ? (Number(v.categoria) as Categoria) : null,
     recNumber: v.rec_number ?? null,
     recOrder: v.rec_order ?? null,
     recDisplay: recDisplay(v.rec_number ?? null, v.rec_order ?? null),
@@ -105,6 +110,18 @@ function mapVideo(v: any, clienteName: string): EditorVideo {
     createdAt: v.created_at,
     updatedAt: v.updated_at,
   };
+}
+
+// Fetch a single video by id (for edit mode)
+export async function fetchVideoById(videoId: string): Promise<EditorVideo | null> {
+  const { data, error } = await supabase
+    .from("videos")
+    .select("*")
+    .eq("id", videoId)
+    .maybeSingle();
+  if (error || !data) return null;
+  const nameMap = await resolveClienteNames([data.cliente_id]);
+  return mapVideo(data, nameMap.get(data.cliente_id) || "Cliente");
 }
 
 // ── Editor's assigned clients ───────────────────────────────────
@@ -193,6 +210,7 @@ export async function submitVideoDelivery(
     title:             payload.title,
     rec_number:        payload.recNumber,
     rec_order:         payload.recOrder,
+    categoria:         payload.categoria,
     drive_link:        payload.driveLink,
     thumbnail:         payload.thumbnail || null,
     embed_url:         payload.embedUrl || null,
@@ -226,6 +244,7 @@ export async function updateVideoFields(
   if (fields.title            !== undefined) update.title            = fields.title;
   if (fields.status           !== undefined) update.status           = fields.status;
   if (fields.priority         !== undefined) update.priority         = fields.priority;
+  if (fields.categoria        !== undefined) update.categoria        = fields.categoria;
   if (fields.recNumber        !== undefined) update.rec_number       = fields.recNumber;
   if (fields.recOrder         !== undefined) update.rec_order        = fields.recOrder;
   if (fields.driveLink        !== undefined) update.drive_link       = fields.driveLink;

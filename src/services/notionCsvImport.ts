@@ -77,6 +77,7 @@ function normalizeHeader(h: string): string {
   if (k.includes("costo")) return "costo";
   if (k === "pagado") return "pagado";
   if (k === "texto" || k.includes("caption")) return "texto";
+  if (k === "categoria" || k === "categoría" || k === "cat") return "categoria";
   return k;
 }
 
@@ -104,6 +105,7 @@ export interface ParsedRow {
   title: string;
   status: "pending" | "approved" | "published" | "changes";
   priority: "alta" | "normal" | "baja";
+  categoria: number | null;
   drive_link: string | null;
   thumbnail: string | null;
   referencia_guion: string | null;
@@ -160,12 +162,16 @@ export function parseNotionCsv(text: string): ParseResult {
     const costo = obj.costo ? parseFloat(obj.costo) : null;
     const moneda = obj.moneda === "USD" || obj.moneda === "MXN" ? (obj.moneda as "USD" | "MXN") : null;
 
+    const catRaw = obj.categoria ? parseInt(obj.categoria) : NaN;
+    const categoria = !isNaN(catRaw) && catRaw >= 0 && catRaw <= 4 ? catRaw : null;
+
     rows.push({
       rec_number: rec.rec_number,
       rec_order: rec.rec_order,
       title: obj.title,
       status: mapStatus(obj.estado, obj.publicacion),
       priority: mapPriority(obj.prioridad),
+      categoria,
       drive_link: obj.link || null,
       thumbnail: obj.miniatura || null,
       referencia_guion,
@@ -208,6 +214,7 @@ export async function importParsedRows(
     title:            r.title,
     status:           r.status,
     priority:         r.priority,
+    categoria:        r.categoria,
     drive_link:       r.drive_link,
     thumbnail:        r.thumbnail,
     referencia_guion: r.referencia_guion,

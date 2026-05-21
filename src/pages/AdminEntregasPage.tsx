@@ -37,6 +37,8 @@ export default function AdminEntregasPage() {
   const [filterRec, setFilterRec]       = useState<string>("all");
   const [filterEditor, setFilterEditor] = useState<string>("all");
   const [filterMonth, setFilterMonth]   = useState<string>("all"); // "YYYY-MM"
+  const [filterCat, setFilterCat]       = useState<string>("all"); // "0".."4"
+  const [searchText, setSearchText]     = useState<string>("");
   const [sortBy, setSortBy] = useState<"rec_desc" | "rec_asc" | "date_desc" | "date_asc">("rec_desc");
   const [editingId, setEditingId] = useState<string | null>(null);
   const [showImport, setShowImport] = useState(false);
@@ -79,17 +81,20 @@ export default function AdminEntregasPage() {
 
   // Count active advanced filters
   const activeAdvanced = [
-    filterRec !== "all", filterEditor !== "all", filterMonth !== "all"
+    filterRec !== "all", filterEditor !== "all", filterMonth !== "all", filterCat !== "all"
   ].filter(Boolean).length;
 
   const visible = useMemo(() => {
+    const search = searchText.trim().toLowerCase();
     let list = videos.filter((v) =>
       (filterClient === "all" || v.clienteId === filterClient) &&
       (filterStatus === "all" || v.status === filterStatus) &&
       (filterPaid   === "all" || (filterPaid === "yes" ? v.pagado : !v.pagado)) &&
       (filterRec    === "all" || v.recNumber === parseInt(filterRec)) &&
       (filterEditor === "all" || v.editorName === filterEditor) &&
-      (filterMonth  === "all" || (v.createdAt || "").startsWith(filterMonth))
+      (filterMonth  === "all" || (v.createdAt || "").startsWith(filterMonth)) &&
+      (filterCat    === "all" || String(v.categoria ?? "") === filterCat) &&
+      (search === "" || v.title.toLowerCase().includes(search) || v.recDisplay.toLowerCase().includes(search))
     );
     list = list.sort((a, b) => {
       if (sortBy === "rec_desc") return (b.recNumber || 0) - (a.recNumber || 0) || (b.recOrder || 0) - (a.recOrder || 0);
@@ -98,10 +103,10 @@ export default function AdminEntregasPage() {
       return (a.createdAt || "").localeCompare(b.createdAt || "");
     });
     return list;
-  }, [videos, filterClient, filterStatus, filterPaid, filterRec, filterEditor, filterMonth, sortBy]);
+  }, [videos, filterClient, filterStatus, filterPaid, filterRec, filterEditor, filterMonth, filterCat, sortBy, searchText]);
 
   const clearAdvancedFilters = () => {
-    setFilterRec("all"); setFilterEditor("all"); setFilterMonth("all");
+    setFilterRec("all"); setFilterEditor("all"); setFilterMonth("all"); setFilterCat("all");
   };
 
   const totals = useMemo(() => {
@@ -263,9 +268,17 @@ export default function AdminEntregasPage() {
           </div>
         </div>
 
-        {/* Advanced filters (collapsible) */}
+        {/* Advanced filters (collapsible) + search */}
         {showAdvancedFilters && (
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-3 border-t border-border/30">
+          <div className="grid grid-cols-1 sm:grid-cols-4 gap-3 pt-3 border-t border-border/30">
+            <div className="space-y-1 sm:col-span-4">
+              <label className="text-[10px] text-muted-foreground uppercase tracking-wide">Buscar por título o REC</label>
+              <Input type="search" value={searchText}
+                onChange={(e) => setSearchText(e.target.value)}
+                placeholder="ej. PIZARRON, R3-02…"
+                className="h-8 text-xs" />
+            </div>
+
             <div className="space-y-1">
               <label className="text-[10px] text-muted-foreground uppercase tracking-wide">REC #</label>
               <select value={filterRec} onChange={(e) => setFilterRec(e.target.value)}
@@ -273,6 +286,17 @@ export default function AdminEntregasPage() {
                 <option value="all" className="bg-background">Todos los REC</option>
                 {availableRecs.map((r) => (
                   <option key={r} value={r} className="bg-background">R{r}</option>
+                ))}
+              </select>
+            </div>
+
+            <div className="space-y-1">
+              <label className="text-[10px] text-muted-foreground uppercase tracking-wide">Categoría</label>
+              <select value={filterCat} onChange={(e) => setFilterCat(e.target.value)}
+                className="w-full text-xs px-2 py-1.5 rounded-lg border border-border/40 bg-transparent">
+                <option value="all" className="bg-background">Todas</option>
+                {[0,1,2,3,4].map((c) => (
+                  <option key={c} value={String(c)} className="bg-background">Categoría {c}</option>
                 ))}
               </select>
             </div>
@@ -330,6 +354,7 @@ export default function AdminEntregasPage() {
               <thead className="bg-secondary/40 text-xs text-muted-foreground">
                 <tr>
                   <th className="text-left px-3 py-2 font-medium">REC</th>
+                  <th className="text-center px-3 py-2 font-medium">Cat.</th>
                   <th className="text-left px-3 py-2 font-medium">Cliente</th>
                   <th className="text-left px-3 py-2 font-medium">Título</th>
                   <th className="text-left px-3 py-2 font-medium">Editor</th>
@@ -351,13 +376,27 @@ export default function AdminEntregasPage() {
                       <td className="px-3 py-2 font-mono text-xs text-primary font-semibold whitespace-nowrap">
                         {v.recDisplay}
                       </td>
+                      <td className="px-3 py-2 text-center">
+                        {isEditing ? (
+                          <select defaultValue={v.categoria ?? ""}
+                            onChange={(e) => handleUpdate(v.id, "categoria", e.target.value === "" ? null : parseInt(e.target.value))}
+                            className="text-xs px-1 py-0.5 rounded border border-border/40 bg-transparent w-14">
+                            <option value="" className="bg-background">—</option>
+                            {[0,1,2,3,4].map(c => <option key={c} value={c} className="bg-background">{c}</option>)}
+                          </select>
+                        ) : v.categoria !== null ? (
+                          <span className="inline-flex items-center justify-center w-6 h-6 rounded bg-primary/10 text-primary font-bold text-xs">{v.categoria}</span>
+                        ) : (
+                          <span className="text-muted-foreground/40 text-xs">—</span>
+                        )}
+                      </td>
                       <td className="px-3 py-2 text-xs text-muted-foreground whitespace-nowrap">{v.clienteName}</td>
-                      <td className="px-3 py-2 max-w-[200px]">
+                      <td className="px-3 py-2 min-w-[200px] max-w-[320px]">
                         {isEditing ? (
                           <Input defaultValue={v.title} className="h-8 text-xs"
                             onBlur={(e) => handleUpdate(v.id, "title", e.target.value)} />
                         ) : (
-                          <span className="truncate block">{v.title}</span>
+                          <span className="break-words text-sm">{v.title}</span>
                         )}
                       </td>
                       <td className="px-3 py-2 text-xs">{v.editorName || "—"}</td>

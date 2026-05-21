@@ -1,16 +1,16 @@
 import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
-import { useNavigate } from "react-router-dom";
-import { Send, RefreshCw, FilePlus, Sparkles, ChevronDown, ChevronUp, Hash } from "lucide-react";
+import { useNavigate, useSearchParams } from "react-router-dom";
+import { Send, RefreshCw, FilePlus, Sparkles, ChevronDown, ChevronUp, Hash, Edit3 } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
-  fetchEditorClients, suggestNextRec, submitVideoDelivery,
-  fetchEditorPreferences, recDisplay,
-  EditorClient, Moneda, EditorPreferences, DEFAULT_EDITOR_PREFS,
+  fetchEditorClients, suggestNextRec, submitVideoDelivery, updateVideoFields,
+  fetchEditorPreferences, fetchVideoById, recDisplay,
+  EditorClient, Moneda, Categoria, EditorPreferences, DEFAULT_EDITOR_PREFS,
 } from "@/services/editorPortalService";
 
 // Parse "R3-02", "R3 02", "3-02", "r3.02" etc → { rec_number, rec_order }
@@ -26,15 +26,21 @@ function parseRecInput(s: string): { recNumber: number; recOrder: number } | nul
 export default function NuevaEntregaPage() {
   const { user } = useAuth();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const editId = searchParams.get("id");
+  const isEditMode = !!editId;
+
   const [clients, setClients] = useState<EditorClient[]>([]);
   const [prefs, setPrefs] = useState<EditorPreferences>({ editorId: "", ...DEFAULT_EDITOR_PREFS });
   const [loadingClients, setLoadingClients] = useState(true);
+  const [loadingEdit, setLoadingEdit] = useState(isEditMode);
   const [showAdvanced, setShowAdvanced] = useState(false);
 
   // form state
   const [clienteId, setClienteId] = useState<string>("");
   const [title, setTitle] = useState("");
   const [recInput, setRecInput] = useState<string>("");
+  const [categoria, setCategoria] = useState<Categoria | null>(null);
   const [suggested, setSuggested] = useState<{ recNumber: number; recOrder: number } | null>(null);
   const [driveLink, setDriveLink] = useState("");
   const [thumbnail, setThumbnail] = useState("");
@@ -62,11 +68,40 @@ export default function NuevaEntregaPage() {
   }, [user?.id]);
 
   useEffect(() => {
+    // En modo edición no pre-llenamos con sugerencia; cargamos la entrega existente
+    if (isEditMode) return;
     suggestNextRec().then(({ recNumber, recOrder }) => {
       setSuggested({ recNumber, recOrder });
-      setRecInput(recDisplay(recNumber, recOrder)); // prefill
+      setRecInput(recDisplay(recNumber, recOrder));
     });
-  }, []);
+  }, [isEditMode]);
+
+  // Load existing video in edit mode
+  useEffect(() => {
+    if (!isEditMode || !editId) return;
+    fetchVideoById(editId).then((v) => {
+      if (!v) {
+        toast.error("No se encontró la entrega");
+        navigate("/editor/dashboard");
+        return;
+      }
+      if (v.status !== "in_review") {
+        toast.error("Solo puedes editar entregas en revisión");
+        navigate("/editor/dashboard");
+        return;
+      }
+      setClienteId(v.clienteId);
+      setTitle(v.title);
+      setCategoria(v.categoria);
+      setRecInput(recDisplay(v.recNumber, v.recOrder));
+      setDriveLink(v.driveLink || "");
+      setThumbnail(v.thumbnail || "");
+      setEmbedUrl(v.embedUrl || "");
+      if (v.costo != null) setCosto(String(v.costo));
+      if (v.moneda) setMoneda(v.moneda);
+      setLoadingEdit(false);
+    });
+  }, [isEditMode, editId, navigate]);
 
   const useSuggested = () => {
     if (suggested) setRecInput(recDisplay(suggested.recNumber, suggested.recOrder));
@@ -97,22 +132,49 @@ export default function NuevaEntregaPage() {
     e.preventDefault();
     if (!user) return;
 
-    if (!clienteId)        { toast.error("Selecciona un cliente"); return; }
-    if (!title.trim())     { toast.error("El título es obligatorio"); return; }
-    if (!driveLink.trim()) { toast.error("El link del video es obligatorio"); return; }
-    if (!parsedRec)        { toast.error("ID de entrega inválido. Usa el formato R3-02"); return; }
+    if (!clienteId)              { toast.error("Selecciona un cliente"); return; }
+    if (!title.trim())           { toast.error("El título es obligatorio"); return; }
+    if (!driveLink.trim())       { toast.error("El link del video es obligatorio"); return; }
+    if (!parsedRec)              { toast.error("ID de entrega inválido. Usa el formato R3-02"); return; }
+    if (categoria === null)      { toast.error("Selecciona la categoría del video"); return; }
 
     setSubmitting(true);
+
+    if (isEditMode && editId) {
+      // EDIT MODE — update existing video
+      const result = await updateVideoFields(editId, {
+        title: title.trim(),
+        recNumber: parsedRec.recNumber,
+        recOrder:  parsedRec.recOrder,
+        categoria,
+        driveLink: driveLink.trim(),
+        thumbnail: thumbnail.trim() || null,
+        embedUrl:  embedUrl.trim() || null,
+        costo: prefs.paymentScheme === "per_video" && costo.trim() ? parseFloat(costo) : null,
+        moneda: prefs.paymentScheme === "per_video" ? moneda : null,
+      });
+      setSubmitting(false);
+      if (result.ok) {
+        toast.success("Entrega actualizada");
+        navigate("/editor/dashboard");
+      } else {
+        toast.error(result.error || "Error al guardar cambios");
+      }
+      return;
+    }
+
+    // CREATE MODE
     const result = await submitVideoDelivery(user.id, user.name, {
       clienteId,
       title: title.trim(),
       recNumber: parsedRec.recNumber,
       recOrder:  parsedRec.recOrder,
+      categoria,
       driveLink: driveLink.trim(),
       thumbnail: thumbnail.trim() || null,
       embedUrl:  embedUrl.trim() || null,
       referenciaGuion: null,
-      priority: "normal", // editor doesn't set, admin defines
+      priority: "normal",
       costo: prefs.paymentScheme === "per_video" && costo.trim() ? parseFloat(costo) : null,
       moneda: prefs.paymentScheme === "per_video" ? moneda : null,
     });
@@ -126,7 +188,7 @@ export default function NuevaEntregaPage() {
     }
   };
 
-  if (loadingClients) {
+  if (loadingClients || loadingEdit) {
     return (
       <div className="flex items-center justify-center py-20 text-muted-foreground gap-3">
         <RefreshCw className="h-5 w-5 animate-spin" /> Cargando…
@@ -150,18 +212,25 @@ export default function NuevaEntregaPage() {
     <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="max-w-2xl mx-auto w-full">
       <div className="mb-6">
         <h1 className="text-2xl font-display font-bold text-foreground flex items-center gap-2">
-          <FilePlus className="h-6 w-6 text-primary" /> Nueva entrega
+          {isEditMode ? <><Edit3 className="h-6 w-6 text-primary" /> Editar entrega</> : <><FilePlus className="h-6 w-6 text-primary" /> Nueva entrega</>}
         </h1>
         <p className="text-sm text-muted-foreground mt-1">
-          Registra un video editado para revisión del cliente.
+          {isEditMode
+            ? "Modifica los datos de tu entrega. Solo se permite mientras esté en revisión."
+            : "Registra un video editado para revisión del cliente."}
         </p>
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-5 glass gold-border rounded-xl p-4 sm:p-6">
-        {/* Cliente — pills si pocos, dropdown si muchos */}
+        {/* Cliente — pills si pocos, dropdown si muchos. Bloqueado en modo edición. */}
         <div className="space-y-2">
           <Label htmlFor="cliente-select">Cliente <span className="text-destructive">*</span></Label>
-          {clients.length <= 4 ? (
+          {isEditMode ? (
+            <div className="px-3 py-2 rounded-lg border border-border/40 bg-secondary/20 text-sm text-foreground">
+              {clients.find((c) => c.clienteId === clienteId)?.nombre || "Cliente"}
+              <span className="ml-2 text-[10px] text-muted-foreground">(no editable)</span>
+            </div>
+          ) : clients.length <= 4 ? (
             <div className="flex flex-wrap gap-2">
               {clients.map((c) => (
                 <button key={c.clienteId} type="button"
@@ -237,6 +306,27 @@ export default function NuevaEntregaPage() {
           <Label htmlFor="title">Nombre del video <span className="text-destructive">*</span></Label>
           <Input id="title" value={title} onChange={(e) => setTitle(e.target.value)}
             placeholder="ej. PIZARRON, COMPARATIVA ALIMENTOS, LICUADO…" required />
+        </div>
+
+        {/* Categoría 0-4 */}
+        <div className="space-y-2">
+          <Label>Categoría <span className="text-destructive">*</span></Label>
+          <div className="grid grid-cols-5 gap-2">
+            {([0, 1, 2, 3, 4] as const).map((cat) => (
+              <button key={cat} type="button"
+                onClick={() => setCategoria(cat)}
+                className={`h-14 rounded-lg border-2 font-bold text-xl transition-all ${
+                  categoria === cat
+                    ? "border-primary bg-primary/10 text-primary shadow-[0_0_0_3px_rgba(212,175,55,0.15)]"
+                    : "border-border/40 text-muted-foreground hover:border-primary/50 hover:text-foreground"
+                }`}>
+                {cat}
+              </button>
+            ))}
+          </div>
+          <p className="text-[11px] text-muted-foreground">
+            Selecciona la categoría según las indicaciones del admin.
+          </p>
         </div>
 
         {/* Drive link — el campo principal del editor */}
@@ -331,6 +421,8 @@ export default function NuevaEntregaPage() {
             className="gold-gradient text-primary-foreground gap-1.5">
             {submitting ? (
               <><RefreshCw className="h-4 w-4 animate-spin" /> Guardando…</>
+            ) : isEditMode ? (
+              <><Send className="h-4 w-4" /> Guardar cambios</>
             ) : (
               <><Send className="h-4 w-4" /> Registrar entrega</>
             )}
