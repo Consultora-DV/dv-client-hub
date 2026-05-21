@@ -12,11 +12,12 @@ import {
 
 function statusBadge(status: string) {
   const map: Record<string, { label: string; cls: string; emoji: string }> = {
-    pending:   { label: "Pendiente",  cls: "bg-status-pending/20 text-status-pending border-status-pending/30", emoji: "⏳" },
-    approved:  { label: "Aprobado",   cls: "bg-status-approved/20 text-status-approved border-status-approved/30", emoji: "✅" },
-    changes:   { label: "Cambios",    cls: "bg-orange-500/20 text-orange-400 border-orange-500/30", emoji: "✏️" },
-    published: { label: "Publicado",  cls: "bg-teal-500/20 text-teal-400 border-teal-500/30", emoji: "🌐" },
-    entregado: { label: "Entregado",  cls: "bg-purple-500/20 text-purple-400 border-purple-500/30", emoji: "📦" },
+    pending:   { label: "Por hacer",   cls: "bg-secondary text-muted-foreground border-border/30", emoji: "📝" },
+    in_review: { label: "En revisión", cls: "bg-status-pending/20 text-status-pending border-status-pending/30", emoji: "👀" },
+    approved:  { label: "Aprobado",    cls: "bg-status-approved/20 text-status-approved border-status-approved/30", emoji: "✅" },
+    changes:   { label: "Cambios",     cls: "bg-orange-500/20 text-orange-400 border-orange-500/30", emoji: "✏️" },
+    published: { label: "Publicado",   cls: "bg-teal-500/20 text-teal-400 border-teal-500/30", emoji: "🌐" },
+    entregado: { label: "Entregado",   cls: "bg-purple-500/20 text-purple-400 border-purple-500/30", emoji: "📦" },
   };
   return map[status] || { label: status, cls: "bg-secondary text-muted-foreground border-border/30", emoji: "" };
 }
@@ -56,7 +57,7 @@ export default function EditorDashboardPage() {
 
   const counters = {
     total:     videos.length,
-    pendientes: videos.filter((v) => v.status === "pending").length,
+    enRevision: videos.filter((v) => v.status === "in_review").length,
     aprobados:  videos.filter((v) => v.status === "approved").length,
     publicados: videos.filter((v) => v.status === "published").length,
   };
@@ -118,7 +119,7 @@ export default function EditorDashboardPage() {
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         {[
           { label: "Total",       value: counters.total },
-          { label: "Pendientes",  value: counters.pendientes },
+          { label: "En revisión", value: counters.enRevision },
           { label: "Aprobados",   value: counters.aprobados },
           { label: "Publicados",  value: counters.publicados },
         ].map((k) => (
@@ -151,7 +152,7 @@ export default function EditorDashboardPage() {
           <span className="text-xs text-muted-foreground ml-3">Estado:</span>
           {[
             { k: "all",       l: "Todos" },
-            { k: "pending",   l: "Pendientes" },
+            { k: "in_review", l: "En revisión" },
             { k: "approved",  l: "Aprobados" },
             { k: "changes",   l: "Cambios" },
             { k: "published", l: "Publicados" },

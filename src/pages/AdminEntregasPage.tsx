@@ -16,10 +16,11 @@ import { ImportEntregasModal } from "@/components/ImportEntregasModal";
 import { useAppState } from "@/contexts/AppStateContext";
 
 const STATUS_OPTIONS = [
-  { value: "pending",   label: "Por hacer",  cls: "bg-status-pending/20 text-status-pending border-status-pending/30" },
-  { value: "approved",  label: "Aprobado",   cls: "bg-status-approved/20 text-status-approved border-status-approved/30" },
-  { value: "changes",   label: "Cambios",    cls: "bg-orange-500/20 text-orange-400 border-orange-500/30" },
-  { value: "published", label: "Publicado",  cls: "bg-teal-500/20 text-teal-400 border-teal-500/30" },
+  { value: "pending",   label: "Por hacer",    cls: "bg-secondary text-muted-foreground border-border/30" },
+  { value: "in_review", label: "En revisión",  cls: "bg-status-pending/20 text-status-pending border-status-pending/30" },
+  { value: "approved",  label: "Aprobado",     cls: "bg-status-approved/20 text-status-approved border-status-approved/30" },
+  { value: "changes",   label: "Cambios",      cls: "bg-orange-500/20 text-orange-400 border-orange-500/30" },
+  { value: "published", label: "Publicado",    cls: "bg-teal-500/20 text-teal-400 border-teal-500/30" },
 ];
 
 function statusInfo(s: string) {

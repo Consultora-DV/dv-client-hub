@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import { useNavigate } from "react-router-dom";
-import { Send, RefreshCw, FilePlus, Sparkles, ChevronDown, ChevronUp } from "lucide-react";
+import { Send, RefreshCw, FilePlus, Sparkles, ChevronDown, ChevronUp, Hash } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
@@ -10,8 +10,18 @@ import { Label } from "@/components/ui/label";
 import {
   fetchEditorClients, suggestNextRec, submitVideoDelivery,
   fetchEditorPreferences, recDisplay,
-  EditorClient, Priority, Moneda, EditorPreferences, DEFAULT_EDITOR_PREFS,
+  EditorClient, Moneda, EditorPreferences, DEFAULT_EDITOR_PREFS,
 } from "@/services/editorPortalService";
+
+// Parse "R3-02", "R3 02", "3-02", "r3.02" etc → { rec_number, rec_order }
+function parseRecInput(s: string): { recNumber: number; recOrder: number } | null {
+  const m = (s || "").trim().match(/^[Rr]?\s*(\d+)\s*[-—–.\s]\s*(\d+)\s*$/);
+  if (!m) return null;
+  const recNumber = parseInt(m[1]);
+  const recOrder  = parseInt(m[2]);
+  if (recNumber < 1 || recOrder < 0) return null;
+  return { recNumber, recOrder };
+}
 
 export default function NuevaEntregaPage() {
   const { user } = useAuth();
@@ -24,15 +34,17 @@ export default function NuevaEntregaPage() {
   // form state
   const [clienteId, setClienteId] = useState<string>("");
   const [title, setTitle] = useState("");
-  const [recNumber, setRecNumber] = useState<number>(1);
-  const [recOrder,  setRecOrder]  = useState<number>(1);
+  const [recInput, setRecInput] = useState<string>("");
+  const [suggested, setSuggested] = useState<{ recNumber: number; recOrder: number } | null>(null);
   const [driveLink, setDriveLink] = useState("");
   const [thumbnail, setThumbnail] = useState("");
   const [embedUrl,  setEmbedUrl]  = useState("");
-  const [priority,  setPriority]  = useState<Priority>("normal");
   const [costo, setCosto]   = useState<string>("");
   const [moneda, setMoneda] = useState<Moneda>("USD");
   const [submitting, setSubmitting] = useState(false);
+
+  // Parsed REC values (derived from text input)
+  const parsedRec = parseRecInput(recInput);
 
   useEffect(() => {
     if (!user) return;
@@ -51,16 +63,34 @@ export default function NuevaEntregaPage() {
 
   useEffect(() => {
     suggestNextRec().then(({ recNumber, recOrder }) => {
-      setRecNumber(recNumber);
-      setRecOrder(recOrder);
+      setSuggested({ recNumber, recOrder });
+      setRecInput(recDisplay(recNumber, recOrder)); // prefill
     });
   }, []);
 
+  const useSuggested = () => {
+    if (suggested) setRecInput(recDisplay(suggested.recNumber, suggested.recOrder));
+  };
+
   const refreshRec = async () => {
     const { recNumber, recOrder } = await suggestNextRec();
-    setRecNumber(recNumber);
-    setRecOrder(recOrder);
-    toast.success(`Sugerencia actualizada: ${recDisplay(recNumber, recOrder)}`);
+    setSuggested({ recNumber, recOrder });
+    setRecInput(recDisplay(recNumber, recOrder));
+    toast.success(`Sugerido: ${recDisplay(recNumber, recOrder)}`);
+  };
+
+  // Increment helpers
+  const bumpOrder = (delta: number) => {
+    const p = parsedRec || suggested;
+    if (!p) return;
+    const next = Math.max(0, p.recOrder + delta);
+    setRecInput(recDisplay(p.recNumber, next));
+  };
+  const bumpRec = (delta: number) => {
+    const p = parsedRec || suggested;
+    if (!p) return;
+    const nextNum = Math.max(1, p.recNumber + delta);
+    setRecInput(recDisplay(nextNum, 1));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -70,25 +100,26 @@ export default function NuevaEntregaPage() {
     if (!clienteId)        { toast.error("Selecciona un cliente"); return; }
     if (!title.trim())     { toast.error("El título es obligatorio"); return; }
     if (!driveLink.trim()) { toast.error("El link del video es obligatorio"); return; }
-    if (recNumber < 1 || recOrder < 1) { toast.error("REC inválido"); return; }
+    if (!parsedRec)        { toast.error("ID de entrega inválido. Usa el formato R3-02"); return; }
 
     setSubmitting(true);
     const result = await submitVideoDelivery(user.id, user.name, {
       clienteId,
       title: title.trim(),
-      recNumber, recOrder,
+      recNumber: parsedRec.recNumber,
+      recOrder:  parsedRec.recOrder,
       driveLink: driveLink.trim(),
       thumbnail: thumbnail.trim() || null,
       embedUrl:  embedUrl.trim() || null,
-      referenciaGuion: null,  // editors don't set this — admin does
-      priority,
+      referenciaGuion: null,
+      priority: "normal", // editor doesn't set, admin defines
       costo: prefs.paymentScheme === "per_video" && costo.trim() ? parseFloat(costo) : null,
       moneda: prefs.paymentScheme === "per_video" ? moneda : null,
     });
     setSubmitting(false);
 
     if (result.ok) {
-      toast.success(`Entrega ${recDisplay(recNumber, recOrder)} registrada`);
+      toast.success(`Entrega ${recDisplay(parsedRec.recNumber, parsedRec.recOrder)} registrada — en revisión`);
       navigate("/editor/dashboard");
     } else {
       toast.error(result.error);
@@ -145,32 +176,48 @@ export default function NuevaEntregaPage() {
           </div>
         </div>
 
-        {/* REC */}
+        {/* REC — single text input */}
         <div className="space-y-2">
           <div className="flex items-center justify-between">
-            <Label>REC <span className="text-destructive">*</span></Label>
-            <button type="button" onClick={refreshRec}
-              className="text-xs text-primary hover:underline flex items-center gap-1">
-              <Sparkles className="h-3 w-3" /> Sugerir
-            </button>
+            <Label htmlFor="rec">ID de la entrega <span className="text-destructive">*</span></Label>
+            {suggested && (
+              <button type="button" onClick={useSuggested}
+                className="text-xs text-primary hover:underline flex items-center gap-1">
+                <Sparkles className="h-3 w-3" /> Usar sugerido: {recDisplay(suggested.recNumber, suggested.recOrder)}
+              </button>
+            )}
           </div>
           <div className="flex items-center gap-2">
-            <div className="flex items-center gap-1">
-              <span className="text-foreground font-mono text-sm">R</span>
-              <Input type="number" min={1}
-                value={recNumber}
-                onChange={(e) => setRecNumber(parseInt(e.target.value) || 1)}
-                className="w-20 text-center font-mono" />
+            <div className="relative flex-1">
+              <Hash className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input id="rec" value={recInput}
+                onChange={(e) => setRecInput(e.target.value)}
+                placeholder="R3-02"
+                className="pl-9 font-mono text-base"
+                autoComplete="off" />
             </div>
-            <span className="text-muted-foreground">—</span>
-            <Input type="number" min={1}
-              value={recOrder}
-              onChange={(e) => setRecOrder(parseInt(e.target.value) || 1)}
-              className="w-20 text-center font-mono" />
-            <span className="ml-3 text-sm text-muted-foreground">
-              ID: <span className="font-mono text-primary font-semibold">{recDisplay(recNumber, recOrder)}</span>
-            </span>
+            <button type="button" onClick={() => bumpOrder(-1)}
+              className="px-2 py-2 rounded-lg border border-border/40 text-muted-foreground hover:text-foreground hover:border-primary/50 transition-colors text-xs"
+              title="Restar 1 al orden">−</button>
+            <button type="button" onClick={() => bumpOrder(1)}
+              className="px-2 py-2 rounded-lg border border-border/40 text-muted-foreground hover:text-foreground hover:border-primary/50 transition-colors text-xs"
+              title="Sumar 1 al orden">+</button>
+            <button type="button" onClick={() => bumpRec(1)}
+              className="px-2 py-2 rounded-lg border border-border/40 text-muted-foreground hover:text-primary hover:border-primary/50 transition-colors text-xs whitespace-nowrap"
+              title="Nuevo REC (siguiente sesión)">+REC</button>
+            <button type="button" onClick={refreshRec}
+              className="px-2 py-2 rounded-lg border border-border/40 text-muted-foreground hover:text-foreground hover:border-primary/50 transition-colors"
+              title="Recalcular sugerencia">
+              <RefreshCw className="h-3.5 w-3.5" />
+            </button>
           </div>
+          <p className="text-[11px] text-muted-foreground">
+            {parsedRec
+              ? <>✓ Quedará como <span className="font-mono text-primary font-semibold">{recDisplay(parsedRec.recNumber, parsedRec.recOrder)}</span></>
+              : recInput
+                ? <span className="text-destructive">Formato inválido. Usa: R3-02, R3 02, o 3-02</span>
+                : <>Formato: <span className="font-mono">R&#123;sesión&#125;-&#123;orden&#125;</span>, ej. R3-02</>}
+          </p>
         </div>
 
         {/* Título */}
@@ -189,23 +236,6 @@ export default function NuevaEntregaPage() {
           <p className="text-[11px] text-muted-foreground">
             Pega el link de Drive, WeTransfer, Dropbox o donde hayas subido el material final.
           </p>
-        </div>
-
-        {/* Prioridad */}
-        <div className="space-y-2">
-          <Label>Prioridad</Label>
-          <div className="flex gap-2">
-            {(["alta", "normal", "baja"] as const).map((p) => (
-              <button key={p} type="button" onClick={() => setPriority(p)}
-                className={`flex-1 px-4 py-2 rounded-lg border text-sm transition-colors capitalize ${
-                  priority === p
-                    ? "border-primary bg-primary/10 text-primary"
-                    : "border-border/40 text-foreground hover:border-primary/50"
-                }`}>
-                {p === "alta" ? "🔥 " : ""}{p}
-              </button>
-            ))}
-          </div>
         </div>
 
         {(prefs.showThumbnail || (prefs.showCosto && prefs.paymentScheme === "per_video") || prefs.showEmbed) && (

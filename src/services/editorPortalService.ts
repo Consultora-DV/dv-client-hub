@@ -202,7 +202,7 @@ export async function submitVideoDelivery(
     moneda:            payload.moneda ?? null,
     editor_id:         editorId,
     editor_name:       editorName,
-    status:            "pending",
+    status:            "in_review", // editor uploaded → pending review by client/admin
     delivery_date:     new Date().toISOString(),
     platform:          ["instagram"],
   };
