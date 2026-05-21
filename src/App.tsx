@@ -7,6 +7,7 @@ import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { ThemeProvider } from "@/contexts/ThemeContext";
 import { AppStateProvider } from "@/contexts/AppStateContext";
 import { AppLayout } from "@/components/AppLayout";
+import { EditorLayout } from "@/layouts/EditorLayout";
 import AuthPage from "@/pages/AuthPage";
 import DashboardPage from "@/pages/DashboardPage";
 import VideosPage from "@/pages/VideosPage";
@@ -21,6 +22,8 @@ import ResetPasswordPage from "@/pages/ResetPasswordPage";
 import ClientWelcomePage from "@/pages/ClientWelcomePage";
 import NotFound from "@/pages/NotFound";
 import PendingApprovalPage from "@/pages/PendingApprovalPage";
+import EditorDashboardPage from "@/pages/editor/EditorDashboardPage";
+import NuevaEntregaPage from "@/pages/editor/NuevaEntregaPage";
 
 const queryClient = new QueryClient();
 
@@ -37,6 +40,20 @@ function AdminRoute({ children }: { children: React.ReactNode }) {
   const { user } = useAuth();
   if (user?.role !== "admin") return <Navigate to="/dashboard" replace />;
   return <>{children}</>;
+}
+
+function EditorRoute({ children }: { children: React.ReactNode }) {
+  const { user } = useAuth();
+  if (user?.role !== "editor" && user?.role !== "admin") {
+    return <Navigate to="/dashboard" replace />;
+  }
+  return <>{children}</>;
+}
+
+function RoleBasedHome() {
+  const { user } = useAuth();
+  if (user?.role === "editor") return <Navigate to="/editor/dashboard" replace />;
+  return <Navigate to="/dashboard" replace />;
 }
 
 function AppRoutes() {
@@ -63,9 +80,17 @@ function AppRoutes() {
           element={
             <AppStateProvider>
               <Routes>
-                <Route path="/" element={<Navigate to="/dashboard" replace />} />
-                <Route path="/auth" element={<Navigate to="/dashboard" replace />} />
-                
+                <Route path="/" element={<RoleBasedHome />} />
+                <Route path="/auth" element={<RoleBasedHome />} />
+
+                {/* Editor portal */}
+                <Route element={<ApprovalGuard><EditorRoute><EditorLayout /></EditorRoute></ApprovalGuard>}>
+                  <Route path="/editor" element={<Navigate to="/editor/dashboard" replace />} />
+                  <Route path="/editor/dashboard" element={<EditorDashboardPage />} />
+                  <Route path="/editor/nueva" element={<NuevaEntregaPage />} />
+                </Route>
+
+                {/* Client / admin portal */}
                 <Route element={<ApprovalGuard><AppLayout /></ApprovalGuard>}>
                   <Route path="/dashboard" element={<DashboardPage />} />
                   <Route path="/videos" element={<VideosPage />} />

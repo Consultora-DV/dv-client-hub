@@ -41,6 +41,30 @@ export type Database = {
         }
         Relationships: []
       }
+      editor_clients: {
+        Row: {
+          id: string
+          editor_id: string
+          cliente_id: string
+          assigned_at: string
+          assigned_by: string | null
+        }
+        Insert: {
+          id?: string
+          editor_id: string
+          cliente_id: string
+          assigned_at?: string
+          assigned_by?: string | null
+        }
+        Update: {
+          id?: string
+          editor_id?: string
+          cliente_id?: string
+          assigned_at?: string
+          assigned_by?: string | null
+        }
+        Relationships: []
+      }
       calendar_events: {
         Row: {
           cliente_id: string
@@ -470,6 +494,7 @@ export type Database = {
           created_at: string
           delivery_date: string | null
           drive_link: string | null
+          editor_id: string | null
           embed_url: string | null
           id: string
           ig_caption: string | null
@@ -479,6 +504,9 @@ export type Database = {
           ig_short_code: string | null
           ig_views: number | null
           platform: string[]
+          priority: string | null
+          rec_number: number | null
+          rec_order: number | null
           status: string
           status_history: Json
           thumbnail: string | null
@@ -490,6 +518,7 @@ export type Database = {
           created_at?: string
           delivery_date?: string | null
           drive_link?: string | null
+          editor_id?: string | null
           embed_url?: string | null
           id?: string
           ig_caption?: string | null
@@ -499,6 +528,9 @@ export type Database = {
           ig_short_code?: string | null
           ig_views?: number | null
           platform?: string[]
+          priority?: string | null
+          rec_number?: number | null
+          rec_order?: number | null
           status?: string
           status_history?: Json
           thumbnail?: string | null
@@ -510,6 +542,7 @@ export type Database = {
           created_at?: string
           delivery_date?: string | null
           drive_link?: string | null
+          editor_id?: string | null
           embed_url?: string | null
           id?: string
           ig_caption?: string | null
@@ -519,6 +552,9 @@ export type Database = {
           ig_short_code?: string | null
           ig_views?: number | null
           platform?: string[]
+          priority?: string | null
+          rec_number?: number | null
+          rec_order?: number | null
           status?: string
           status_history?: Json
           thumbnail?: string | null
@@ -538,6 +574,14 @@ export type Database = {
           _user_id: string
         }
         Returns: boolean
+      }
+      next_rec_number: {
+        Args: Record<string, never>
+        Returns: number
+      }
+      next_rec_order: {
+        Args: { _rec_number: number }
+        Returns: number
       }
     }
     Enums: {
