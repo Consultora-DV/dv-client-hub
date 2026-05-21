@@ -9,9 +9,10 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import {
-  fetchAllVideos, updateVideoFields, deleteVideo,
+  fetchAllVideos, updateVideoFields, deleteVideo, bulkImportVideos,
   EditorVideo, Priority, Moneda,
 } from "@/services/editorPortalService";
+import { FEDRA_SEED_VIDEOS } from "@/data/fedraSeedData";
 import { useAppState } from "@/contexts/AppStateContext";
 
 const STATUS_OPTIONS = [
@@ -82,15 +83,40 @@ export default function AdminEntregasPage() {
     }
   };
 
+  const handleImportFedra = async () => {
+    const fedra = clients.find((c) =>
+      c.email?.toLowerCase().includes("consultoriodrafedraaldama") ||
+      c.nombre?.toLowerCase().includes("fedra")
+    );
+    if (!fedra) {
+      toast.error("No encontré a Fedra en la lista de clientes");
+      return;
+    }
+    if (!confirm(`Importar ${FEDRA_SEED_VIDEOS.length} videos históricos a "${fedra.nombre}"? Solo funciona si no tiene videos con REC todavía.`)) return;
+    const result = await bulkImportVideos(fedra.id, FEDRA_SEED_VIDEOS);
+    if (result.ok) {
+      toast.success(`${result.inserted} videos importados a ${fedra.nombre}`);
+      load();
+    } else {
+      toast.error(result.error || "Error al importar");
+    }
+  };
+
   return (
     <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-display font-bold text-foreground flex items-center gap-2">
-          <VideoIcon className="h-6 w-6 text-primary" /> Entregas — Admin
-        </h1>
-        <p className="text-sm text-muted-foreground mt-1">
-          Gestión completa de videos. Edita inline, marca como pagado, borra.
-        </p>
+      <div className="flex items-start justify-between flex-wrap gap-3">
+        <div>
+          <h1 className="text-2xl font-display font-bold text-foreground flex items-center gap-2">
+            <VideoIcon className="h-6 w-6 text-primary" /> Entregas — Admin
+          </h1>
+          <p className="text-sm text-muted-foreground mt-1">
+            Gestión completa de videos. Edita inline, marca como pagado, borra.
+          </p>
+        </div>
+        <Button variant="outline" size="sm" onClick={handleImportFedra}
+          className="gap-1.5 border-primary/30 text-primary hover:bg-primary/10">
+          📥 Importar histórico Fedra
+        </Button>
       </div>
 
       {/* Totals */}

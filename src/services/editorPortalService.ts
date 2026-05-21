@@ -307,3 +307,45 @@ export async function unassignEditorClient(assignmentId: string): Promise<{ ok: 
   if (error) return { ok: false, error: error.message };
   return { ok: true };
 }
+
+// ── Bulk import (used by admin to seed historical data) ─────────
+import type { FedraSeedVideo } from "@/data/fedraSeedData";
+
+export async function bulkImportVideos(
+  clienteId: string,
+  videos: FedraSeedVideo[]
+): Promise<{ ok: boolean; inserted: number; error?: string }> {
+  // Check if cliente already has REC'd videos — avoid duplicates
+  const { count } = await supabase
+    .from("videos")
+    .select("id", { count: "exact", head: true })
+    .eq("cliente_id", clienteId)
+    .not("rec_number", "is", null);
+  if ((count || 0) > 0) {
+    return { ok: false, inserted: 0, error: `Este cliente ya tiene ${count} videos con REC. Cancelando para evitar duplicados.` };
+  }
+
+  const rows = videos.map((v) => ({
+    cliente_id:       clienteId,
+    rec_number:       v.rec_number,
+    rec_order:        v.rec_order,
+    title:            v.title,
+    status:           v.status,
+    priority:         v.priority,
+    drive_link:       v.drive_link,
+    thumbnail:        v.thumbnail,
+    referencia_guion: v.referencia_guion,
+    link_publicado:   v.link_publicado,
+    costo:            v.costo,
+    moneda:           v.moneda,
+    pagado:           v.pagado,
+    editor_name:      v.editor_name,
+    published_at:     v.published_at ? `${v.published_at}T00:00:00Z` : null,
+    delivery_date:    v.published_at ? `${v.published_at}T00:00:00Z` : new Date().toISOString(),
+    platform:         ["instagram"],
+  }));
+
+  const { error } = await supabase.from("videos").insert(rows);
+  if (error) return { ok: false, inserted: 0, error: error.message };
+  return { ok: true, inserted: rows.length };
+}
