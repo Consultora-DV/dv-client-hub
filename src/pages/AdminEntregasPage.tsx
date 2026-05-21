@@ -9,10 +9,10 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import {
-  fetchAllVideos, updateVideoFields, deleteVideo, bulkImportVideos,
+  fetchAllVideos, updateVideoFields, deleteVideo,
   EditorVideo, Priority, Moneda,
 } from "@/services/editorPortalService";
-import { FEDRA_SEED_VIDEOS } from "@/data/fedraSeedData";
+import { ImportEntregasModal } from "@/components/ImportEntregasModal";
 import { useAppState } from "@/contexts/AppStateContext";
 
 const STATUS_OPTIONS = [
@@ -34,6 +34,7 @@ export default function AdminEntregasPage() {
   const [filterStatus, setFilterStatus] = useState<string>("all");
   const [filterPaid, setFilterPaid]     = useState<"all" | "yes" | "no">("all");
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [showImport, setShowImport] = useState(false);
 
   const load = async () => {
     setLoading(true);
@@ -83,24 +84,6 @@ export default function AdminEntregasPage() {
     }
   };
 
-  const handleImportFedra = async () => {
-    const fedra = clients.find((c) =>
-      c.email?.toLowerCase().includes("consultoriodrafedraaldama") ||
-      c.nombre?.toLowerCase().includes("fedra")
-    );
-    if (!fedra) {
-      toast.error("No encontré a Fedra en la lista de clientes");
-      return;
-    }
-    if (!confirm(`Importar ${FEDRA_SEED_VIDEOS.length} videos históricos a "${fedra.nombre}"? Solo funciona si no tiene videos con REC todavía.`)) return;
-    const result = await bulkImportVideos(fedra.id, FEDRA_SEED_VIDEOS);
-    if (result.ok) {
-      toast.success(`${result.inserted} videos importados a ${fedra.nombre}`);
-      load();
-    } else {
-      toast.error(result.error || "Error al importar");
-    }
-  };
 
   return (
     <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
@@ -113,9 +96,9 @@ export default function AdminEntregasPage() {
             Gestión completa de videos. Edita inline, marca como pagado, borra.
           </p>
         </div>
-        <Button variant="outline" size="sm" onClick={handleImportFedra}
+        <Button variant="outline" size="sm" onClick={() => setShowImport(true)}
           className="gap-1.5 border-primary/30 text-primary hover:bg-primary/10">
-          📥 Importar histórico Fedra
+          📥 Importar entregas (CSV)
         </Button>
       </div>
 
@@ -203,6 +186,7 @@ export default function AdminEntregasPage() {
                   <th className="text-left px-3 py-2 font-medium">Editor</th>
                   <th className="text-left px-3 py-2 font-medium">Estado</th>
                   <th className="text-left px-3 py-2 font-medium">Prioridad</th>
+                  <th className="text-left px-3 py-2 font-medium">Entregado</th>
                   <th className="text-left px-3 py-2 font-medium">Costo</th>
                   <th className="text-center px-3 py-2 font-medium">Pago</th>
                   <th className="text-left px-3 py-2 font-medium">Links</th>
@@ -251,6 +235,13 @@ export default function AdminEntregasPage() {
                           <option value="normal" className="bg-background">Normal</option>
                           <option value="baja" className="bg-background">Baja</option>
                         </select>
+                      </td>
+                      <td className="px-3 py-2 whitespace-nowrap text-[11px] text-muted-foreground">
+                        {v.createdAt
+                          ? new Date(v.createdAt).toLocaleString("es-MX", {
+                              day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit",
+                            })
+                          : "—"}
                       </td>
                       <td className="px-3 py-2 whitespace-nowrap text-xs">
                         {isEditing ? (
@@ -307,6 +298,13 @@ export default function AdminEntregasPage() {
             </table>
           </div>
         </div>
+      )}
+
+      {showImport && (
+        <ImportEntregasModal
+          onClose={() => setShowImport(false)}
+          onImported={load}
+        />
       )}
     </motion.div>
   );
