@@ -9,8 +9,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import {
-  fetchAllVideos, updateVideoFields, deleteVideo,
-  EditorVideo, Priority, Moneda,
+  fetchAllVideos, updateVideoFields, deleteVideo, fetchAllEditors,
+  EditorVideo, EditorUser, Priority, Moneda,
 } from "@/services/editorPortalService";
 import { ImportEntregasModal } from "@/components/ImportEntregasModal";
 import { useAppState } from "@/contexts/AppStateContext";
@@ -30,6 +30,7 @@ function statusInfo(s: string) {
 export default function AdminEntregasPage() {
   const { clients } = useAppState();
   const [videos, setVideos] = useState<EditorVideo[]>([]);
+  const [allEditors, setAllEditors] = useState<EditorUser[]>([]);
   const [loading, setLoading] = useState(true);
   const [filterClient, setFilterClient] = useState<string>("all");
   const [filterStatus, setFilterStatus] = useState<string>("all");
@@ -46,7 +47,12 @@ export default function AdminEntregasPage() {
 
   const load = async () => {
     setLoading(true);
-    setVideos(await fetchAllVideos());
+    const [vids, eds] = await Promise.all([
+      fetchAllVideos(),
+      fetchAllEditors(),
+    ]);
+    setVideos(vids);
+    setAllEditors(eds);
     setLoading(false);
   };
   useEffect(() => { load(); }, []);
@@ -60,9 +66,12 @@ export default function AdminEntregasPage() {
 
   const availableEditors = useMemo(() => {
     const s = new Set<string>();
+    // Editors with role=editor in user_roles (incluso si todavía no tienen entregas)
+    allEditors.forEach((e) => s.add(e.name));
+    // Plus legacy editor names from imported videos (e.g., "Mojca" sin cuenta aún)
     videos.forEach((v) => v.editorName && s.add(v.editorName));
     return Array.from(s).sort();
-  }, [videos]);
+  }, [videos, allEditors]);
 
   const availableMonths = useMemo(() => {
     const s = new Set<string>();

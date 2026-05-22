@@ -406,6 +406,36 @@ export async function upsertEditorPreferences(
   return { ok: true };
 }
 
+// Fetch ALL users with role=editor (for admin dropdowns, regardless of whether they have entregas yet)
+export interface EditorUser {
+  userId: string;
+  name: string;
+  email: string;
+}
+
+export async function fetchAllEditors(): Promise<EditorUser[]> {
+  const { data: roles, error } = await supabase
+    .from("user_roles")
+    .select("user_id")
+    .eq("role", "editor");
+  if (error || !roles || roles.length === 0) return [];
+
+  const ids = roles.map((r) => r.user_id);
+  const { data: profiles } = await supabase
+    .from("profiles")
+    .select("user_id, display_name, email")
+    .in("user_id", ids);
+  if (!profiles) return [];
+
+  return profiles
+    .map((p: any) => ({
+      userId: p.user_id,
+      name: p.display_name || p.email?.split("@")[0] || "Editor",
+      email: p.email || "",
+    }))
+    .sort((a, b) => a.name.localeCompare(b.name));
+}
+
 // Fetch the editor's assigned clients (used in admin assignment panel)
 export async function fetchEditorAssignedClientIds(editorId: string): Promise<Set<string>> {
   const { data } = await supabase
