@@ -29,7 +29,7 @@ export function AppSidebar() {
   const [showSettings, setShowSettings] = useState(false);
 
   const videoCount = videos.length;
-  const pendingCount = videos.filter((v) => v.status === "pending").length;
+  const pendingCount = videos.filter((v) => v.status === "in_review" || v.status === "pending").length;
 
   const allItems = [
     { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard },

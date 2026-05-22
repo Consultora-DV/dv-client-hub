@@ -43,13 +43,14 @@ const platformLabels: Record<string, string> = {
 const allPlatforms = ["instagram", "tiktok", "youtube", "facebook"];
 
 const statusConfig: Record<string, { label: string; class: string }> = {
-  pending: { label: "Pendiente", class: "bg-status-pending/20 text-status-pending border-status-pending/30" },
-  approved: { label: "Aprobado", class: "bg-status-approved/20 text-status-approved border-status-approved/30" },
-  changes: { label: "Cambios solicitados", class: "bg-status-changes/20 text-status-changes border-status-changes/30" },
-  published: { label: "Publicado", class: "bg-status-published/20 text-status-published border-status-published/30" },
+  pending:   { label: "Por hacer",   class: "bg-secondary text-muted-foreground border-border/30" },
+  in_review: { label: "En revisión", class: "bg-status-pending/20 text-status-pending border-status-pending/30" },
+  approved:  { label: "Aprobado",    class: "bg-status-approved/20 text-status-approved border-status-approved/30" },
+  changes:   { label: "Cambios solicitados", class: "bg-status-changes/20 text-status-changes border-status-changes/30" },
+  published: { label: "Publicado",   class: "bg-status-published/20 text-status-published border-status-published/30" },
 };
 
-type StatusFilter = "all" | "pending" | "approved" | "changes" | "published";
+type StatusFilter = "all" | "pending" | "in_review" | "approved" | "changes" | "published";
 type PlatformFilter = "all" | "instagram" | "facebook" | "tiktok" | "youtube";
 type SortOption = "date_desc" | "date_asc" | "likes" | "views" | "comments";
 
@@ -62,11 +63,12 @@ const sortOptions: { key: SortOption; label: string }[] = [
 ];
 
 const filterConfig: { key: StatusFilter; label: string; color: string }[] = [
-  { key: "all", label: "Todos", color: "bg-secondary text-foreground" },
-  { key: "pending", label: "Pendientes", color: "bg-status-pending/20 text-status-pending" },
-  { key: "approved", label: "Aprobados", color: "bg-status-approved/20 text-status-approved" },
-  { key: "changes", label: "Cambios solicitados", color: "bg-status-changes/20 text-status-changes" },
-  { key: "published", label: "Publicados", color: "bg-status-published/20 text-status-published" },
+  { key: "all",       label: "Todos",       color: "bg-secondary text-foreground" },
+  { key: "in_review", label: "En revisión", color: "bg-status-pending/20 text-status-pending" },
+  { key: "approved",  label: "Aprobados",   color: "bg-status-approved/20 text-status-approved" },
+  { key: "changes",   label: "Cambios solicitados", color: "bg-status-changes/20 text-status-changes" },
+  { key: "published", label: "Publicados",  color: "bg-status-published/20 text-status-published" },
+  { key: "pending",   label: "Por hacer",   color: "bg-secondary text-muted-foreground" },
 ];
 
 const platformFilterConfig: { key: PlatformFilter; label: string; icon: string; activeClass: string }[] = [
@@ -298,7 +300,7 @@ function VideoDetail({ video, onClose }: { video: Video; onClose: () => void }) 
             {client && <span className="text-xs px-2 py-0.5 rounded-full" style={{ backgroundColor: client.colorAccent + "22", color: client.colorAccent }}>{client.nombre}</span>}
             <span className="text-xs text-muted-foreground">Entrega: {new Date(video.deliveryDate).toLocaleDateString("es-MX")}</span>
           </div>
-          {canApprove && (video.status === "pending" || video.status === "changes") && (
+          {canApprove && (video.status === "pending" || video.status === "in_review" || video.status === "changes") && (
             <div className="space-y-3">
               <div className="flex gap-3">
                 <Button onClick={handleApprove} className="bg-status-approved hover:bg-status-approved/80 text-foreground"><Check className="h-4 w-4 mr-2" /> Aprobar</Button>

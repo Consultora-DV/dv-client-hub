@@ -1,4 +1,4 @@
-import { LayoutDashboard, Video, FileText, Calendar, BarChart3, Users, User } from "lucide-react";
+import { LayoutDashboard, Video, FileText, Calendar, BarChart3, Users, User, Film } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { usePermissions } from "@/hooks/usePermissions";
 
@@ -8,10 +8,10 @@ export function MobileBottomNav() {
   const items = isAdmin
     ? [
         { title: "Inicio", url: "/dashboard", icon: LayoutDashboard },
+        { title: "Entregas", url: "/admin/entregas", icon: Film },
         { title: "Videos", url: "/videos", icon: Video },
-        { title: "Usuarios", url: "/usuarios", icon: Users },
         { title: "Métricas", url: "/metricas", icon: BarChart3 },
-        { title: "Perfil", url: "/perfil", icon: User },
+        { title: "Usuarios", url: "/usuarios", icon: Users },
       ]
     : [
         { title: "Inicio", url: "/dashboard", icon: LayoutDashboard },

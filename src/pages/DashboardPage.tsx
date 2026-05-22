@@ -34,7 +34,8 @@ export default function DashboardPage() {
     weekday: "long", year: "numeric", month: "long", day: "numeric",
   });
 
-  const pendingVideos = videos.filter((v) => v.status === "pending").length;
+  // "Por revisar" = en revisión (subido por editor, esperando aprobación) + pending (planificado/legacy)
+  const pendingVideos = videos.filter((v) => v.status === "in_review" || v.status === "pending").length;
   const newScripts = scripts.filter((s) => s.isNew).length;
   const recentDocs = documents.filter((d) => d.isNew).length;
   const nextPub = calendarEvents
@@ -43,7 +44,7 @@ export default function DashboardPage() {
 
   const summaryCards = [
     {
-      label: "Videos pendientes",
+      label: "Videos por revisar",
       value: pendingVideos,
       icon: pendingVideos === 0 ? CheckCircle : VideoIcon,
       color: pendingVideos === 0 ? "text-status-approved" : "text-status-pending",
@@ -123,7 +124,7 @@ export default function DashboardPage() {
             {clients.map((client) => {
               const cv = allVideos.filter((v) => v.clienteId === client.id);
               const cd = allDocuments.filter((d) => d.clienteId === client.id);
-              const pending = cv.filter((v) => v.status === "pending").length;
+              const pending = cv.filter((v) => v.status === "in_review" || v.status === "pending").length;
               const newDocs = cd.filter((d) => d.isNew).length;
               const next = cv.filter((v) => v.status !== "published").sort((a, b) => a.deliveryDate.localeCompare(b.deliveryDate))[0];
               return (
