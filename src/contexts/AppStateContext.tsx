@@ -281,10 +281,15 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
   }, []);
 
   // ── Helpers para notificaciones ──
+  // IMPORTANTE: filtrar SIEMPRE por user_id del usuario actual.
+  // El admin tiene policy "admin_read_all_notifications" para la bandeja de envío,
+  // pero en el bell SOLO debe ver las SUYAS, no las de los editores/clientes.
   const fetchNotifications = useCallback(async () => {
+    if (!user) return [];
     const { data } = await supabase
       .from("notifications")
       .select("*")
+      .eq("user_id", user.id)
       .order("created_at", { ascending: false })
       .limit(50);
     return (data || []).map((row) => ({
@@ -295,7 +300,7 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
       read: row.read as boolean,
       link: (row.link || "") as string,
     }));
-  }, []);
+  }, [user]);
 
   // ── Load data from DB ──
   useEffect(() => {
@@ -347,7 +352,7 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
       .on("postgres_changes", { event: "*", schema: "public", table: "script_comments" }, () => {
         fetchAllScriptComments().then(setScriptComments);
       })
-      .on("postgres_changes", { event: "*", schema: "public", table: "notifications" }, () => {
+      .on("postgres_changes", { event: "*", schema: "public", table: "notifications", filter: `user_id=eq.${user.id}` }, () => {
         fetchNotifications().then(setNotifications);
       })
       .subscribe();

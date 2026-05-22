@@ -65,12 +65,13 @@ export function NotificationBell() {
     const fresh = notifications.filter((n) => !seenIdsRef.current.has(n.id));
     fresh.forEach((n) => {
       seenIdsRef.current.add(n.id);
-      // In-app toast (clickable)
+      // In-app toast (clickable + auto-dismiss + manual X via Toaster closeButton)
       toast(n.message, {
         action: n.link
           ? { label: "Ver", onClick: () => navigate(n.link) }
           : undefined,
-        duration: 6000,
+        duration: 5000,
+        dismissible: true,
       });
       // Desktop notification (only when tab unfocused)
       showDesktopNotification({
