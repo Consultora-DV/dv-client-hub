@@ -14,102 +14,6 @@ export type Database = {
   }
   public: {
     Tables: {
-      meta_ads_cache: {
-        Row: {
-          id: string
-          cliente_id: string
-          cache_key: string
-          date_preset: string
-          data: Record<string, any>
-          fetched_at: string
-        }
-        Insert: {
-          id?: string
-          cliente_id: string
-          cache_key: string
-          date_preset: string
-          data: Record<string, any>
-          fetched_at?: string
-        }
-        Update: {
-          id?: string
-          cliente_id?: string
-          cache_key?: string
-          date_preset?: string
-          data?: Record<string, any>
-          fetched_at?: string
-        }
-        Relationships: []
-      }
-      editor_clients: {
-        Row: {
-          id: string
-          editor_id: string
-          cliente_id: string
-          assigned_at: string
-          assigned_by: string | null
-        }
-        Insert: {
-          id?: string
-          editor_id: string
-          cliente_id: string
-          assigned_at?: string
-          assigned_by?: string | null
-        }
-        Update: {
-          id?: string
-          editor_id?: string
-          cliente_id?: string
-          assigned_at?: string
-          assigned_by?: string | null
-        }
-        Relationships: []
-      }
-      editor_preferences: {
-        Row: {
-          editor_id: string
-          payment_scheme: string
-          fixed_amount: number | null
-          fixed_currency: string | null
-          show_costo: boolean
-          show_referencia: boolean
-          show_publicado: boolean
-          show_thumbnail: boolean
-          show_embed: boolean
-          notes: string | null
-          updated_at: string
-          updated_by: string | null
-        }
-        Insert: {
-          editor_id: string
-          payment_scheme?: string
-          fixed_amount?: number | null
-          fixed_currency?: string | null
-          show_costo?: boolean
-          show_referencia?: boolean
-          show_publicado?: boolean
-          show_thumbnail?: boolean
-          show_embed?: boolean
-          notes?: string | null
-          updated_at?: string
-          updated_by?: string | null
-        }
-        Update: {
-          editor_id?: string
-          payment_scheme?: string
-          fixed_amount?: number | null
-          fixed_currency?: string | null
-          show_costo?: boolean
-          show_referencia?: boolean
-          show_publicado?: boolean
-          show_thumbnail?: boolean
-          show_embed?: boolean
-          notes?: string | null
-          updated_at?: string
-          updated_by?: string | null
-        }
-        Relationships: []
-      }
       calendar_events: {
         Row: {
           cliente_id: string
@@ -119,7 +23,7 @@ export type Database = {
           event_source: string
           id: string
           ig_short_code: string | null
-          metadata: Record<string, any> | null
+          metadata: Json | null
           platform: string[]
           source_id: string | null
           time: string | null
@@ -135,7 +39,7 @@ export type Database = {
           event_source?: string
           id?: string
           ig_short_code?: string | null
-          metadata?: Record<string, any> | null
+          metadata?: Json | null
           platform?: string[]
           source_id?: string | null
           time?: string | null
@@ -151,7 +55,7 @@ export type Database = {
           event_source?: string
           id?: string
           ig_short_code?: string | null
-          metadata?: Record<string, any> | null
+          metadata?: Json | null
           platform?: string[]
           source_id?: string | null
           time?: string | null
@@ -265,6 +169,102 @@ export type Database = {
         }
         Relationships: []
       }
+      editor_clients: {
+        Row: {
+          assigned_at: string
+          assigned_by: string | null
+          cliente_id: string
+          editor_id: string
+          id: string
+        }
+        Insert: {
+          assigned_at?: string
+          assigned_by?: string | null
+          cliente_id: string
+          editor_id: string
+          id?: string
+        }
+        Update: {
+          assigned_at?: string
+          assigned_by?: string | null
+          cliente_id?: string
+          editor_id?: string
+          id?: string
+        }
+        Relationships: []
+      }
+      editor_preferences: {
+        Row: {
+          editor_id: string
+          fixed_amount: number | null
+          fixed_currency: string | null
+          notes: string | null
+          payment_scheme: string
+          show_costo: boolean
+          show_embed: boolean
+          show_publicado: boolean
+          show_referencia: boolean
+          show_thumbnail: boolean
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          editor_id: string
+          fixed_amount?: number | null
+          fixed_currency?: string | null
+          notes?: string | null
+          payment_scheme?: string
+          show_costo?: boolean
+          show_embed?: boolean
+          show_publicado?: boolean
+          show_referencia?: boolean
+          show_thumbnail?: boolean
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          editor_id?: string
+          fixed_amount?: number | null
+          fixed_currency?: string | null
+          notes?: string | null
+          payment_scheme?: string
+          show_costo?: boolean
+          show_embed?: boolean
+          show_publicado?: boolean
+          show_referencia?: boolean
+          show_thumbnail?: boolean
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: []
+      }
+      meta_ads_cache: {
+        Row: {
+          cache_key: string
+          cliente_id: string
+          data: Json
+          date_preset: string
+          fetched_at: string
+          id: string
+        }
+        Insert: {
+          cache_key: string
+          cliente_id: string
+          data: Json
+          date_preset: string
+          fetched_at?: string
+          id?: string
+        }
+        Update: {
+          cache_key?: string
+          cliente_id?: string
+          data?: Json
+          date_preset?: string
+          fetched_at?: string
+          id?: string
+        }
+        Relationships: []
+      }
       notifications: {
         Row: {
           actor_id: string | null
@@ -275,7 +275,7 @@ export type Database = {
           id: string
           link: string
           message: string
-          metadata: Record<string, any>
+          metadata: Json | null
           read: boolean
           type: string
           user_id: string
@@ -289,7 +289,7 @@ export type Database = {
           id?: string
           link?: string
           message: string
-          metadata?: Record<string, any>
+          metadata?: Json | null
           read?: boolean
           type: string
           user_id: string
@@ -303,10 +303,52 @@ export type Database = {
           id?: string
           link?: string
           message?: string
-          metadata?: Record<string, any>
+          metadata?: Json | null
           read?: boolean
           type?: string
           user_id?: string
+        }
+        Relationships: []
+      }
+      platform_tokens: {
+        Row: {
+          ad_account_id: string | null
+          cliente_id: string
+          created_at: string | null
+          expires_at: string | null
+          id: string
+          ig_user_id: string | null
+          ig_username: string | null
+          page_id: string | null
+          platform: string
+          token: string
+          updated_at: string | null
+        }
+        Insert: {
+          ad_account_id?: string | null
+          cliente_id: string
+          created_at?: string | null
+          expires_at?: string | null
+          id?: string
+          ig_user_id?: string | null
+          ig_username?: string | null
+          page_id?: string | null
+          platform: string
+          token: string
+          updated_at?: string | null
+        }
+        Update: {
+          ad_account_id?: string | null
+          cliente_id?: string
+          created_at?: string | null
+          expires_at?: string | null
+          id?: string
+          ig_user_id?: string | null
+          ig_username?: string | null
+          page_id?: string | null
+          platform?: string
+          token?: string
+          updated_at?: string | null
         }
         Relationships: []
       }
@@ -378,7 +420,7 @@ export type Database = {
           email: string | null
           id: string
           phone: string | null
-          social_links: Record<string, any>
+          social_links: Json
           updated_at: string
           user_id: string
         }
@@ -392,7 +434,7 @@ export type Database = {
           email?: string | null
           id?: string
           phone?: string | null
-          social_links?: Record<string, any>
+          social_links?: Json
           updated_at?: string
           user_id: string
         }
@@ -406,7 +448,7 @@ export type Database = {
           email?: string | null
           id?: string
           phone?: string | null
-          social_links?: Record<string, any>
+          social_links?: Json
           updated_at?: string
           user_id?: string
         }
@@ -556,6 +598,7 @@ export type Database = {
       }
       videos: {
         Row: {
+          categoria: number | null
           cliente_id: string
           costo: number | null
           created_at: string
@@ -587,6 +630,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          categoria?: number | null
           cliente_id: string
           costo?: number | null
           created_at?: string
@@ -618,6 +662,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          categoria?: number | null
           cliente_id?: string
           costo?: number | null
           created_at?: string
@@ -655,6 +700,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      admin_user_ids: { Args: never; Returns: string[] }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
@@ -662,14 +708,8 @@ export type Database = {
         }
         Returns: boolean
       }
-      next_rec_number: {
-        Args: Record<string, never>
-        Returns: number
-      }
-      next_rec_order: {
-        Args: { _rec_number: number }
-        Returns: number
-      }
+      next_rec_number: { Args: never; Returns: number }
+      next_rec_order: { Args: { _rec_number: number }; Returns: number }
     }
     Enums: {
       app_role: "admin" | "editor" | "diseñador" | "cliente"
