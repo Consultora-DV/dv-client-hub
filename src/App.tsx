@@ -25,6 +25,7 @@ import PendingApprovalPage from "@/pages/PendingApprovalPage";
 import EditorDashboardPage from "@/pages/editor/EditorDashboardPage";
 import NuevaEntregaPage from "@/pages/editor/NuevaEntregaPage";
 import AdminEntregasPage from "@/pages/AdminEntregasPage";
+import AdminNotificacionesPage from "@/pages/AdminNotificacionesPage";
 
 const queryClient = new QueryClient();
 
@@ -109,6 +110,7 @@ function AppRoutes() {
                   <Route path="/ads" element={<AdsPage />} />
                   <Route path="/usuarios" element={<AdminRoute><UsersPage /></AdminRoute>} />
                   <Route path="/admin/entregas" element={<AdminRoute><AdminEntregasPage /></AdminRoute>} />
+                  <Route path="/admin/notificaciones" element={<AdminRoute><AdminNotificacionesPage /></AdminRoute>} />
                   <Route path="/perfil" element={<ProfilePage />} />
                 </Route>
                 <Route path="*" element={<NotFound />} />

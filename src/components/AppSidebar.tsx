@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { LayoutDashboard, Video, FileText, Calendar, BarChart3, Target, MessageCircle, Users, Settings, Cog, User, LogOut, Film } from "lucide-react";
+import { LayoutDashboard, Video, FileText, Calendar, BarChart3, Target, MessageCircle, Users, Settings, Cog, User, LogOut, Film, Mail } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useAuth } from "@/contexts/AuthContext";
 import { useAppState } from "@/contexts/AppStateContext";
@@ -40,8 +40,9 @@ export function AppSidebar() {
     { title: "Ads", url: "/ads", icon: Target },
     { title: isClient ? "Mi Perfil" : "Perfil del cliente", url: "/perfil", icon: User },
     ...(isAdmin ? [
-      { title: "Entregas", url: "/admin/entregas", icon: Film },
-      { title: "Usuarios", url: "/usuarios", icon: Users },
+      { title: "Entregas",       url: "/admin/entregas",       icon: Film },
+      { title: "Avisos por email", url: "/admin/notificaciones", icon: Mail },
+      { title: "Usuarios",       url: "/usuarios",             icon: Users },
     ] : []),
   ];
 

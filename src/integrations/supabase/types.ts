@@ -267,31 +267,43 @@ export type Database = {
       }
       notifications: {
         Row: {
+          actor_id: string | null
           created_at: string
           date: string
+          email_sent: boolean
+          email_sent_at: string | null
           id: string
           link: string
           message: string
+          metadata: Record<string, any>
           read: boolean
           type: string
           user_id: string
         }
         Insert: {
+          actor_id?: string | null
           created_at?: string
           date?: string
+          email_sent?: boolean
+          email_sent_at?: string | null
           id?: string
           link?: string
           message: string
+          metadata?: Record<string, any>
           read?: boolean
           type: string
           user_id: string
         }
         Update: {
+          actor_id?: string | null
           created_at?: string
           date?: string
+          email_sent?: boolean
+          email_sent_at?: string | null
           id?: string
           link?: string
           message?: string
+          metadata?: Record<string, any>
           read?: boolean
           type?: string
           user_id?: string
