@@ -3,7 +3,7 @@ import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { motion } from "framer-motion";
-import { Mail, Lock, User } from "lucide-react";
+import { Mail, Lock, User, MailCheck, ArrowLeft } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { isPasswordValid, MIN_PASSWORD_LENGTH } from "@/lib/passwordValidation";
@@ -52,6 +52,7 @@ export default function AuthPage() {
   const [forgotMode, setForgotMode] = useState(false);
   const [forgotEmail, setForgotEmail] = useState("");
   const [forgotLoading, setForgotLoading] = useState(false);
+  const [registeredEmail, setRegisteredEmail] = useState<string | null>(null);
 
   const passwordValid = isPasswordValid(password);
 
@@ -88,6 +89,7 @@ export default function AuthPage() {
           return;
         }
         await register(name, email, password);
+        setRegisteredEmail(email);
         toast.success("Cuenta creada. Revisa tu email para confirmar.");
       }
     } catch (err: any) {
@@ -96,6 +98,71 @@ export default function AuthPage() {
       setLoading(false);
     }
   };
+
+  // ── Pantalla post-registro: revisa tu correo ──
+  if (registeredEmail) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background relative overflow-hidden p-4">
+        <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-transparent to-primary/3" />
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5 }}
+          className="relative w-full max-w-md glass gold-border gold-glow rounded-3xl p-8 md:p-10 text-center space-y-5"
+        >
+          {/* Icon */}
+          <div className="relative mx-auto w-20 h-20">
+            <div className="absolute inset-0 rounded-full bg-primary/20 animate-pulse" />
+            <div className="relative w-20 h-20 rounded-full gold-gradient flex items-center justify-center">
+              <MailCheck className="w-10 h-10 text-primary-foreground" />
+            </div>
+          </div>
+
+          <div>
+            <h1 className="font-display text-2xl font-bold text-foreground mb-2">
+              ¡Casi listo!
+            </h1>
+            <p className="text-sm text-muted-foreground leading-relaxed">
+              Te enviamos un email de confirmación a:
+            </p>
+            <p className="text-base font-medium text-primary mt-2 break-all">
+              {registeredEmail}
+            </p>
+          </div>
+
+          <div className="bg-primary/5 border border-primary/20 rounded-xl p-4 text-left space-y-2">
+            <p className="text-sm font-medium text-foreground">📬 Pasos a seguir:</p>
+            <ol className="text-xs text-muted-foreground space-y-1 list-decimal list-inside pl-1">
+              <li>Abre tu bandeja de entrada (revisa también <span className="text-foreground">spam</span> o promociones)</li>
+              <li>Haz clic en el link de confirmación del email</li>
+              <li>Vuelve aquí e inicia sesión</li>
+              <li>Espera la aprobación del administrador (te avisaremos)</li>
+            </ol>
+          </div>
+
+          <p className="text-[11px] text-muted-foreground">
+            ¿No te llegó? Revisa spam o vuelve a registrarte con el mismo email en unos minutos.
+          </p>
+
+          <Button
+            onClick={() => {
+              setRegisteredEmail(null);
+              setIsLogin(true);
+              setEmail("");
+              setPassword("");
+              setConfirmPassword("");
+              setName("");
+            }}
+            variant="outline"
+            className="w-full gap-2"
+          >
+            <ArrowLeft className="h-4 w-4" />
+            Ir a iniciar sesión
+          </Button>
+        </motion.div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-background relative overflow-hidden">
