@@ -97,7 +97,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     } catch (err) {
       console.error("loadUserData failed:", err);
       // Fallback: build user with defaults so login doesn't get stuck
-      setUser(buildAppUser(authUser, { display_name: null, email: null, avatar_url: null, business: null, approval_status: "approved" }, "cliente"));
+      setUser(buildAppUser(authUser, { display_name: null, email: null, avatar_url: null, business: null, approval_status: "approved", phone: null, bio: null, social_links: {} }, "cliente"));
     }
   }, []);
 
