@@ -21,7 +21,8 @@ export function EditorLayout() {
   return (
     <div className="min-h-screen flex flex-col bg-background">
       {/* Top bar */}
-      <header className="h-14 border-b border-border/50 px-4 flex items-center justify-between shrink-0">
+      {/* safe-area top padding so the bar clears the iPhone status bar/notch in PWA mode */}
+      <header className="min-h-14 pt-[env(safe-area-inset-top)] border-b border-border/50 px-4 flex items-center justify-between shrink-0 bg-background">
         <div className="flex items-center gap-3">
           <div className="w-8 h-8 rounded-lg gold-gradient flex items-center justify-center">
             <VideoIcon className="h-4 w-4 text-primary-foreground" />

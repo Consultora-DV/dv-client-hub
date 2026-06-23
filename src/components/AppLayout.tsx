@@ -26,7 +26,10 @@ export function AppLayout() {
         {/* Sidebar: fixed on desktop, off-canvas drawer (Sheet) on mobile */}
         <AppSidebar />
         <div className="flex-1 flex flex-col min-w-0">
-          <header className="h-14 flex items-center justify-between border-b border-border/50 px-3 md:px-4 shrink-0">
+          {/* min-h-14 + safe-area top padding: in an installed PWA the content
+              goes full-bleed under the iPhone status bar/notch, so push the bar
+              down below it. pt resolves to 0 on devices without a notch. */}
+          <header className="min-h-14 pt-[env(safe-area-inset-top)] flex items-center justify-between border-b border-border/50 px-3 md:px-4 shrink-0 bg-background">
             <div className="flex items-center gap-2 md:gap-3 min-w-0">
               {/* ☰ — opens the full menu (nav + perfil + cerrar sesión) on mobile, collapses on desktop */}
               <SidebarTrigger className="text-muted-foreground hover:text-foreground" />
