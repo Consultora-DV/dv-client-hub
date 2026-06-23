@@ -8,6 +8,7 @@ import {
   fetchPendingDigests, sendDigestToUser, dismissDigestForUser,
   PendingDigestUser,
 } from "@/services/notificationDigestService";
+import { PushSetupCard } from "@/components/PushSetupCard";
 
 const roleColors: Record<string, string> = {
   admin: "gold-gradient text-primary-foreground",
@@ -69,6 +70,9 @@ export default function AdminNotificacionesPage() {
           Refrescar
         </Button>
       </div>
+
+      {/* Activar push en el dispositivo del admin — clave para enterarte al instante */}
+      <PushSetupCard variant="card" />
 
       {/* Total badge */}
       {!loading && users.length > 0 && (

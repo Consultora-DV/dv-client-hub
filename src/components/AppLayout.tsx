@@ -8,6 +8,7 @@ import { ClientSelector } from "@/components/ClientSelector";
 import { ClientSocialLinks } from "@/components/ClientSocialLinks";
 import { ImportModal } from "@/components/ImportModal";
 import { GlobalSearch } from "@/components/GlobalSearch";
+import { InstallPrompt } from "@/components/InstallPrompt";
 import { MessageCircle, Download } from "lucide-react";
 import { Outlet } from "react-router-dom";
 import { usePermissions } from "@/hooks/usePermissions";
@@ -71,6 +72,7 @@ export function AppLayout() {
         </a>
         {/* Mobile bottom navigation */}
         <MobileBottomNav />
+        <InstallPrompt />
       </div>
 
       <AnimatePresence>

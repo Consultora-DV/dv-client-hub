@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { PushSetupCard } from "@/components/PushSetupCard";
 
 const roleBadgeColors: Record<string, string> = {
   admin: "gold-gradient text-primary-foreground",
@@ -216,6 +217,12 @@ export function ProfileModal({ onClose }: { onClose: () => void }) {
                 <SocialField icon={<Globe className="h-3.5 w-3.5" />}     placeholder="https://…" value={website}   onChange={setWebsite}   label="Sitio web" />
               </div>
             )}
+          </div>
+
+          {/* Notificaciones push en este dispositivo */}
+          <div className="border-t border-border/30 pt-4">
+            <label className="text-xs text-muted-foreground mb-2 block font-medium">Notificaciones</label>
+            <PushSetupCard variant="card" />
           </div>
 
           {/* Change password section */}

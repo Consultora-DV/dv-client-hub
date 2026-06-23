@@ -5,6 +5,8 @@ import { LayoutDashboard, FilePlus, LogOut, Video as VideoIcon } from "lucide-re
 import { useAuth } from "@/contexts/AuthContext";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { ProfileModal } from "@/components/ProfileModal";
+import { NotificationBell } from "@/components/NotificationBell";
+import { InstallPrompt } from "@/components/InstallPrompt";
 
 export function EditorLayout() {
   const { user, logout } = useAuth();
@@ -30,6 +32,7 @@ export function EditorLayout() {
           </div>
         </div>
         <div className="flex items-center gap-1">
+          <NotificationBell />
           {/* Profile avatar/button */}
           <button
             onClick={() => setShowProfile(true)}
@@ -93,6 +96,8 @@ export function EditorLayout() {
       <AnimatePresence>
         {showProfile && <ProfileModal onClose={() => setShowProfile(false)} />}
       </AnimatePresence>
+
+      <InstallPrompt />
     </div>
   );
 }

@@ -23,6 +23,7 @@ import {
 import { syncInstagramPosts, syncFacebookPosts, loadPlatformToken, fetchUserPages, MetaSyncResult } from "@/services/metaIgService";
 import { upsertTimelineEvents, videoStatusToTimeline } from "@/services/timelineService";
 import { fetchDailyBreakdown } from "@/services/metaAdsService";
+import { dispatchPush } from "@/services/pushNotifications";
 
 export interface ImportResult {
   videosAdded: number;
@@ -535,8 +536,12 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
 
   const markAllNotificationsRead = useCallback(async () => {
     setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
-    await supabase.from("notifications").update({ read: true }).eq("read", false);
-  }, []);
+    // IMPORTANT: scope to the current user. The admin has an UPDATE policy over
+    // ALL notifications, so without this filter "marcar todas" would wipe the
+    // unread state of every editor and client too.
+    if (!user) return;
+    await supabase.from("notifications").update({ read: true }).eq("read", false).eq("user_id", user.id);
+  }, [user]);
 
   const approveVideo = useCallback(async (videoId: string) => {
     const now = new Date().toISOString();
@@ -545,6 +550,8 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
     const newHistory = [...video.statusHistory, { status: "Aprobado", date: now.split("T")[0], by: user?.name || "Cliente" }];
     try {
       await updateVideoStatus(videoId, "approved", newHistory);
+      // Notify the editor on their phone (works with app closed). Fire-and-forget.
+      dispatchPush("video_status", { videoId, status: "approved" });
       // Write to unified timeline
       const ev = videoStatusToTimeline(videoId, video.title, video.clienteId, "aprobado", video.thumbnail || undefined);
       if (ev) upsertTimelineEvents([ev]).catch(console.error);
@@ -566,6 +573,7 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
     const newHistory = [...video.statusHistory, { status: "Cambios solicitados", date: now.split("T")[0], by: user?.name || "Cliente" }];
     try {
       await updateVideoStatus(videoId, "changes", newHistory);
+      dispatchPush("video_status", { videoId, status: "changes" });
       await insertComment(videoId, user?.name || "Cliente", comment, user?.role === "cliente", user?.id || "");
       // Write to unified timeline
       const ev = videoStatusToTimeline(videoId, video.title, video.clienteId, "en corrección", video.thumbnail || undefined);
