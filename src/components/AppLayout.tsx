@@ -23,14 +23,13 @@ export function AppLayout() {
   return (
     <SidebarProvider>
       <div className="min-h-screen flex w-full relative">
-        {/* Sidebar: hidden on mobile */}
-        <div className="hidden md:block">
-          <AppSidebar />
-        </div>
+        {/* Sidebar: fixed on desktop, off-canvas drawer (Sheet) on mobile */}
+        <AppSidebar />
         <div className="flex-1 flex flex-col min-w-0">
           <header className="h-14 flex items-center justify-between border-b border-border/50 px-3 md:px-4 shrink-0">
             <div className="flex items-center gap-2 md:gap-3 min-w-0">
-              <SidebarTrigger className="text-muted-foreground hover:text-foreground hidden md:flex" />
+              {/* ☰ — opens the full menu (nav + perfil + cerrar sesión) on mobile, collapses on desktop */}
+              <SidebarTrigger className="text-muted-foreground hover:text-foreground" />
               <ClientSelector />
               <div className="hidden md:block">
                 <ClientSocialLinks />

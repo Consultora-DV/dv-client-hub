@@ -12,6 +12,10 @@ const Toaster = ({ ...props }: ToasterProps) => {
       className="toaster group"
       closeButton
       richColors={false}
+      // Top-center, pushed below the iPhone notch / status bar (safe-area inset)
+      // and the app header — so toasts stay visible AND tappable on mobile.
+      position="top-center"
+      offset="calc(env(safe-area-inset-top, 0px) + 4.25rem)"
       toastOptions={{
         classNames: {
           toast:
