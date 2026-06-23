@@ -184,7 +184,7 @@ export default function NuevaEntregaPage() {
       toast.success(`Entrega ${recDisplay(parsedRec.recNumber, parsedRec.recOrder)} registrada — en revisión`);
       navigate("/editor/dashboard");
     } else {
-      toast.error(result.error);
+      toast.error("error" in result ? result.error : "Error al registrar entrega");
     }
   };
 

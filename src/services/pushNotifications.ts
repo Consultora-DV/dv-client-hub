@@ -54,7 +54,7 @@ export async function subscribeToPush(): Promise<{ ok: boolean; error?: string }
   try {
     sub = await reg.pushManager.subscribe({
       userVisibleOnly: true,
-      applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY),
+      applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY) as BufferSource,
     });
   } catch (err: any) {
     return { ok: false, error: err?.message || "No se pudo crear la suscripción." };
