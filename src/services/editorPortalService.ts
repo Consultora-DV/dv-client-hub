@@ -161,12 +161,26 @@ async function resolveClienteNames(clienteIds: string[]): Promise<Map<string, st
   );
 }
 
-// ── Videos this editor has delivered ────────────────────────────
+// ── Videos this editor can see ──────────────────────────────────
+// Includes BOTH: videos the editor delivered (editor_id = them) AND every video
+// of the clients assigned to them. That way imported/legacy videos without an
+// editor_id (e.g. CSV imports, or orphaned when an account was deleted) still
+// show up for whoever manages that client. RLS already permits both reads.
 export async function fetchEditorVideos(editorId: string): Promise<EditorVideo[]> {
-  const { data, error } = await supabase
-    .from("videos")
-    .select("*")
-    .eq("editor_id", editorId)
+  const { data: assigned } = await supabase
+    .from("editor_clients")
+    .select("cliente_id")
+    .eq("editor_id", editorId);
+  const clientIds = Array.from(new Set((assigned || []).map((r: any) => r.cliente_id)));
+
+  let query = supabase.from("videos").select("*");
+  if (clientIds.length > 0) {
+    query = query.or(`editor_id.eq.${editorId},cliente_id.in.(${clientIds.join(",")})`);
+  } else {
+    query = query.eq("editor_id", editorId);
+  }
+
+  const { data, error } = await query
     .order("rec_number", { ascending: false })
     .order("rec_order", { ascending: false });
 

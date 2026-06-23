@@ -174,3 +174,10 @@
 .scrollbar-hide::-webkit-scrollbar {
   display: none;
 }
+
+/* ── PWA safe-area: keep toasts below the iPhone notch/status bar + header ──
+   Forces the sonner toast container down regardless of the offset prop, so
+   in-app notifications are never clipped by the iPhone status bar. */
+[data-sonner-toaster][data-y-position="top"] {
+  top: calc(env(safe-area-inset-top, 0px) + 4.25rem) !important;
+}

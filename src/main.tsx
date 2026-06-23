@@ -3,7 +3,7 @@ import App from "./App.tsx";
 import "./index.css";
 import { registerServiceWorker } from "@/lib/pwa";
 
-const buildMarker = "2026-06-23-pwa-push-live";
+const buildMarker = "2026-06-23-notif-cache-safearea";
 
 if (!import.meta.env.VITE_SUPABASE_URL || !import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY) {
   console.error("[Consultora DV] Variables de entorno de Supabase no configuradas. Verifica VITE_SUPABASE_URL y VITE_SUPABASE_PUBLISHABLE_KEY en tu archivo .env");

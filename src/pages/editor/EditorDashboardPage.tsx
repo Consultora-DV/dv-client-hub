@@ -291,8 +291,9 @@ export default function EditorDashboardPage() {
                         🌐 Publicado
                       </a>
                     )}
-                    {/* Acciones del editor cuando está en revisión */}
-                    {v.status === "in_review" && (
+                    {/* Acciones solo para SUS propias entregas en revisión
+                        (ahora también ve videos de sus clientes hechos por otros) */}
+                    {v.status === "in_review" && v.editorId === user?.id && (
                       <div className="ml-auto flex items-center gap-1">
                         <Link to={`/editor/nueva?id=${v.id}`}
                           className="flex items-center gap-1 px-2 py-1 rounded border border-border/40 hover:border-primary/50 hover:text-primary transition-colors">

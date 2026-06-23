@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { Bell, Video, FileText, BarChart3, File, ThumbsUp, AlertCircle, FileCheck, FilePen, Download, BellRing, X } from "lucide-react";
 import { toast } from "sonner";
 import { useAppState } from "@/contexts/AppStateContext";
+import { useAuth } from "@/contexts/AuthContext";
 import { NotificationType } from "@/data/mockData";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { useNavigate } from "react-router-dom";
@@ -37,13 +38,37 @@ const typeColors: Record<NotificationType, string> = {
 
 export function NotificationBell() {
   const { notifications, markNotificationRead, markAllNotificationsRead } = useAppState();
+  const { user } = useAuth();
   const navigate = useNavigate();
 
   const unreadCount = notifications.filter((n) => !n.read).length;
 
-  // Track previously seen ids so we know when something is genuinely NEW
+  // Persisted "already toasted" ids (per user, in localStorage) so the SAME
+  // notifications never pop up again on every login. Only genuinely-new,
+  // recently-created notifications toast — never the backlog.
+  const seenKey = user ? `dv_seen_notifs_${user.id}` : null;
   const seenIdsRef = useRef<Set<string>>(new Set());
-  const initializedRef = useRef(false);
+
+  useEffect(() => {
+    if (!seenKey) return;
+    try {
+      const raw = localStorage.getItem(seenKey);
+      seenIdsRef.current = new Set(raw ? (JSON.parse(raw) as string[]) : []);
+    } catch {
+      seenIdsRef.current = new Set();
+    }
+  }, [seenKey]);
+
+  const persistSeen = () => {
+    if (!seenKey) return;
+    try {
+      // keep it bounded
+      const arr = Array.from(seenIdsRef.current).slice(-400);
+      localStorage.setItem(seenKey, JSON.stringify(arr));
+    } catch {
+      /* ignore quota errors */
+    }
+  };
 
   // Permission banner state
   const [showPermBanner, setShowPermBanner] = useState(false);
@@ -56,34 +81,29 @@ export function NotificationBell() {
     }
   }, []);
 
-  // Detect new notifications → toast + desktop notif
+  // Toast ONLY notifications that (a) we've never toasted before AND (b) just
+  // arrived (created in the last ~2 min). Everything else is marked seen
+  // silently — so logging in never re-dumps the whole list again.
   useEffect(() => {
-    if (!initializedRef.current) {
-      // First load — just record what's there, don't notify retroactively
-      notifications.forEach((n) => seenIdsRef.current.add(n.id));
-      initializedRef.current = true;
-      return;
-    }
-    const fresh = notifications.filter((n) => !seenIdsRef.current.has(n.id));
-    fresh.forEach((n) => {
+    if (!seenKey || notifications.length === 0) return;
+    const now = Date.now();
+    const toToast: typeof notifications = [];
+    for (const n of notifications) {
+      if (seenIdsRef.current.has(n.id)) continue;
       seenIdsRef.current.add(n.id);
-      // In-app toast (clickable + auto-dismiss + manual X via Toaster closeButton)
+      const age = now - new Date(n.date).getTime();
+      if (age >= 0 && age < 120_000) toToast.push(n); // only fresh arrivals
+    }
+    toToast.forEach((n) => {
       toast(n.message, {
-        action: n.link
-          ? { label: "Ver", onClick: () => navigate(n.link) }
-          : undefined,
+        action: n.link ? { label: "Ver", onClick: () => navigate(n.link) } : undefined,
         duration: 5000,
         dismissible: true,
       });
-      // Desktop notification (only when tab unfocused)
-      showDesktopNotification({
-        title: "DV Client Hub",
-        body: n.message,
-        link: n.link,
-        tag: n.id,
-      });
+      showDesktopNotification({ title: "DV Client Hub", body: n.message, link: n.link, tag: n.id });
     });
-  }, [notifications, navigate]);
+    persistSeen();
+  }, [notifications, seenKey, navigate]);
 
   const handleClick = async (id: string, link: string) => {
     await markNotificationRead(id);
