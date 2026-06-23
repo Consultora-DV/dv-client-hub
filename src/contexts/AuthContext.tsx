@@ -179,7 +179,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       if (updates.socialLinks !== undefined)  dbUpdates.social_links = updates.socialLinks || {};
       if (Object.keys(dbUpdates).length > 0) {
         try {
-          const { error } = await supabase.from("profiles").update(dbUpdates).eq("user_id", session.user.id);
+          const { error } = await supabase.from("profiles").update(dbUpdates as never).eq("user_id", session.user.id);
           if (error) throw error;
           toast.success("Perfil actualizado");
         } catch (err: any) {
