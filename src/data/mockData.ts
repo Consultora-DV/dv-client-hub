@@ -16,7 +16,7 @@ export interface Video {
   clienteId: string;
   title: string;
   platform: string[];
-  status: "pending" | "approved" | "changes" | "published";
+  status: "pending" | "in_review" | "approved" | "changes" | "published";
   thumbnail: string;
   deliveryDate: string;
   embedUrl?: string;

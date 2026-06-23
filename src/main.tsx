@@ -1,6 +1,7 @@
 import { createRoot } from "react-dom/client";
 import App from "./App.tsx";
 import "./index.css";
+import { registerServiceWorker } from "@/lib/pwa";
 
 const buildMarker = "2026-04-24-update-unlock-1";
 
@@ -11,3 +12,6 @@ if (!import.meta.env.VITE_SUPABASE_URL || !import.meta.env.VITE_SUPABASE_PUBLISH
 (window as Window & { __DV_BUILD_MARKER__?: string }).__DV_BUILD_MARKER__ = buildMarker;
 
 createRoot(document.getElementById("root")!).render(<App />);
+
+// Register the PWA service worker (Web Push + offline). No-op on unsupported browsers.
+registerServiceWorker();

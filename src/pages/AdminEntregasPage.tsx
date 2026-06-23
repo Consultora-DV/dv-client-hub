@@ -357,7 +357,73 @@ export default function AdminEntregasPage() {
           <p className="text-muted-foreground">Sin entregas con esos filtros</p>
         </div>
       ) : (
-        <div className="glass gold-border rounded-xl overflow-hidden">
+        <>
+        {/* ── Mobile: card view (table is unusable on a phone) ── */}
+        <div className="md:hidden space-y-3">
+          {visible.map((v) => {
+            const sInfo = statusInfo(v.status);
+            return (
+              <div key={v.id} className="glass gold-border rounded-xl p-3 space-y-2.5">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="font-mono text-xs text-primary font-semibold">{v.recDisplay}</span>
+                      {v.categoria !== null && (
+                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-primary/10 text-primary font-bold">Cat. {v.categoria}</span>
+                      )}
+                      <span className="text-[11px] text-muted-foreground truncate">{v.clienteName}</span>
+                    </div>
+                    <h3 className="font-medium text-foreground text-sm mt-1 break-words">{v.title}</h3>
+                    <p className="text-[11px] text-muted-foreground mt-0.5">
+                      {v.editorName || "—"} · {v.createdAt ? new Date(v.createdAt).toLocaleDateString("es-MX", { day: "2-digit", month: "short" }) : "—"}
+                    </p>
+                  </div>
+                  <button onClick={() => handleDelete(v.id, v.title)}
+                    className="p-2 -mr-1 -mt-1 text-muted-foreground hover:text-destructive transition-colors shrink-0">
+                    <Trash2 className="h-4 w-4" />
+                  </button>
+                </div>
+
+                <div className="flex items-center gap-2 flex-wrap">
+                  {/* Estado — la acción admin más común */}
+                  <select
+                    value={v.status}
+                    onChange={(e) => handleUpdate(v.id, "status", e.target.value)}
+                    className={`text-xs px-2 py-1.5 rounded-lg border flex-1 min-w-[120px] ${sInfo.cls} bg-transparent`}
+                  >
+                    {STATUS_OPTIONS.map((o) => (
+                      <option key={o.value} value={o.value} className="bg-background text-foreground">{o.label}</option>
+                    ))}
+                  </select>
+                  {/* Pago toggle */}
+                  <button onClick={() => handleUpdate(v.id, "pagado", !v.pagado)}
+                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs transition-colors ${
+                      v.pagado
+                        ? "bg-status-approved/20 border-status-approved text-status-approved"
+                        : "bg-secondary border-border/40 text-muted-foreground"
+                    }`}>
+                    {v.pagado ? <Check className="h-3.5 w-3.5" /> : <DollarSign className="h-3.5 w-3.5" />}
+                    {v.costo != null ? `${v.moneda || ""} ${v.costo.toFixed(2)}` : (v.pagado ? "Pagado" : "Pago")}
+                  </button>
+                </div>
+
+                {(v.driveLink || v.referenciaGuion || v.linkPublicado) && (
+                  <div className="flex items-center gap-3 text-xs pt-0.5">
+                    {v.driveLink && <a href={v.driveLink} target="_blank" rel="noreferrer"
+                      className="flex items-center gap-1 text-muted-foreground hover:text-primary"><ExternalLink className="h-3.5 w-3.5" /> Material</a>}
+                    {v.referenciaGuion && <a href={v.referenciaGuion} target="_blank" rel="noreferrer"
+                      className="text-muted-foreground hover:text-primary">📄 Guion</a>}
+                    {v.linkPublicado && <a href={v.linkPublicado} target="_blank" rel="noreferrer"
+                      className="text-muted-foreground hover:text-teal-400">🌐 Publicado</a>}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+
+        {/* ── Desktop: full table ── */}
+        <div className="glass gold-border rounded-xl overflow-hidden hidden md:block">
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead className="bg-secondary/40 text-xs text-muted-foreground">
@@ -495,6 +561,7 @@ export default function AdminEntregasPage() {
             </table>
           </div>
         </div>
+        </>
       )}
 
       {showImport && (

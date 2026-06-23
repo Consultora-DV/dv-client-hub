@@ -1,8 +1,25 @@
 # RECAP — dv-client-hub (Panel Consultora DV)
 
-> Documento de continuidad. Última actualización: 2026-05-23.
+> Documento de continuidad. Última actualización: 2026-06-22.
 > Producción: https://dv-client-hub-claudecode.vercel.app
 > Repo: Consultora-DV/dv-client-hub · Stack: React + Vite + TanStack + Supabase + Vercel (sync vía Lovable)
+
+---
+
+## 🆕 SESIÓN 2026-06-22 — PWA + Web Push + auditoría
+
+**Hecho (en código, ya commiteado):**
+- **PWA instalable**: `public/manifest.webmanifest`, ícono dorado “DV” (192/512/maskable, apple-touch), `public/sw.js` (push + offline seguro network-first), registro en `src/lib/pwa.ts`, meta tags iOS/Android en `index.html`. Verificado: SW activo, manifest e íconos 200 OK.
+- **Web Push (celular, app cerrada)**: tabla `push_subscriptions` + RLS (migración `20260622000000`), edge function `supabase/functions/send-push` (VAPID, destinatarios calculados server-side), cliente `src/services/pushNotifications.ts` + hook `usePushNotifications` + `PushSetupCard` (en campana, perfil y bandeja admin) + `InstallPrompt`. Push conectado a: subir entrega → admins; cambio de status/aprobar/cambios → editor; asignar cliente → editor.
+- **Causa raíz notificaciones**: se re-empaquetaron los 3 triggers idempotentes en la migración nueva (sospecha: nunca corrieron).
+- **Bugs arreglados**: `EditorLayout` no tenía campana (los editores no veían notificaciones); “marcar todas como leídas” borraba el unread de TODOS (admin RLS); CORS de `delete-user` e `invite-user` omitía el dominio de prod → “Failed to send a request” (ahora refleja el origin); `Video.status` ahora incluye `in_review`.
+- **Móvil**: `AdminEntregasPage` ahora tiene vista de tarjetas en celular (la tabla de 12 columnas solo servía con scroll horizontal). El portal de editor ya era responsivo.
+
+**⚠️ FALTAN 3 PASOS MANUALES del usuario** para encender el push — ver **`DEPLOY-NOTIFICACIONES.md`**:
+1. Correr el SQL `20260622000000` en Supabase (crea tabla + triggers).
+2. Poner secrets VAPID (`VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT`).
+3. Desplegar la edge function `send-push`.
+Las llaves VAPID están en `DEPLOY-NOTIFICACIONES.md`. La pública también en `src/config/push.ts`.
 
 ---
 

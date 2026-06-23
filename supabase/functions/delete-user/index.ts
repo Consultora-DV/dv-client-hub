@@ -1,15 +1,13 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 
-const ALLOWED_ORIGINS = [
-  "https://paneldecliente.lovable.app",
-  "http://localhost:5173",
-  "http://localhost:3000",
-];
-
+// Echo the caller's origin. The real security boundary is the admin JWT check
+// below — not CORS. The previous fixed allow-list omitted the production domain
+// (dv-client-hub-claudecode.vercel.app), which made every call from prod fail
+// with "Failed to send a request to the Edge Function".
 function corsHeaders(origin: string | null) {
-  const allowed = origin && ALLOWED_ORIGINS.includes(origin) ? origin : ALLOWED_ORIGINS[0];
   return {
-    "Access-Control-Allow-Origin": allowed,
+    "Access-Control-Allow-Origin": origin || "*",
+    "Vary": "Origin",
     "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
     "Access-Control-Allow-Methods": "POST, OPTIONS",
   };

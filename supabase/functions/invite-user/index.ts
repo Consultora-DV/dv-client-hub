@@ -1,15 +1,12 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
-const ALLOWED_ORIGINS = [
-  "https://paneldecliente.lovable.app",
-  "http://localhost:5173",
-  "http://localhost:3000",
-];
-
+// Echo the caller's origin so invites work from any deployment (prod Vercel
+// domain, Lovable preview, localhost). Security is enforced by the admin JWT
+// check below, not by CORS.
 function corsHeaders(origin: string | null) {
-  const allowed = origin && ALLOWED_ORIGINS.includes(origin) ? origin : ALLOWED_ORIGINS[0];
   return {
-    "Access-Control-Allow-Origin": allowed,
+    "Access-Control-Allow-Origin": origin || "*",
+    "Vary": "Origin",
     "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
     "Access-Control-Allow-Methods": "POST, OPTIONS",
   };
@@ -111,7 +108,7 @@ Deno.serve(async (req) => {
       type: "recovery",
       email: email.trim(),
       options: {
-        redirectTo: `${req.headers.get("origin") || "https://paneldecliente.lovable.app"}/auth`,
+        redirectTo: `${req.headers.get("origin") || "https://dv-client-hub-claudecode.vercel.app"}/auth`,
       },
     });
 

@@ -3,6 +3,7 @@
 // financial fields (costo, moneda, pagado), and reference links.
 
 import { supabase } from "@/integrations/supabase/client";
+import { dispatchPush } from "@/services/pushNotifications";
 
 export interface EditorClient {
   clienteId: string;
@@ -232,6 +233,10 @@ export async function submitVideoDelivery(
     .single();
 
   if (error || !data) return { ok: false, error: error?.message || "Error al guardar" };
+
+  // Push the admins (works even with their app closed). Fire-and-forget.
+  dispatchPush("video_delivered", { videoId: data.id });
+
   return { ok: true, id: data.id };
 }
 
@@ -261,6 +266,12 @@ export async function updateVideoFields(
 
   const { error } = await supabase.from("videos").update(update).eq("id", videoId);
   if (error) return { ok: false, error: error.message };
+
+  // Notify the editor on screen-relevant changes (status / paid). Fire-and-forget.
+  if (fields.status !== undefined) {
+    dispatchPush("video_status", { videoId, status: fields.status });
+  }
+
   return { ok: true };
 }
 
@@ -456,6 +467,7 @@ export async function setEditorAssignment(
       .from("editor_clients")
       .insert({ editor_id: editorId, cliente_id: clienteId, assigned_by: assignedBy });
     if (error && !error.message.includes("duplicate")) return { ok: false, error: error.message };
+    dispatchPush("editor_assigned", { editorId, clienteId });
     return { ok: true };
   }
   const { error } = await supabase

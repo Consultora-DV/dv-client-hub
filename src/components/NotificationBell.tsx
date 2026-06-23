@@ -6,8 +6,10 @@ import { NotificationType } from "@/data/mockData";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { useNavigate } from "react-router-dom";
 import {
-  getPermission, requestPermission, showDesktopNotification, wasAskedAlready,
+  getPermission, showDesktopNotification, wasAskedAlready, markAsked,
 } from "@/services/desktopNotifications";
+import { subscribeToPush, isPushSupported } from "@/services/pushNotifications";
+import { PushSetupCard } from "@/components/PushSetupCard";
 
 const typeIcons: Record<NotificationType, typeof Video> = {
   video_ready: Video,
@@ -47,7 +49,7 @@ export function NotificationBell() {
   const [showPermBanner, setShowPermBanner] = useState(false);
   useEffect(() => {
     const perm = getPermission();
-    if (perm === "default" && !wasAskedAlready()) {
+    if (isPushSupported() && perm === "default" && !wasAskedAlready()) {
       // Wait a moment before showing so it doesn't feel pushy
       const t = setTimeout(() => setShowPermBanner(true), 5000);
       return () => clearTimeout(t);
@@ -89,7 +91,10 @@ export function NotificationBell() {
   };
 
   const handleEnableNotifs = async () => {
-    await requestPermission();
+    markAsked();
+    const res = await subscribeToPush();
+    if (res.ok) toast.success("Notificaciones activadas 🔔");
+    else if (res.error) toast.error(res.error);
     setShowPermBanner(false);
   };
 
@@ -112,9 +117,9 @@ export function NotificationBell() {
         <div className="fixed bottom-4 left-4 right-4 sm:left-auto sm:right-4 sm:max-w-sm z-50 glass gold-border rounded-xl p-3 shadow-xl flex items-start gap-3 animate-in slide-in-from-bottom-4">
           <BellRing className="h-5 w-5 text-primary shrink-0 mt-0.5" />
           <div className="flex-1 min-w-0">
-            <p className="text-sm font-medium text-foreground">¿Recibir notificaciones de escritorio?</p>
+            <p className="text-sm font-medium text-foreground">¿Activar notificaciones?</p>
             <p className="text-xs text-muted-foreground mt-0.5">
-              Te avisaremos cuando haya nuevas entregas, cambios de status, etc — incluso si tienes el panel en otra pestaña.
+              Te avisaremos al instante de nuevas entregas y cambios de status — incluso con la app cerrada en tu celular.
             </p>
             <div className="flex gap-2 mt-2">
               <button onClick={handleEnableNotifs}
@@ -154,6 +159,8 @@ export function NotificationBell() {
               </button>
             )}
           </div>
+          {/* One-tap enable for push on this device (hidden once subscribed). */}
+          <PushSetupCard variant="inline" />
           <div className="max-h-72 overflow-y-auto">
             {notifications.length === 0 && (
               <p className="p-4 text-sm text-muted-foreground text-center">Sin notificaciones</p>
