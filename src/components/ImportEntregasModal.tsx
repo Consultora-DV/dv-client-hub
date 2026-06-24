@@ -49,7 +49,7 @@ export function ImportEntregasModal({ onClose, onImported }: Props) {
   const selectedClient = clients.find((c) => c.id === clienteId);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm overlay-safe"
       onClick={onClose}>
       <div className="glass gold-border rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-hidden flex flex-col"
         onClick={(e) => e.stopPropagation()}>

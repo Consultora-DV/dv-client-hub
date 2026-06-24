@@ -325,7 +325,7 @@ export default function ClientWelcomePage() {
       )}
 
       {/* Content */}
-      <div className="relative z-10 mx-auto w-full max-w-lg px-5 pb-32 pt-4 min-h-screen flex flex-col">
+      <div className="relative z-10 mx-auto w-full max-w-lg px-5 pb-32 pt-[calc(env(safe-area-inset-top,0px)+1rem)] min-h-screen flex flex-col">
         <AnimatePresence mode="wait" custom={direction}>
           <motion.div
             key={step}

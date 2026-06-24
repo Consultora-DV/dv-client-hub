@@ -9,7 +9,7 @@ import { SettingsModal } from "@/components/SettingsModal";
 import { AnimatePresence } from "framer-motion";
 import {
   Sidebar, SidebarContent, SidebarFooter, SidebarGroup, SidebarGroupContent,
-  SidebarMenu, SidebarMenuButton, SidebarMenuItem, SidebarHeader,
+  SidebarMenu, SidebarMenuButton, SidebarMenuItem, SidebarHeader, useSidebar,
 } from "@/components/ui/sidebar";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -25,8 +25,13 @@ export function AppSidebar() {
   const { user, logout } = useAuth();
   const { videos } = useAppState();
   const { isClient, isAdmin, role } = usePermissions();
+  const { isMobile, setOpenMobile } = useSidebar();
   const [showProfile, setShowProfile] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
+
+  // Close the mobile drawer before navigating or opening a modal, so the menu
+  // never stays open on top of (or under) another surface.
+  const closeMobile = () => { if (isMobile) setOpenMobile(false); };
 
   const videoCount = videos.length;
   const pendingCount = videos.filter((v) => v.status === "in_review" || v.status === "pending").length;
@@ -82,6 +87,7 @@ export function AppSidebar() {
                       <NavLink
                         to={item.url}
                         end={item.url === "/dashboard"}
+                        onClick={closeMobile}
                         className="flex items-center gap-3 px-3 py-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
                         activeClassName="bg-primary/10 text-primary border border-primary/20"
                       >
@@ -108,7 +114,7 @@ export function AppSidebar() {
         <SidebarFooter className="p-4 border-t border-border/50 space-y-2">
           {isAdmin && (
             <button
-              onClick={() => setShowSettings(true)}
+              onClick={() => { closeMobile(); setShowSettings(true); }}
               className="flex items-center gap-3 px-3 py-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors w-full text-left text-sm group-data-[collapsible=icon]:justify-center"
               title="Configuración"
             >
@@ -117,7 +123,7 @@ export function AppSidebar() {
             </button>
           )}
           <button
-            onClick={() => setShowProfile(true)}
+            onClick={() => { closeMobile(); setShowProfile(true); }}
             className="flex items-center gap-3 px-3 py-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors w-full text-left text-sm group-data-[collapsible=icon]:justify-center"
           >
             <Settings className="h-5 w-5 shrink-0" />
@@ -127,13 +133,14 @@ export function AppSidebar() {
             href="https://wa.me/5216682343672"
             target="_blank"
             rel="noopener noreferrer"
+            onClick={closeMobile}
             className="flex items-center gap-3 px-3 py-2.5 rounded-lg bg-status-approved/15 text-status-approved hover:bg-status-approved/25 transition-colors group-data-[collapsible=icon]:justify-center"
           >
             <MessageCircle className="h-5 w-5 shrink-0" />
             <span className="text-sm font-medium group-data-[collapsible=icon]:hidden">Contactar consultor</span>
           </a>
           <button
-            onClick={logout}
+            onClick={() => { closeMobile(); logout(); }}
             className="flex items-center gap-3 px-3 py-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors w-full text-left text-sm group-data-[collapsible=icon]:justify-center"
             title="Cerrar sesión"
           >

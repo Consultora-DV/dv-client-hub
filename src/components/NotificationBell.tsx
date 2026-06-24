@@ -134,7 +134,7 @@ export function NotificationBell() {
     <>
       {/* Permission banner — gently asks for desktop notif permission */}
       {showPermBanner && (
-        <div className="fixed bottom-20 md:bottom-4 left-4 right-4 sm:left-auto sm:right-4 sm:max-w-sm z-50 glass gold-border rounded-xl p-3 shadow-xl flex items-start gap-3 animate-in slide-in-from-bottom-4">
+        <div className="fixed md:bottom-4 left-4 right-4 sm:left-auto sm:right-4 sm:max-w-sm z-40 glass gold-border rounded-xl p-3 shadow-xl hidden md:flex items-start gap-3 animate-in slide-in-from-bottom-4">
           <BellRing className="h-5 w-5 text-primary shrink-0 mt-0.5" />
           <div className="flex-1 min-w-0">
             <p className="text-sm font-medium text-foreground">¿Activar notificaciones?</p>

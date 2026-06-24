@@ -164,7 +164,9 @@ const Sidebar = React.forwardRef<
           }
           side={side}
         >
-          <div className="flex h-full w-full flex-col">{children}</div>
+          {/* safe-area padding so the menu header clears the iPhone notch and
+              the footer (logout) clears the home indicator in PWA mode */}
+          <div className="flex h-full w-full flex-col pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)]">{children}</div>
         </SheetContent>
       </Sheet>
     );

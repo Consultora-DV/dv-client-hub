@@ -67,7 +67,7 @@ export function InstallPrompt() {
   if (!show) return null;
 
   return (
-    <div className="fixed bottom-[4.5rem] md:bottom-4 left-3 right-3 sm:left-auto sm:right-4 sm:max-w-sm z-50 glass gold-border rounded-xl p-3 shadow-xl flex items-start gap-3 animate-in slide-in-from-bottom-4">
+    <div className="fixed bottom-[calc(8.5rem+env(safe-area-inset-bottom,0px))] md:bottom-4 left-3 right-3 sm:left-auto sm:right-4 sm:max-w-sm z-40 glass gold-border rounded-xl p-3 shadow-xl flex items-start gap-3 animate-in slide-in-from-bottom-4">
       <div className="w-9 h-9 rounded-lg gold-gradient flex items-center justify-center shrink-0">
         <Download className="h-4 w-4 text-primary-foreground" />
       </div>

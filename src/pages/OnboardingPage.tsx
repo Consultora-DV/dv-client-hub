@@ -364,7 +364,7 @@ export default function OnboardingPage({ editMode = false, onComplete, targetUse
   }
 
   return (
-    <div className="min-h-screen bg-background flex flex-col">
+    <div className="min-h-screen bg-background flex flex-col pt-[env(safe-area-inset-top)]">
       {/* Header */}
       <div className="flex items-center justify-center py-6 border-b border-border/50">
         <div className="w-10 h-10 rounded-full gold-gradient flex items-center justify-center text-primary-foreground font-bold text-sm">
