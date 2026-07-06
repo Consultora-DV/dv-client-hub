@@ -84,7 +84,9 @@ function AppRoutes() {
     <Routes>
       <Route path="/bienvenido" element={<ClientWelcomePage />} />
       <Route path="/reset-password" element={<ResetPasswordPage />} />
+      <Route path="/.lovable/oauth/consent" element={<OAuthConsent />} />
       {!isAuthenticated ? (
+
         <Route path="*" element={<AuthPage />} />
       ) : (
         <Route
