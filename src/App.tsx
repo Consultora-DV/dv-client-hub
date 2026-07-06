@@ -26,6 +26,8 @@ import EditorDashboardPage from "@/pages/editor/EditorDashboardPage";
 import NuevaEntregaPage from "@/pages/editor/NuevaEntregaPage";
 import AdminEntregasPage from "@/pages/AdminEntregasPage";
 import AdminNotificacionesPage from "@/pages/AdminNotificacionesPage";
+import OAuthConsent from "@/pages/OAuthConsent";
+
 
 const queryClient = new QueryClient();
 
