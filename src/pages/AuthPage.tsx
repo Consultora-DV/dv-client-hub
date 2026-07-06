@@ -81,6 +81,12 @@ export default function AuthPage() {
       if (isLogin) {
         await login(email, password);
         toast.success("Sesión iniciada");
+        // Preserve OAuth consent (or any) return URL after login
+        const next = new URLSearchParams(window.location.search).get("next");
+        if (next && next.startsWith("/")) {
+          window.location.href = next;
+          return;
+        }
       } else {
         if (!passwordValid) { setLoading(false); return; }
         if (password !== confirmPassword) {
@@ -98,6 +104,7 @@ export default function AuthPage() {
       setLoading(false);
     }
   };
+
 
   // ── Pantalla post-registro: revisa tu correo ──
   if (registeredEmail) {
