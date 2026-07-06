@@ -1,0 +1,167 @@
+{
+  "version": 1,
+  "sdk_version": "0.20.0",
+  "path": "/mcp",
+  "auth": {
+    "type": "oauth",
+    "issuer": "https://wczkjsqcqbvqkmbyrzrr.supabase.co/auth/v1",
+    "accepted_audiences": [
+      "authenticated"
+    ]
+  },
+  "mcp": {
+    "server": {
+      "name": "dv-client-hub",
+      "version": "0.1.0",
+      "title": "Consultora DV — Panel de Clientes"
+    },
+    "tools": [
+      {
+        "name": "get_my_profile",
+        "title": "Mi perfil",
+        "description": "Devuelve el perfil, rol y estado de aprobación del usuario autenticado en el panel de Consultora DV.",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "$schema": "http://json-schema.org/draft-07/schema#",
+          "type": "object",
+          "properties": {}
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "list_videos",
+        "title": "Listar videos",
+        "description": "Lista los videos del panel de Consultora DV visibles para el usuario autenticado (respeta RLS). Filtros opcionales por estado (pending/approved/rejected/in_review) y cliente.",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "status": {
+              "type": "string",
+              "description": "Filtrar por estado exacto del video."
+            },
+            "cliente_id": {
+              "type": "string",
+              "format": "uuid",
+              "description": "Filtrar por ID del cliente."
+            },
+            "limit": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "description": "Máximo de filas (default 25)."
+            }
+          },
+          "additionalProperties": false,
+          "$schema": "http://json-schema.org/draft-07/schema#"
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "list_scripts",
+        "title": "Listar guiones",
+        "description": "Lista los guiones (scripts) del panel visibles para el usuario autenticado. Respeta RLS.",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "status": {
+              "type": "string",
+              "description": "Filtrar por estado."
+            },
+            "cliente_id": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "limit": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100
+            }
+          },
+          "additionalProperties": false,
+          "$schema": "http://json-schema.org/draft-07/schema#"
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "list_calendar_events",
+        "title": "Listar eventos del calendario",
+        "description": "Lista eventos del calendario editorial en un rango de fechas (YYYY-MM-DD). Respeta RLS.",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "from": {
+              "type": "string",
+              "description": "Fecha inicial YYYY-MM-DD (inclusive)."
+            },
+            "to": {
+              "type": "string",
+              "description": "Fecha final YYYY-MM-DD (inclusive)."
+            },
+            "cliente_id": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "limit": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 200
+            }
+          },
+          "additionalProperties": false,
+          "$schema": "http://json-schema.org/draft-07/schema#"
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "list_documents",
+        "title": "Listar documentos",
+        "description": "Lista los documentos del panel visibles para el usuario autenticado. Respeta RLS.",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "cliente_id": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "type": {
+              "type": "string",
+              "description": "Filtrar por tipo (contrato, brief, etc.)."
+            },
+            "limit": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100
+            }
+          },
+          "additionalProperties": false,
+          "$schema": "http://json-schema.org/draft-07/schema#"
+        },
+        "outputSchema": null
+      }
+    ]
+  }
+}
